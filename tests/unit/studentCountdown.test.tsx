@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SessionCountdownBlock } from '../../src/features/student-cabinet/components/student/StudentTodaySessionBlocks';
 import type { SessionCountdownBlockInput } from '../../src/features/student-cabinet/components/student/studentCabinetContracts';
 import { cabinetLessonTiming } from '../fixtures/cabinetLessonTiming';
+import { getTodaySessionCountdownsFromSessions } from '../../src/features/course-enrollments/sessionScheduleHelpers';
 
 vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({ language: 'ru', t: (key: string) => key }),
@@ -80,6 +81,40 @@ describe('countdown presentation preserves the existing lifecycle', () => {
   });
 
 
+  it('selects only the earliest matching canonical start today regardless of input order', () => {
+    const baseLesson = input().countdown.session;
+    if (baseLesson.kind !== 'lesson') throw new Error('expected lesson');
+    const first = baseLesson;
+    const simultaneous = {
+      ...first,
+      session: { ...first.session, id: 'second', bookingId: 'second' },
+    };
+    const later = {
+      ...first,
+      session: {
+        ...first.session,
+        id: 'later',
+        bookingId: 'later',
+        time: '15:00',
+        ...cabinetLessonTiming('2026-10-10', '15:00', 1),
+      },
+    };
+    const cancelled = {
+      ...first,
+      session: { ...first.session, id: 'cancelled', status: 'cancelled' as const },
+    };
+    const result = getTodaySessionCountdownsFromSessions(
+      [later, simultaneous, cancelled, first],
+      new Date('2026-10-10T07:36:00Z')
+    );
+    expect(result).toHaveLength(2);
+    expect(result.map(({ session }) => session.kind === 'lesson' && session.session.id)).toEqual([
+      'second',
+      'countdown-lesson',
+    ]);
+    expect(result[0].startsAt.getTime()).toBe(result[1].startsAt.getTime());
+  });
+
   it('renders every simultaneous lesson with its own participants and one shared timer', () => {
     const props = input();
     const first = props.countdown;
@@ -96,10 +131,6 @@ describe('countdown presentation preserves the existing lifecycle', () => {
           participantDisplayNames: { charlie: 'Саша' },
         },
       },
-    };
-    const later = {
-      ...second,
-      startsAt: new Date(first.startsAt.getTime() + 3600000),
     };
     const { container } = render(
       <SessionCountdownBlock
@@ -118,7 +149,6 @@ describe('countdown presentation preserves the existing lifecycle', () => {
     expect(screen.getByText('Айгерим')).toBeInTheDocument();
     expect(screen.getByText('Саша')).toBeInTheDocument();
     expect(screen.getAllByRole('link')).toHaveLength(2);
-    expect(later.startsAt.getTime()).toBeGreaterThan(first.startsAt.getTime());
   });
 
   it('ticks once a second, does not restart on rerender and expires once without negative text', () => {

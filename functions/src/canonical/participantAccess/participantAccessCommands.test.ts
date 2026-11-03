@@ -4,6 +4,7 @@ import {
   AccountSchema,
   AggregateRevisionSchema,
   BookingProposalIdSchema,
+  BookingSchema,
   CorrelationIdSchema,
   InstructorIdSchema,
   ParticipantIdSchema,
@@ -404,13 +405,36 @@ describe('participant access commands', () => {
     );
   });
 
-  it('cancels open booking proposals when a parent/guardian block is created', async () => {
+  it('cancels open proposals while preserving confirmed bookings through block and unblock', async () => {
+    const confirmedBooking = BookingSchema.parse({
+      bookingId: 'booking_preserved_on_block',
+      paymentId: 'payment_preserved_on_block',
+      attribution: { bookingOrigin: 'admin', bookedBy: { kind: 'account', accountId } },
+      party: { kind: 'individual', participantIds: [participantId] },
+      occurrence: {
+        occurrenceId: 'occurrence_preserved_on_block',
+        instructorId,
+        interval: {
+          startsAt: timestampFromDate(new Date('2026-01-15T09:00:00Z')),
+          endsAt: timestampFromDate(new Date('2026-01-15T10:00:00Z')),
+        },
+        timeZone: 'Asia/Almaty',
+        scheduleRevision: 1,
+        serviceParty: { participantIds: [participantId], frozenAt: decidedAt },
+      },
+      lifecycle: { status: 'confirmed' },
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: { createdByCommandId: 'seed', lastChangedByCommandId: 'seed', correlationId },
+    });
     const managerBlockId = participantBlockIdFromDirection({
       participantId,
       instructorId,
       createdByKind: 'participant_manager',
     });
     const executor = createInMemoryCanonicalTransactionExecutor({
+      [`bookings/${confirmedBooking.bookingId}`]: confirmedBooking,
       [`users/${accountId}`]: seedAccount(),
       [`participants/${participantId}`]: {
         participantId,
@@ -477,7 +501,10 @@ describe('participant access commands', () => {
 
     const blockEnvelope: CommandEnvelope<'block_participant'> = {
       kind: 'block_participant',
-      context: { ...accountContext('parent_guardian'), idempotencyKey: 'block-cancel-proposals-01' },
+      context: {
+        ...accountContext('parent_guardian'),
+        idempotencyKey: 'block-cancel-proposals-01',
+      },
       intent: {
         participantBlockId: managerBlockId,
         participantId,
@@ -488,6 +515,10 @@ describe('participant access commands', () => {
 
     expect((await runCommand(executor, blockEnvelope)).status).toBe('success');
 
+    expect(executor.snapshot().docs.get(`bookings/${confirmedBooking.bookingId}`)?.data).toEqual(
+      confirmedBooking
+    );
+
     const proposal = executor.snapshot().docs.get(`booking_proposals/${proposalId}`)?.data;
     expect(proposal?.lifecycle).toEqual({
       status: 'cancelled',
@@ -497,6 +528,21 @@ describe('participant access commands', () => {
     expect(
       executor.snapshot().docs.has(bookingProposalOpenIndexPath({ participantId, instructorId }))
     ).toBe(false);
+    expect(
+      (
+        await runCommand(executor, {
+          kind: 'unblock_participant',
+          context: {
+            ...accountContext('parent_guardian'),
+            expectedRevision: AggregateRevisionSchema.parse(1),
+          },
+          intent: { participantBlockId: managerBlockId },
+        })
+      ).status
+    ).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${confirmedBooking.bookingId}`)?.data).toEqual(
+      confirmedBooking
+    );
   });
 
   it('rejects administrator block removal and stale profile revisions', async () => {

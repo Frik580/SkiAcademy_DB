@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { InstructorBlockMenu } from './InstructorBlockMenu';
+import { InstructorBlockAction } from './InstructorBlockAction';
 import {
   selectParticipantAccessByPair,
   selectParticipantAccessQuery,
@@ -17,6 +17,7 @@ export interface CoachParticipantAccessPanelProps {
   readonly accountId: string;
   readonly instructorId: string;
   readonly participantId?: string;
+  readonly children?: (state: { blocked: boolean; action: React.ReactNode }) => React.ReactNode;
 }
 
 const ACCESS_SCOPE = 'account_manager' as const;
@@ -25,6 +26,7 @@ export const CoachParticipantAccessPanel: React.FC<CoachParticipantAccessPanelPr
   accountId,
   instructorId,
   participantId,
+  children,
 }) => {
   const { participants } = useManagedParticipants(accountId);
   // Never silently select the first child while a multi-participant account
@@ -58,12 +60,13 @@ export const CoachParticipantAccessPanel: React.FC<CoachParticipantAccessPanelPr
     void ensureParticipantAccessRead(ACCESS_SCOPE, resolvedParticipantId, instructorId);
   }, [instructorId, resolvedParticipantId, shouldEnsure]);
 
-  if (!resolvedParticipantId) return null;
+  if (!resolvedParticipantId)
+    return children ? <>{children({ blocked: false, action: null })}</> : null;
 
   const loading = mutationLoading || queryStatus?.status === 'loading';
 
-  return (
-    <InstructorBlockMenu
+  const action = (
+    <InstructorBlockAction
       key={`${resolvedParticipantId}:${instructorId}`}
       access={access}
       loading={loading}
@@ -115,5 +118,10 @@ export const CoachParticipantAccessPanel: React.FC<CoachParticipantAccessPanelPr
           : undefined
       }
     />
+  );
+  return children ? (
+    <>{children({ blocked: access?.managerBlockStatus === 'active', action })}</>
+  ) : (
+    action
   );
 };

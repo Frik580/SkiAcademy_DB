@@ -66,6 +66,7 @@
   "functions/src/canonical/bookings/paymentStartGate.emulator.test.ts": "canonical-backend",
   "functions/src/canonical/bookings/paymentStartGate.test.ts": "functions-unit",
   "functions/src/canonical/commands/canonicalCommands.test.ts": "functions-unit",
+  "functions/src/canonical/commands/executeCanonicalCommandCallable.test.ts": "functions-unit",
   "functions/src/canonical/commands/guestCallableTransportAdapter.test.ts": "functions-unit",
   "functions/src/canonical/commands/guestReservationAdmission.test.ts": "functions-unit",
   "functions/src/canonical/commands/idempotentCommandExecution.emulator.test.ts": "canonical-backend",

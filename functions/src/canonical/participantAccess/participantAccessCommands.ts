@@ -10,6 +10,7 @@ import {
   instructorRelationshipIdFromPair,
   nextAggregateRevision,
   participantBlockIdFromDirection,
+  ParticipantBlockSchema,
   resolveCommandIdempotencyIdentity,
   timestampFromDate,
   type CommandEnvelope,
@@ -1110,8 +1111,16 @@ function blockParticipantHandler(
       const blockRead = await session.tx.get({ path: blockDocumentPath });
       session.plan.planRead({ path: blockDocumentPath, category: 'aggregate' });
       existingBlock = parseParticipantBlock(blockRead.exists ? blockRead.data : undefined);
-      if (existingBlock?.status === 'active') {
-        return;
+      if (
+        blockRead.exists &&
+        (!existingBlock ||
+          existingBlock.participantBlockId !== envelope.intent.participantBlockId ||
+          existingBlock.participantId !== envelope.intent.participantId ||
+          existingBlock.instructorId !== envelope.intent.instructorId)
+      ) {
+        throw new CanonicalCommandError('invalid_transition', {
+          correlationId: envelope.context.correlationId,
+        });
       }
 
       const participantRead = await session.tx.get({
@@ -1144,6 +1153,11 @@ function blockParticipantHandler(
         managementRecord = parseParticipantManagement(
           managementRead.exists ? managementRead.data : undefined
         );
+        if (!managementRecord || managementRecord.status !== 'active') {
+          throw new CanonicalCommandError('forbidden', {
+            correlationId: envelope.context.correlationId,
+          });
+        }
         const accountRead = await session.tx.get({
           path: accountPath(managementRecord!.accountId),
         });
@@ -1162,7 +1176,11 @@ function blockParticipantHandler(
           },
           participantRecord.participantId
         );
+      }
 
+      if (existingBlock?.status === 'active') return;
+
+      if (createdByKind === 'participant_manager') {
         const cancellationPlan = await planBlockCancellationOfOpenProposals(session, {
           participantId: envelope.intent.participantId,
           instructorId: envelope.intent.instructorId,
@@ -1193,9 +1211,12 @@ function blockParticipantHandler(
         resultingRevisions: [
           {
             subject: canonicalReference('participant_block', envelope.intent.participantBlockId),
-            revision: existingBlock
-              ? nextAggregateRevision(existingBlock.revision)
-              : AggregateRevisionSchema.parse(1),
+            revision:
+              existingBlock?.status === 'active'
+                ? existingBlock.revision
+                : existingBlock
+                  ? nextAggregateRevision(existingBlock.revision)
+                  : AggregateRevisionSchema.parse(1),
           },
         ],
         ...(createdByKind === 'participant_manager' && cancelledOpenProposalPlans.length > 0
@@ -1227,7 +1248,7 @@ function blockParticipantHandler(
               participantManagementId: managementRecord!.participantManagementId,
             };
 
-      const block: ParticipantBlock = existingBlock
+      const blockData: Record<string, unknown> = existingBlock
         ? {
             ...existingBlock,
             participantId: envelope.intent.participantId,
@@ -1255,9 +1276,19 @@ function blockParticipantHandler(
             updatedAt: decidedAt,
             audit: revisionAuditLink(envelope, metadata),
           };
+      delete blockData.removedAt;
+      delete blockData.removedBy;
+      const block = ParticipantBlockSchema.parse(blockData);
 
       if (existingBlock) {
-        session.tx.update({ path: blockDocumentPath }, block as Record<string, unknown>);
+        session.tx.update(
+          { path: blockDocumentPath },
+          {
+            ...block,
+            removedAt: CANONICAL_FIELD_DELETE,
+            removedBy: CANONICAL_FIELD_DELETE,
+          }
+        );
       } else {
         session.tx.create({ path: blockDocumentPath }, block as Record<string, unknown>);
       }
@@ -1336,6 +1367,11 @@ function unblockParticipantHandler(
         const managementRecord = parseParticipantManagement(
           managementRead.exists ? managementRead.data : undefined
         );
+        if (!managementRecord || managementRecord.status !== 'active') {
+          throw new CanonicalCommandError('forbidden', {
+            correlationId: envelope.context.correlationId,
+          });
+        }
         const accountRead = await session.tx.get({
           path: accountPath(managementRecord!.accountId),
         });

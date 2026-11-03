@@ -4,11 +4,14 @@ import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import {
   AccountIdSchema,
   AccountSchema,
+  AggregateRevisionSchema,
   CorrelationIdSchema,
+  InstructorIdSchema,
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
   accountCommandActor,
   participantManagementIdFromSelfProvisioning,
+  participantBlockIdFromDirection,
   selfParticipantIdFromAccountId,
   timestampFromDate,
   type CommandEnvelope,
@@ -82,27 +85,213 @@ describe.skipIf(!runsOnFirestoreEmulator)('participant access emulator concurren
       'participant_management_active_owner',
       'activity_logs',
       'command_idempotency',
+      'participant_blocks',
     ]);
     await firestore.collection('users').doc(accountA).set(seedAccount(accountA));
     await firestore.collection('users').doc(accountB).set(seedAccount(accountB));
-    await firestore.collection('participants').doc(participantId).set({
-      participantId,
-      displayName: 'Concurrent Dependent',
-      age: { kind: 'age_years', years: 11 },
-      skillLevel: 'beginner',
-      discipline: 'ski',
-      management: { kind: 'unmanaged_guest' },
-      initialManagementEligibleAccountId: accountA,
-      lifecycle: { status: 'active' },
-      revision: 1,
-      createdAt: decidedAt,
-      updatedAt: decidedAt,
-      audit: {
-        createdByCommandId: 'command_seed_participant',
-        lastChangedByCommandId: 'command_seed_participant',
-        correlationId,
-      },
+    await firestore
+      .collection('participants')
+      .doc(participantId)
+      .set({
+        participantId,
+        displayName: 'Concurrent Dependent',
+        age: { kind: 'age_years', years: 11 },
+        skillLevel: 'beginner',
+        discipline: 'ski',
+        management: { kind: 'unmanaged_guest' },
+        initialManagementEligibleAccountId: accountA,
+        lifecycle: { status: 'active' },
+        revision: 1,
+        createdAt: decidedAt,
+        updatedAt: decidedAt,
+        audit: {
+          createdByCommandId: 'command_seed_participant',
+          lastChangedByCommandId: 'command_seed_participant',
+          correlationId,
+        },
+      });
+  });
+
+  it('blocks and unblocks a provisioned self Participant atomically', async () => {
+    await firestore
+      .collection('users')
+      .doc(accountA)
+      .set({
+        ...seedAccount(accountA),
+        displayName: 'Self Emulator Client',
+        role: 'user',
+      });
+    const commands = createProductionCanonicalCommands(
+      { clock: createAuthoritativeCommandClock(new Date('2026-01-01T00:00:00.000Z')) },
+      createFirestoreCanonicalTransactionExecutor(firestore)
+    );
+    const context = {
+      actor: accountCommandActor(accountA),
+      exercisedCapability: 'account_owner' as const,
+      idempotencyKey: 'provision-self-for-block',
+      correlationId,
+      source: 'client_callable' as const,
+    };
+    expect(
+      await commands.execute({ kind: 'provision_self_participant', context, intent: {} })
+    ).toMatchObject({ status: 'success' });
+    const selfId = selfParticipantIdFromAccountId(accountA);
+    const instructorId = InstructorIdSchema.parse('instructor_block_emulator');
+    const blockId = participantBlockIdFromDirection({
+      participantId: selfId,
+      instructorId,
+      createdByKind: 'participant_manager',
     });
+    const block: CommandEnvelope<'block_participant'> = {
+      kind: 'block_participant',
+      context: { ...context, idempotencyKey: 'block-self' },
+      intent: { participantBlockId: blockId, participantId: selfId, instructorId, reason: 'Block' },
+    };
+    expect(await commands.execute(block)).toMatchObject({ status: 'success' });
+    expect(
+      (await firestore.collection('participant_blocks').doc(blockId).get()).data()
+    ).toMatchObject({ status: 'active', revision: 1 });
+    expect(await commands.execute(block)).toMatchObject({ status: 'success' });
+    expect(
+      await commands.execute({
+        kind: 'unblock_participant',
+        context: {
+          ...context,
+          idempotencyKey: 'unblock-self',
+          expectedRevision: AggregateRevisionSchema.parse(1),
+        },
+        intent: { participantBlockId: blockId },
+      })
+    ).toMatchObject({ status: 'success' });
+    expect(
+      (await firestore.collection('participant_blocks').doc(blockId).get()).data()
+    ).toMatchObject({ status: 'removed', revision: 2 });
+    const reblock = {
+      ...block,
+      context: { ...context, idempotencyKey: 'reblock-self' },
+    };
+    expect(await commands.execute(reblock)).toMatchObject({ status: 'success' });
+    // A new logical attempt must read the active document rather than create it again.
+    expect(
+      await commands.execute({
+        ...block,
+        context: { ...context, idempotencyKey: 'block-self-after-reblock' },
+      })
+    ).toMatchObject({ status: 'success' });
+    const reblocked = (await firestore.collection('participant_blocks').doc(blockId).get()).data();
+    expect(reblocked).toMatchObject({ status: 'active', revision: 3 });
+    expect(reblocked).not.toHaveProperty('removedAt');
+    expect(reblocked).not.toHaveProperty('removedBy');
+    // Reproduce the exact persisted shape left by the previously deployed reactivation.
+    const blockRef = firestore.collection('participant_blocks').doc(blockId);
+    await blockRef.update({ removedAt: decidedAt, removedBy: reblocked!.createdBy });
+    const logsBeforeForeignBlock = (await firestore.collection('activity_logs').get()).size;
+    const idempotencyBeforeForeignBlock = (await firestore.collection('command_idempotency').get()).size;
+    expect(await commands.execute({
+      ...block, context: { ...context, actor: accountCommandActor(accountB), idempotencyKey: 'foreign-block' },
+    })).toMatchObject({ status: 'error', error: { code: 'forbidden' } });
+    expect((await firestore.collection('activity_logs').get()).size).toBe(logsBeforeForeignBlock);
+    expect((await firestore.collection('command_idempotency').get()).size).toBe(idempotencyBeforeForeignBlock);
+    expect(
+      await commands.execute({
+        ...block,
+        context: { ...context, idempotencyKey: 'block-with-stale-removal-fields' },
+      })
+    ).toMatchObject({ status: 'success' });
+    expect(
+      await commands.execute({
+        kind: 'unblock_participant',
+        context: {
+          ...context,
+          actor: accountCommandActor(accountB),
+          idempotencyKey: 'foreign-unblock',
+          expectedRevision: AggregateRevisionSchema.parse(3),
+        },
+        intent: { participantBlockId: blockId },
+      })
+    ).toMatchObject({ status: 'error', error: { code: 'forbidden' } });
+    expect((await blockRef.get()).data()).toMatchObject({ status: 'active', revision: 3 });
+    expect(
+      await commands.execute({
+        kind: 'unblock_participant',
+        context: {
+          ...context,
+          idempotencyKey: 'unblock-self-again',
+          expectedRevision: AggregateRevisionSchema.parse(3),
+        },
+        intent: { participantBlockId: blockId },
+      })
+    ).toMatchObject({ status: 'success' });
+  }, 30_000);
+
+  it.each([
+    ['block_participant', 'missing'],
+    ['block_participant', 'incompatible'],
+    ['unblock_participant', 'missing'],
+    ['unblock_participant', 'incompatible'],
+  ] as const)('denies %s with %s management without partial writes', async (kind, state) => {
+    const commands = createProductionCanonicalCommands(
+      { clock: createAuthoritativeCommandClock(new Date('2026-01-01T00:00:00.000Z')) },
+      createFirestoreCanonicalTransactionExecutor(firestore)
+    );
+    const context = {
+      actor: accountCommandActor(accountA),
+      exercisedCapability: 'parent_guardian' as const,
+      idempotencyKey: 'assign-for-block',
+      correlationId,
+      source: 'client_callable' as const,
+    };
+    expect(
+      await commands.execute({
+        kind: 'assign_participant_management',
+        context,
+        intent: {
+          participantId,
+          participantManagementId: managementA,
+          authority: 'parent_guardian',
+        },
+      })
+    ).toMatchObject({ status: 'success' });
+    const instructorId = InstructorIdSchema.parse('instructor_block_emulator');
+    const blockId = participantBlockIdFromDirection({
+      participantId,
+      instructorId,
+      createdByKind: 'participant_manager',
+    });
+    const block: CommandEnvelope<'block_participant'> = {
+      kind: 'block_participant',
+      context: { ...context, idempotencyKey: 'block-managed' },
+      intent: { participantBlockId: blockId, participantId, instructorId, reason: 'Block' },
+    };
+    if (kind === 'unblock_participant') {
+      expect(await commands.execute(block)).toMatchObject({ status: 'success' });
+    }
+    const management = firestore.collection('participant_management').doc(managementA);
+    if (state === 'missing') await management.delete();
+    else await management.set({ status: 'active', accountId: accountA });
+    const blockRef = firestore.collection('participant_blocks').doc(blockId);
+    const before = (await blockRef.get()).data();
+    const logsBefore = (await firestore.collection('activity_logs').get()).size;
+    const idempotencyBefore = (await firestore.collection('command_idempotency').get()).size;
+    const command =
+      kind === 'block_participant'
+        ? block
+        : {
+            kind,
+            context: {
+              ...context,
+              idempotencyKey: 'unblock-managed',
+              expectedRevision: AggregateRevisionSchema.parse(1),
+            },
+            intent: { participantBlockId: blockId },
+          };
+    await expect(commands.execute(command)).resolves.toMatchObject({
+      status: 'error',
+      error: { code: 'forbidden' },
+    });
+    expect((await blockRef.get()).data()).toEqual(before);
+    expect((await firestore.collection('activity_logs').get()).size).toBe(logsBefore);
+    expect((await firestore.collection('command_idempotency').get()).size).toBe(idempotencyBefore);
   });
 
   it(

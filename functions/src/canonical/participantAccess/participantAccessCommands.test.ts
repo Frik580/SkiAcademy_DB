@@ -8,6 +8,7 @@ import {
   CorrelationIdSchema,
   InstructorIdSchema,
   ParticipantIdSchema,
+  ParticipantBlockSchema,
   ParticipantManagementIdSchema,
   ParticipantAccessTopologySchema,
   activityLogIdFromCommandId,
@@ -21,6 +22,7 @@ import {
   type CommandEnvelope,
 } from '@ski-academy/shared-domain';
 import { bookingProposalOpenIndexPath } from '../bookings/bookingProposalOpenIndex';
+import { parseParticipantBlock } from './participantAccessStore';
 import { accountCommandActor } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
@@ -77,6 +79,44 @@ async function runCommand<Kind extends CommandEnvelope['kind']>(
 }
 
 describe('participant access commands', () => {
+  it.each([undefined, { status: 'active', accountId }])(
+    'rejects missing or incompatible management without throwing (%j)',
+    async (management) => {
+      const executor = createInMemoryCanonicalTransactionExecutor({
+        [`users/${accountId}`]: seedAccount(),
+        [`participants/${participantId}`]: {
+          participantId,
+          displayName: 'Participant',
+          age: { kind: 'age_years', years: 30 },
+          skillLevel: 'beginner',
+          discipline: 'ski',
+          management: { kind: 'managed', participantManagementId: managementId },
+          lifecycle: { status: 'active' },
+          revision: 1,
+          createdAt: decidedAt,
+          updatedAt: decidedAt,
+          audit: { createdByCommandId: 'seed', lastChangedByCommandId: 'seed', correlationId },
+        },
+        ...(management ? { [`participant_management/${managementId}`]: management } : {}),
+      });
+      const blockId = participantBlockIdFromDirection({
+        participantId,
+        instructorId,
+        createdByKind: 'participant_manager',
+      });
+      const before = executor.snapshot();
+      await expect(
+        runCommand(executor, {
+          kind: 'block_participant',
+          context: accountContext('account_owner'),
+          intent: { participantBlockId: blockId, participantId, instructorId, reason: 'Block' },
+        })
+      ).resolves.toMatchObject({ status: 'error', error: { code: 'forbidden' } });
+      expect(executor.snapshot().docs).toEqual(before.docs);
+      expect(executor.snapshot().writesAttempted).toBe(0);
+    }
+  );
+
   it('creates a participant and assigns self management with active owner guard', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor({
       [`users/${accountId}`]: seedAccount(),
@@ -430,6 +470,27 @@ describe('participant access commands', () => {
       revision: 3,
       reason: changedReason.reason,
     });
+    expect(ParticipantBlockSchema.safeParse(reblocked).success).toBe(true);
+    expect(reblocked).not.toHaveProperty('removedAt');
+    expect(reblocked).not.toHaveProperty('removedBy');
+    expect(
+      (
+        await runCommand(executor, {
+          ...reblockEnvelope,
+          context: { ...reblockEnvelope.context, idempotencyKey: 'new-attempt-after-reblock' },
+        })
+      ).status
+    ).toBe('success');
+    const priorRemoval = {
+      ...reblocked,
+      removedAt: decidedAt,
+      removedBy: reblocked!.createdBy,
+    };
+    expect(parseParticipantBlock(priorRemoval)).toEqual(reblocked);
+    expect(
+      parseParticipantBlock({ ...priorRemoval, removedBy: { kind: 'instructor', instructorId } })
+    ).toBeUndefined();
+    expect(parseParticipantBlock({ ...priorRemoval, unexpectedField: true })).toBeUndefined();
     expect((await runCommand(executor, reblockEnvelope)).status).toBe('success');
     expect(executor.snapshot().docs.get(`participant_blocks/${managerBlockId}`)?.data).toEqual(
       reblocked
@@ -779,7 +840,9 @@ describe('participant access commands', () => {
         },
       ],
       instructorRelationships: [relationship],
-      participantBlocks: [executor.snapshot().docs.get(`participant_blocks/${managerBlockId}`)?.data],
+      participantBlocks: [
+        executor.snapshot().docs.get(`participant_blocks/${managerBlockId}`)?.data,
+      ],
     });
 
     expect(
@@ -1019,6 +1082,8 @@ describe('participant access commands', () => {
     const activityLogs = [...executor.snapshot().docs.keys()].filter((path) =>
       path.startsWith('activity_logs/')
     );
-    expect(activityLogs).toEqual([`activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`]);
+    expect(activityLogs).toEqual([
+      `activity_logs/${activityLogIdFromCommandId(identity.commandKey)}`,
+    ]);
   });
 });

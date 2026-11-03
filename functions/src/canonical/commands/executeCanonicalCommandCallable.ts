@@ -1,11 +1,12 @@
 import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
+import { error as logError } from 'firebase-functions/logger';
 import type { Firestore } from 'firebase-admin/firestore';
 import type {
   CanonicalExecutionScope,
   CommandKind,
   CommandResult,
 } from '@ski-academy/shared-domain';
-import { TestSessionPolicyError } from '@ski-academy/shared-domain';
+import { CanonicalCommandError, TestSessionPolicyError } from '@ski-academy/shared-domain';
 import {
   buildCommandEnvelopeFromCallable,
   type CallableCommandTransportInput,
@@ -169,6 +170,36 @@ export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
       }
       return result;
     } catch (error) {
+      if (!(error instanceof HttpsError) && !(error instanceof CanonicalCommandError)) {
+        // Exception messages and arbitrary error metadata can contain document values.
+        // Keep only known error types, gRPC codes, and source locations for diagnosis.
+        const errorName = error instanceof Error ? error.name : undefined;
+        const code = (error as { code?: unknown } | null)?.code;
+        const sourceLocations =
+          error instanceof Error
+            ? (error.stack ?? '')
+                .split('\n')
+                .slice(1)
+                .flatMap(
+                  (line) =>
+                    line
+                      .replaceAll('\\', '/')
+                      .match(/(?:lib|src)\/[A-Za-z0-9_./-]+\.(?:[cm]?js|ts):\d+:\d+/g) ?? []
+                )
+                .slice(0, 8)
+            : [];
+        logError('Unexpected canonical command exception', {
+          correlationId: envelope.context.correlationId,
+          commandKind: envelope.kind,
+          errorType: ['Error', 'TypeError', 'RangeError', 'ZodError'].includes(errorName ?? '')
+            ? errorName
+            : 'UnknownError',
+          ...(typeof code === 'number' && Number.isInteger(code) && code >= 0 && code <= 16
+            ? { grpcCode: code }
+            : {}),
+          sourceLocations,
+        });
+      }
       rethrowCanonicalCommandErrorAsHttps(error, envelope.context.correlationId);
     }
   };

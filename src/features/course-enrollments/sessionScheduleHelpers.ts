@@ -172,24 +172,36 @@ export interface TodaySessionCountdown {
   readonly startsAt: Date;
 }
 
+/** All active sessions tied for the closest upcoming start today (canonical instant). */
+export function getTodaySessionCountdownsFromSessions(
+  items: readonly CabinetSessionItem[],
+  now = new Date()
+): TodaySessionCountdown[] {
+  const upcoming = items
+    .filter(isActiveSessionItem)
+    .map((item) => ({
+      session: item,
+      window: getSessionDailyTimeWindow(item, dateInTimeZone(now, sessionTimeZone(item))),
+    }))
+    .filter(
+      (entry): entry is { session: CabinetSessionItem; window: { start: Date; end: Date } } =>
+        Boolean(entry.window && now < entry.window.start)
+    )
+    .map(({ session, window }) => ({ session, startsAt: window.start }))
+    .sort((left, right) => left.startsAt.getTime() - right.startsAt.getTime());
+
+  const closestStart = upcoming[0]?.startsAt.getTime();
+  return closestStart === undefined
+    ? []
+    : upcoming.filter(({ startsAt }) => startsAt.getTime() === closestStart);
+}
+
+/** Compatibility selector for callers that need only the first countdown. */
 export function getTodaySessionCountdownFromSessions(
   items: readonly CabinetSessionItem[],
   now = new Date()
 ): TodaySessionCountdown | null {
-  return (
-    items
-      .filter(isActiveSessionItem)
-      .map((item) => ({
-        session: item,
-        window: getSessionDailyTimeWindow(item, dateInTimeZone(now, sessionTimeZone(item))),
-      }))
-      .filter(
-        (entry): entry is { session: CabinetSessionItem; window: { start: Date; end: Date } } =>
-          Boolean(entry.window && now < entry.window.start)
-      )
-      .map(({ session, window }) => ({ session, startsAt: window.start }))
-      .sort((left, right) => left.startsAt.getTime() - right.startsAt.getTime())[0] ?? null
-  );
+  return getTodaySessionCountdownsFromSessions(items, now)[0] ?? null;
 }
 
 export interface NextSessionItem {

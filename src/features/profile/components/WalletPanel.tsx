@@ -7,6 +7,7 @@ import { useLanguage } from '../../../app/providers/LanguageContext';
 import { StudentCabinetTab } from '../../../features/student-cabinet';
 import { useAccountWalletHistory } from '../../wallet';
 import { prepareAccountWalletHistory } from '../../../domain/wallet';
+import { STUDENT_CABINET_CONTENT_CLASS } from '../../student-cabinet/components/student/studentCabinetPresentation';
 
 export interface WalletPanelProps {
   userId: string;
@@ -38,7 +39,7 @@ export const WalletPanel: React.FC<WalletPanelProps> = ({
   );
 
   return (
-    <div className="pb-24 mx-auto pt-6 px-4 sm:px-6 w-full min-w-0 space-y-6 max-w-3xl">
+    <div className={`pb-24 pt-6 space-y-6 ${STUDENT_CABINET_CONTENT_CLASS}`}>
       <ScPageIntro
         onBack={showBackLink && onGoToTab ? () => onGoToTab('settings') : undefined}
         backLabelKey="scNavProfile"

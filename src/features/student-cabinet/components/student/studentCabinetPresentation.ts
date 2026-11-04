@@ -1,4 +1,4 @@
-export const STUDENT_CABINET_CONTENT_CLASS = 'max-w-7xl mx-auto w-full px-4 sm:px-6 min-w-0';
+export const STUDENT_CABINET_CONTENT_CLASS = 'max-w-5xl mx-auto w-full px-4 sm:px-6 min-w-0';
 
 const LEVEL_NAMES_EN: Record<number, string> = {
   1: 'BEGINNER',

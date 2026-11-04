@@ -241,7 +241,7 @@ export const StudentCoursesPanel: React.FC<
   );
 
   return (
-    <div className="pb-24 max-w-3xl mx-auto pt-6 px-4 sm:px-6 space-y-6 w-full min-w-0">
+    <div className={`pb-24 pt-6 space-y-6 ${STUDENT_CABINET_CONTENT_CLASS}`}>
       <ScPageIntro
         onBack={() => onGoToTab('training')}
         backLabelKey="scNavTraining"
@@ -316,7 +316,7 @@ export const StudentInstructorsPanel: React.FC<
     .map((ins) => translateInstructor(ins, lang));
 
   return (
-    <div className="space-y-6 pb-24 max-w-3xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0">
+    <div className={`space-y-6 pb-24 pt-6 ${STUDENT_CABINET_CONTENT_CLASS}`}>
       <ScPageIntro
         onBack={() => onGoToTab('home')}
         title={t('scNavCoach')}

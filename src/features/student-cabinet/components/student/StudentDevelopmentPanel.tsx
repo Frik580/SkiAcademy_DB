@@ -11,6 +11,7 @@ import { LazySkillRadarChart } from './LazySkillRadarChart';
 import { getSkillItemTitle } from '../../../../domain/achievements';
 import type { StudentDevelopmentPanelInput } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
+import { STUDENT_CABINET_CONTENT_CLASS } from './studentCabinetPresentation';
 
 export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelInput> = ({
   userProfile,
@@ -40,7 +41,7 @@ export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelInput> = (
   );
 
   return (
-    <div className="space-y-0 pb-24 max-w-3xl mx-auto px-4 sm:px-6 w-full min-w-0">
+    <div className={`space-y-0 pb-24 ${STUDENT_CABINET_CONTENT_CLASS}`}>
       <section className="py-6 space-y-4">
         <ScPageIntro
           onBack={() => onGoToTab('training')}

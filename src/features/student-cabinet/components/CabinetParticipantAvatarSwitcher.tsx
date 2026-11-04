@@ -91,6 +91,7 @@ export const CabinetParticipantAvatarSwitcher: React.FC<CabinetParticipantAvatar
     <div
       className="flex min-w-0 items-center gap-2"
       data-testid="navbar-participant-switcher"
+      data-no-swipe="true"
       role={interactive ? 'group' : undefined}
       aria-label={interactive ? groupLabel : undefined}
     >

@@ -172,7 +172,7 @@ export async function waitForFunctionsEmulatorReady(
   );
 }
 
-async function createAuthUser(email: string, password: string): Promise<string> {
+export async function createAuthUser(email: string, password: string): Promise<string> {
   const response = await fetch(
     `${AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=demo-api-key`,
     {
@@ -305,7 +305,7 @@ export async function seedStudentAccount(input: {
   }
 }
 
-async function seedWorkspaceAccount(input: {
+export async function seedWorkspaceAccount(input: {
   uid: string;
   email: string;
   displayName: string;

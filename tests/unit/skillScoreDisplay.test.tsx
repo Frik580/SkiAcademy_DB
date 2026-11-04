@@ -63,6 +63,87 @@ const cases = [
 ];
 const surfaces = ['list', 'radar', 'priority', 'assessment', 'comments'] as const;
 
+it('renders loading and read errors with retry, then only the selected participant comments', () => {
+  const retry = vi.fn();
+  const props = {
+    bookings: [
+      { id: 'lesson', userId: 'student', instructorId: 'coach', status: 'completed' } as Booking,
+    ],
+    courses: [],
+    instructors: [{ id: 'coach', name: 'Coach' } as Instructor],
+    userProfile: {
+      uid: 'student',
+      skillComments: { retired: 'Participant A text' },
+    } as UserProfile,
+    selectedParticipantId: 'a',
+    onGoToTab: vi.fn(),
+    onChat: vi.fn(),
+    onOpenLesson: vi.fn(),
+    onBookInstructor: vi.fn(),
+    onRetryProgress: retry,
+  };
+  const { rerender } = render(<StudentCoachPanel {...props} progressLoadState="loading" />);
+  fireEvent.click(screen.getByRole('button', { name: /scCoachComments/ }));
+  expect(screen.getByRole('status')).toHaveTextContent('loading');
+  expect(screen.queryByText('“Participant A text”')).toBeNull();
+  expect(screen.queryByText('scCoachNoComments')).toBeNull();
+  rerender(<StudentCoachPanel {...props} progressLoadState="error" />);
+  expect(screen.getByRole('alert')).toHaveTextContent('requestFailed');
+  fireEvent.click(screen.getByRole('button', { name: 'retry' }));
+  expect(retry).toHaveBeenCalledTimes(1);
+  for (const [id, text] of [
+    ['a', 'Participant A text'],
+    ['b', 'Participant B text'],
+    ['a', 'Participant A text'],
+  ]) {
+    rerender(
+      <StudentCoachPanel
+        {...props}
+        progressLoadState="loaded"
+        selectedParticipantId={id}
+        userProfile={{ ...props.userProfile, skillComments: { retired: text } }}
+      />
+    );
+    expect(screen.getByText(`“${text}”`)).toBeInTheDocument();
+    expect(screen.getByText('retired')).toBeInTheDocument();
+    expect(
+      screen.queryByText(`“${id === 'a' ? 'Participant B text' : 'Participant A text'}”`)
+    ).toBeNull();
+  }
+  rerender(
+    <StudentCoachPanel
+      {...props}
+      progressLoadState="loaded"
+      userProfile={{ ...props.userProfile, skillScores: { skill: 1 }, skillComments: {} }}
+    />
+  );
+  expect(screen.getByText('scCoachNoComments')).toBeInTheDocument();
+});
+
+it.each(['comments', 'videos', 'homework', 'recommendations'] as const)(
+  'hides an unavailable instructor in %s without losing the section',
+  (view) => {
+    const props = {
+      bookings: [],
+      courses: [],
+      instructors: [{ id: 'coach', name: 'Coach' } as Instructor],
+      userProfile: {
+        uid: 'student',
+        skillComments: { skill: 'Must not be displayed' },
+      } as UserProfile,
+      selectedParticipantId: 'b',
+      navigation: { view, selectedInstructorId: 'coach' },
+      onGoToTab: vi.fn(),
+      onChat: vi.fn(),
+      onOpenLesson: vi.fn(),
+      onBookInstructor: vi.fn(),
+    };
+    render(<StudentCoachPanel {...props} />);
+    expect(screen.getByRole('status')).toHaveTextContent('scCoachNoLessons');
+    expect(screen.queryByText('“Must not be displayed”')).toBeNull();
+  }
+);
+
 describe.each<Language>(['ru', 'en'])('individual skill display (%s)', (language) => {
   it.each(cases)('formats $score / $maxPoints', ({ score, maxPoints, rated }) => {
     const expected =
@@ -294,7 +375,7 @@ describe.each<Language>(['ru', 'en'])(
       );
       expect(screen.queryByText('“Dependent current text”')).toBeNull();
       expect(screen.queryByText('“Instructor B current text”')).toBeNull();
-      expect(screen.getByText('scCoachNoComments')).toBeInTheDocument();
+      expect(screen.getByText('scCoachNoLessons')).toBeInTheDocument();
     });
   }
 );

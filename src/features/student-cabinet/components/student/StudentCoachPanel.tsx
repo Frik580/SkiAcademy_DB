@@ -62,6 +62,11 @@ import {
 type CoachSubView = 'chat' | 'videos' | 'comments' | 'homework' | 'recommendations';
 type CoachView = 'list' | CoachSubView;
 
+export interface CoachNavigation {
+  view: CoachView;
+  selectedInstructorId: string | null;
+}
+
 const EMPTY_BOOKING_IDS: string[] = [];
 
 const COACH_HUB_ITEMS: {
@@ -103,6 +108,10 @@ const COACH_HUB_ITEMS: {
 ];
 
 interface StudentCoachPanelProps {
+  navigation?: CoachNavigation;
+  onNavigationChange?: (navigation: CoachNavigation) => void;
+  progressLoadState?: 'idle' | 'loading' | 'loaded' | 'error';
+  onRetryProgress?: () => void;
   bookings: Booking[];
   courses: Course[];
   instructors: Instructor[];
@@ -121,6 +130,10 @@ interface StudentCoachPanelProps {
 }
 
 export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
+  navigation,
+  onNavigationChange,
+  progressLoadState = 'loaded',
+  onRetryProgress,
   bookings,
   courses,
   instructors,
@@ -146,8 +159,12 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
   } = useSelectedParticipantLessonStats(selectedParticipantId);
   const feedback = usePresentedParticipantLessonFeedback(bookings);
   const pendingKeys = useParticipantLessonFeedbackStore((state) => state.pendingKeys);
-  const [view, setView] = useState<CoachView>('list');
-  const [selectedInstructorId, setSelectedInstructorId] = useState<string | null>(null);
+  const [localNavigation, setLocalNavigation] = useState<CoachNavigation>({
+    view: 'list',
+    selectedInstructorId: null,
+  });
+  const { view, selectedInstructorId } = navigation ?? localNavigation;
+  const setNavigation = onNavigationChange ?? setLocalNavigation;
 
   const myInstructors = useMemo(
     () =>
@@ -170,16 +187,15 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
 
   const selectedInstructor = useMemo(() => {
     if (!selectedInstructorId) return null;
-    const raw = instructors.find((i) => i.id === selectedInstructorId);
-    return raw ? translateInstructor(raw, lang) : null;
-  }, [instructors, selectedInstructorId, lang]);
+    return myInstructors.find((i) => i.id === selectedInstructorId) ?? null;
+  }, [myInstructors, selectedInstructorId]);
 
   const messageThreadIds = useMemo(
     () =>
-      selectedInstructorId && view !== 'list'
-        ? getInstructorMessageThreadIds(bookings, courses, selectedInstructorId, userProfile.uid)
+      selectedInstructor && view !== 'list'
+        ? getInstructorMessageThreadIds(bookings, courses, selectedInstructor.id, userProfile.uid)
         : [],
-    [bookings, courses, selectedInstructorId, userProfile.uid, view]
+    [bookings, courses, selectedInstructor, userProfile.uid, view]
   );
 
   const { messages, loading: messagesLoading } = useInstructorBookingMessages(
@@ -199,13 +215,11 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
     : undefined;
 
   const openCoachSection = (instructorId: string, section: CoachSubView) => {
-    setSelectedInstructorId(instructorId);
-    setView(section);
+    setNavigation({ selectedInstructorId: instructorId, view: section });
   };
 
   const goBackToList = () => {
-    setView('list');
-    setSelectedInstructorId(null);
+    setNavigation({ selectedInstructorId: null, view: 'list' });
   };
 
   const videoMessages = selectedInstructor
@@ -221,9 +235,10 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
       )
     : [];
   const skillComments = getUnattributedSkillComments(userProfile, skillConfig, lang);
-  const recommendationRows = selectedInstructor
-    ? feedback.instructorFeedback(selectedInstructor.id)
-    : [];
+  const recommendationRows =
+    selectedInstructor && feedback.participantId === selectedParticipantId
+      ? feedback.instructorFeedback(selectedInstructor.id)
+      : [];
 
   const renderList = () => (
     <>
@@ -403,7 +418,16 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
         backLabel={selectedInstructor.name}
       >
         <p className="type-compact text-[var(--ink-dim)]">{t('scCoachNoAttributedComments')}</p>
-        {skillComments.length === 0 ? (
+        {progressLoadState === 'idle' || progressLoadState === 'loading' ? (
+          <p role="status" className="type-compact text-[var(--ink-dim)]">
+            {t('loading')}
+          </p>
+        ) : progressLoadState === 'error' ? (
+          <div role="alert">
+            <p>{t('requestFailed')}</p>
+            <ScTextButton onClick={onRetryProgress}>{t('retry')}</ScTextButton>
+          </div>
+        ) : skillComments.length === 0 ? (
           <p className="type-compact text-[var(--ink-dim)]">{t('scCoachNoComments')}</p>
         ) : (
           <div className="space-y-3">
@@ -416,7 +440,11 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
                     {title}
                   </p>
                   <p className="type-caption font-medium text-amber-600 tabular-nums shrink-0">
-                    {formatSkillScore({ hasScore, earned: score, maxPoints }, language)}
+                    {maxPoints > 0
+                      ? formatSkillScore({ hasScore, earned: score, maxPoints }, language)
+                      : hasScore
+                        ? score
+                        : null}
                   </p>
                 </div>
                 <p className="type-compact text-[var(--ink)]">&ldquo;{comment}&rdquo;</p>
@@ -602,6 +630,15 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
 
   return (
     <div className={`space-y-6 pb-24 pt-6 ${STUDENT_CABINET_CONTENT_CLASS}`}>
+      {view !== 'list' && !selectedInstructor && (
+        <CoachSectionShell
+          title={t(COACH_HUB_ITEMS.find((item) => item.view === view)!.labelKey)}
+          onBack={goBackToList}
+          backLabel={t('scNavCoach')}
+        >
+          <p role="status">{t('scCoachNoLessons')}</p>
+        </CoachSectionShell>
+      )}
       {view === 'list' && renderList()}
       {view === 'chat' && renderChat()}
       {view === 'videos' && renderVideos()}

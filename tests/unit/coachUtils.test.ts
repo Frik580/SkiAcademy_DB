@@ -248,6 +248,18 @@ describe('getInstructorSkillComments', () => {
     }
   });
 
+  it('preserves comments whose skill ID is no longer in the configuration', () => {
+    expect(
+      getUnattributedSkillComments(
+        { skillComments: { retired_skill: 'Saved note' } },
+        skillConfig,
+        'en'
+      )
+    ).toMatchObject([
+      { skillId: 'retired_skill', title: 'retired_skill', comment: 'Saved note', hasScore: false },
+    ]);
+  });
+
   it('reads only the currently supplied Participant and localizes skill names', () => {
     const dependent = {
       ...student,

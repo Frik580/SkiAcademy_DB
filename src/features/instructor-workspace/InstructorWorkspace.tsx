@@ -93,6 +93,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = (props) =
         existingComments={evalModalState.existingComments}
         skillConfig={skillConfig}
         onSaveScores={handleSaveStudentScores}
+        onReload={workspace.reloadEvalProgress}
       />
 
       {workspace.levelModal && (

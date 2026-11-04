@@ -1,5 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { useParticipantProgressStore } from '../../src/features/participant-progress/participantProgressStore';
+import { emptyParticipantProgressView } from '../../src/features/participant-progress/applyParticipantProgressToProfile';
 import { InstructorBookingCard } from '../../src/features/instructor-workspace/components/InstructorBookingCard';
 import type { DisplayBooking } from '../../src/features/instructor-workspace/components/useInstructorWorkspace';
 import { isInstructorBookingVisibleForStatusFilter } from '../../src/features/instructor-workspace/components/useInstructorWorkspace';
@@ -13,6 +15,17 @@ vi.mock('../../src/features/booking-collaboration', () => ({
 }));
 
 const t = (key: keyof (typeof translations)['en']) => translations.en[key];
+
+beforeEach(() => {
+  useParticipantProgressStore.getState().clear();
+  useParticipantProgressStore
+    .getState()
+    .setItems(
+      ['participant_f4_a', 'participant_f4_b', 'participant_f4_c', 'participant_f4_child'].map(
+        emptyParticipantProgressView
+      )
+    );
+});
 
 function participant(input: {
   participantId: string;
@@ -147,6 +160,30 @@ function recommendationsButton(studentName: string) {
 }
 
 describe('InstructorBookingCard factual attendance', () => {
+  it('waits for canonical progress before opening assessment, preserving existing comments', () => {
+    useParticipantProgressStore.getState().clear();
+    const open = vi.fn();
+    renderCard(booking(), { handleRecordLessonAttendance: vi.fn() }, { onOpenEval: open });
+    expect(assessButton('Alice')).toBeDisabled();
+    fireEvent.click(assessButton('Alice'));
+    expect(open).not.toHaveBeenCalled();
+    act(() => {
+      useParticipantProgressStore.getState().upsertItem({
+        ...emptyParticipantProgressView('participant_f4_a'),
+        revision: 1,
+        skillComments: { retired_skill: 'Preserve canonical text' },
+      });
+    });
+    expect(assessButton('Alice')).toBeEnabled();
+    fireEvent.click(assessButton('Alice'));
+    expect(open).toHaveBeenCalledWith(
+      'participant_f4_a',
+      'Alice',
+      1,
+      {},
+      { retired_skill: 'Preserve canonical text' }
+    );
+  });
   it('renders three participants independently and never uses a booking-level complete action', () => {
     renderCard(booking(), { handleRecordLessonAttendance: vi.fn() });
     expect(screen.getByText('Alice')).toBeTruthy();

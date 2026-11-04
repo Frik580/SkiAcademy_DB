@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   getInstructorSkillComments,
+  getUnattributedSkillComments,
   isMessageFromInstructor,
   resolveMessageCourseTitle,
 } from '../../src/features/student-cabinet/components/student/coachUtils';
@@ -117,7 +118,7 @@ describe('getInstructorSkillComments', () => {
       {
         id: 'carving',
         titleEn: 'Carving',
-        titleRu: 'Карвинг',
+        title: 'Карвинг',
         maxPoints: 20,
       },
     ],
@@ -137,7 +138,26 @@ describe('getInstructorSkillComments', () => {
     ...overrides,
   });
 
-  it('shows comments when evaluation log has metadata.instructorId', () => {
+  it('does not attribute instructor B current text to instructor A from evaluation evidence', () => {
+    const current = { ...student, skillComments: { carving: 'Instructor B comment' } };
+    const logs = [
+      baseLog(),
+      baseLog({
+        id: 'log-2',
+        actorId: 'instructor-user-2',
+        timestamp: '2026-08-09T10:00:00.000Z',
+        metadata: { instructorId: 'instructor-2', commentedSkillIds: ['carving'] },
+      }),
+    ];
+    expect(
+      getInstructorSkillComments(current, skillConfig, 'en', 'instructor-1', [], logs)
+    ).toEqual([]);
+    expect(
+      getInstructorSkillComments(current, skillConfig, 'en', 'instructor-2', [], logs)
+    ).toEqual([]);
+  });
+
+  it('does not infer authorship from metadata.instructorId', () => {
     const rows = getInstructorSkillComments(
       student,
       skillConfig,
@@ -146,7 +166,8 @@ describe('getInstructorSkillComments', () => {
       [],
       [baseLog()]
     );
-    expect(rows).toEqual([
+    expect(rows).toEqual([]);
+    expect(getUnattributedSkillComments(student, skillConfig, 'en')).toEqual([
       {
         skillId: 'carving',
         title: 'Carving',
@@ -158,7 +179,7 @@ describe('getInstructorSkillComments', () => {
     ]);
   });
 
-  it('shows comments for comment-only updates via commentedSkillIds', () => {
+  it('does not infer authorship of comment-only updates via commentedSkillIds', () => {
     const rows = getInstructorSkillComments(
       student,
       skillConfig,
@@ -175,11 +196,10 @@ describe('getInstructorSkillComments', () => {
         }),
       ]
     );
-    expect(rows).toHaveLength(1);
-    expect(rows[0].comment).toBe('Keep knees bent');
+    expect(rows).toEqual([]);
   });
 
-  it('recognizes level_up logs from the instructor', () => {
+  it('does not infer comment authorship from level_up logs', () => {
     const rows = getInstructorSkillComments(
       student,
       skillConfig,
@@ -199,6 +219,47 @@ describe('getInstructorSkillComments', () => {
         }),
       ]
     );
-    expect(rows).toHaveLength(1);
+    expect(rows).toEqual([]);
+  });
+
+  it.each([
+    ['repeated evaluation', [baseLog(), baseLog({ id: 'log-2' })]],
+    ['administrative correction', [baseLog(), baseLog({ actorId: 'admin', metadata: {} })]],
+    ['missing historical metadata', [baseLog({ metadata: undefined })]],
+    ['missing history', []],
+    ['another student history', [baseLog({ userId: 'another-student' })]],
+  ])('keeps current text unattributed with %s', (_scenario, logs) => {
+    const current = { ...student, skillComments: { carving: 'Current corrected comment' } };
+    const original = structuredClone(current);
+    expect(
+      getInstructorSkillComments(current, skillConfig, 'en', 'instructor-1', [], logs)
+    ).toEqual([]);
+    expect(getUnattributedSkillComments(current, skillConfig, 'en')).toMatchObject([
+      { comment: 'Current corrected comment', score: 8 },
+    ]);
+    expect(current).toEqual(original);
+  });
+
+  it('returns no rows for missing, removed or blank comments', () => {
+    for (const skillComments of [undefined, {}, { carving: '  ' }]) {
+      expect(
+        getUnattributedSkillComments({ ...student, skillComments }, skillConfig, 'en')
+      ).toEqual([]);
+    }
+  });
+
+  it('reads only the currently supplied Participant and localizes skill names', () => {
+    const dependent = {
+      ...student,
+      skillScores: { carving: 4 },
+      skillComments: { carving: 'Dependent comment' },
+    };
+    expect(getUnattributedSkillComments(student, skillConfig, 'en')).toMatchObject([
+      { title: 'Carving', comment: 'Keep knees bent', score: 8 },
+    ]);
+    expect(getUnattributedSkillComments(dependent, skillConfig, 'ru')).toMatchObject([
+      { title: 'Карвинг', comment: 'Dependent comment', score: 4 },
+    ]);
+    expect(getUnattributedSkillComments(student, skillConfig, 'ru')).toHaveLength(1);
   });
 });

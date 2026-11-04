@@ -160,26 +160,32 @@ export const instructorHasSkillFeedback = (
   activityLogs: ActivityLog[]
 ) => activityLogs.some((log) => isSkillFeedbackLogFromInstructor(log, instructorId, usersList));
 
+/**
+ * Current progress and evaluation logs contain no per-comment text/author evidence.
+ * Neither an evaluated skill id nor aggregate updatedBy proves comment authorship.
+ * Keep this boundary fail-closed until authoritative per-comment evidence exists.
+ */
 export const getInstructorSkillComments = (
-  userProfile: UserProfile,
+  _userProfile: UserProfile,
+  _skillConfig: SkillConfig | undefined,
+  _language: 'en' | 'ru',
+  _instructorId: string,
+  _usersList: UserProfile[],
+  _activityLogs: ActivityLog[]
+): InstructorSkillComment[] => [];
+
+/** Current selected-Participant comments, without any inferred instructor attribution. */
+export const getUnattributedSkillComments = (
+  userProfile: Pick<UserProfile, 'skillComments' | 'skillScores'>,
   skillConfig: SkillConfig | undefined,
-  language: 'en' | 'ru',
-  instructorId: string,
-  usersList: UserProfile[],
-  activityLogs: ActivityLog[]
+  language: 'en' | 'ru'
 ): InstructorSkillComment[] => {
-  if (!instructorHasSkillFeedback(instructorId, usersList, activityLogs)) return [];
-
-  const evaluatedSkillIds = getInstructorEvaluatedSkillIds(instructorId, usersList, activityLogs);
-  const filterByInstructorSkills = evaluatedSkillIds.size > 0;
-
   const items = skillConfig?.items ?? DEFAULT_SKILL_CONFIG.items;
   const comments = userProfile.skillComments ?? {};
   const scores = userProfile.skillScores ?? {};
 
   return items
     .map((item) => {
-      if (filterByInstructorSkills && !evaluatedSkillIds.has(item.id)) return null;
       const comment = comments[item.id]?.trim();
       if (!comment) return null;
       const score = scores[item.id] ?? 0;

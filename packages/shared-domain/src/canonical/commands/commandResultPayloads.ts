@@ -143,6 +143,7 @@ export const UpdateParticipantProgressResultPayloadSchema = z
   .object({
     participantId: ParticipantIdSchema,
     revision: AggregateRevisionSchema,
+    adminPeopleRevision: AdminPeopleRevisionPayloadSchema.shape.adminPeopleRevision,
   })
   .strict();
 

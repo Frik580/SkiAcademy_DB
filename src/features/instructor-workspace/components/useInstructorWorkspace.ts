@@ -14,14 +14,14 @@ import { logger } from '../../../shared';
 import { SkillConfig } from '../../../domain/achievements';
 import { useBookingChatUnread } from '../../../features/student-cabinet/useBookingChatUnread';
 import {
-  emptyParticipantProgressView,
   updateCanonicalParticipantProgress,
+  refreshInstructorParticipantProgress,
   useParticipantProgressStore,
-  type ParticipantProgressView,
 } from '../../participant-progress';
 import type { InstructorLessonBookingItem } from '../../booking-collaboration/bookingCollaborationContracts';
 import { useLessonStartClock } from '../../booking-collaboration/useLessonStartClock';
 import { useInstructorLessonRevenue } from '../useInstructorLessonRevenue';
+import { CanonicalCommandClientError } from '../../../lib/canonical/mapCanonicalCommandError';
 import {
   computeInstructorLessonMetrics,
   countInstructorRosterLessons,
@@ -169,6 +169,7 @@ export const useInstructorWorkspace = ({
     participantId: '',
     studentName: '',
     studentLevel: 1,
+    expectedRevision: 0,
     existingScores: {} as Record<string, number>,
     existingComments: {} as Record<string, string>,
   });
@@ -337,9 +338,6 @@ export const useInstructorWorkspace = ({
         booking.participantIds.includes(participantId)
     );
 
-  const currentProgress = (participantId: string): ParticipantProgressView =>
-    progressById[participantId] ?? emptyParticipantProgressView(participantId);
-
   const handleSaveStudentScores = async (
     participantId: string,
     updatedScores: Record<string, number>,
@@ -348,29 +346,18 @@ export const useInstructorWorkspace = ({
     correctionReason?: string
   ) => {
     try {
-      const previous = currentProgress(participantId);
-      const oldComments = previous.skillComments;
-
-      const mergedComments = { ...oldComments, ...updatedComments };
-      for (const itemId of Object.keys(mergedComments)) {
-        if (!(itemId in updatedScores) || updatedScores[itemId] === 0) {
-          delete mergedComments[itemId];
-        }
-      }
-      for (const itemId of Object.keys(updatedScores)) {
-        if (updatedScores[itemId] === 0) {
-          delete mergedComments[itemId];
-        }
+      if (!evalModalState.isOpen || evalModalState.participantId !== participantId) {
+        throw new Error('Open the participant assessment before saving.');
       }
 
       await updateCanonicalParticipantProgress({
         accountId: userProfile.uid,
         participantId,
-        level: previous.level,
+        level: evalModalState.studentLevel,
         correctionReason,
         skillScores: updatedScores,
-        skillComments: mergedComments,
-        expectedRevision: previous.revision,
+        skillComments: updatedComments,
+        expectedRevision: evalModalState.expectedRevision,
       });
 
       addNotification(
@@ -379,7 +366,12 @@ export const useInstructorWorkspace = ({
         `${t('instructorRatingsSavedDesc')} ${calculatedLevel}`
       );
     } catch (err) {
-      logger.error('Error saving student skill scores:', err);
+      if (!(
+        err instanceof CanonicalCommandClientError &&
+        (err.code === 'stale_version' || err.code === 'concurrent_modification')
+      )) {
+        logger.error('Error saving student skill scores:', err);
+      }
       throw err;
     }
   };
@@ -393,18 +385,30 @@ export const useInstructorWorkspace = ({
   const openEvalModal = (
     participantId: string,
     studentName: string,
-    studentLevel: number,
-    existingScores?: Record<string, number>,
-    existingComments?: Record<string, string>
+    _studentLevel: number,
+    _existingScores?: Record<string, number>,
+    _existingComments?: Record<string, string>
   ) => {
+    const progress = useParticipantProgressStore.getState().byId[participantId];
+    if (!progress) return;
     setEvalModalState({
       isOpen: true,
       participantId,
       studentName,
-      studentLevel,
-      existingScores: existingScores || {},
-      existingComments: existingComments || {},
+      studentLevel: progress.level,
+      expectedRevision: progress.revision,
+      existingScores: { ...progress.skillScores },
+      existingComments: { ...progress.skillComments },
     });
+  };
+
+  const reloadEvalProgress = async () => {
+    const { participantId, studentName } = evalModalState;
+    const refreshed = await refreshInstructorParticipantProgress([participantId]);
+    if (!refreshed.some((item) => item.participantId === participantId)) {
+      throw new Error('Participant progress refresh failed.');
+    }
+    openEvalModal(participantId, studentName, 1);
   };
 
   const closeEvalModal = () => {
@@ -445,6 +449,7 @@ export const useInstructorWorkspace = ({
     setStatusFilter,
     evalModalState,
     openEvalModal,
+    reloadEvalProgress,
     levelModal,
     setLevelModal,
     handleUpdateStudentLevel,

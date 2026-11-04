@@ -67,6 +67,7 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
     null
   );
   const renderParticipant = (participant: DisplayBooking['participants'][number]) => {
+    const progressReady = Boolean(progressById[participant.participantId]);
     const progress =
       progressById[participant.participantId] ??
       emptyParticipantProgressView(participant.participantId);
@@ -176,8 +177,10 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
           )}
           <StudentAssessButton
             t={t}
-            disabled={!canOpenProgress}
-            title={canOpenProgress ? undefined : progressDisabledTitle}
+            disabled={!canOpenProgress || !progressReady}
+            title={
+              !progressReady ? t('loading') : canOpenProgress ? undefined : progressDisabledTitle
+            }
             labelKey={canAssessInLesson ? 'instructorAssess' : 'instructorViewProgress'}
             ariaLabel={`${studentName}: ${t(canAssessInLesson ? 'instructorAssess' : 'instructorViewProgress')}`}
             onClick={() =>

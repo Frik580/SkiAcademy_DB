@@ -184,18 +184,19 @@ export const getUnattributedSkillComments = (
   const comments = userProfile.skillComments ?? {};
   const scores = userProfile.skillScores ?? {};
 
-  return items
-    .map((item) => {
-      const comment = comments[item.id]?.trim();
+  return Object.entries(comments)
+    .map(([skillId, text]) => {
+      const item = items.find((candidate) => candidate.id === skillId);
+      const comment = text.trim();
       if (!comment) return null;
-      const score = scores[item.id] ?? 0;
+      const score = scores[skillId] ?? 0;
       return {
-        skillId: item.id,
-        hasScore: Object.hasOwn(scores, item.id),
-        title: getSkillItemTitle(item, language),
+        skillId,
+        hasScore: Object.hasOwn(scores, skillId),
+        title: item ? getSkillItemTitle(item, language) : skillId,
         comment,
-        score: Math.min(item.maxPoints, Math.max(0, score)),
-        maxPoints: item.maxPoints,
+        score: item ? Math.min(item.maxPoints, Math.max(0, score)) : score,
+        maxPoints: item?.maxPoints ?? 0,
       };
     })
     .filter((row): row is InstructorSkillComment => row != null);

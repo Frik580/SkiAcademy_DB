@@ -21,7 +21,7 @@ import { StudentCabinetHome } from './StudentCabinetHome';
 import { hasTrainingTodayFromSessions } from '../../../course-enrollments/sessionScheduleHelpers';
 import { toCabinetParticipantAvatarItems } from '../../cabinetParticipantAvatarSwitcherContract';
 import { StudentHistoryPanel } from './StudentHistoryPanel';
-import { StudentCoachPanel } from './StudentCoachPanel';
+import { StudentCoachPanel, type CoachNavigation } from './StudentCoachPanel';
 import { useCoachLessonHistoryHydration } from '../../useCoachLessonHistoryHydration';
 import { BookInstructorPickerModal } from './BookInstructorPickerModal';
 import {
@@ -56,6 +56,7 @@ import {
 } from '../../../participant-progress';
 import { applyParticipantTodayChecklistToProfile } from '../../participantTodayChecklist';
 import { useCabinetProgressParticipantSelection } from '../../useCabinetProgressParticipantSelection';
+import { useCoachParticipantProgress } from '../../useCoachParticipantProgress';
 import {
   filterCabinetCourseDaysForParticipant,
   filterEnrollmentsForParticipant,
@@ -177,6 +178,11 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
   const routeTab = parseCabinetTabParam(tabParam);
   const [tab, setTab] = useState<StudentCabinetTab>(routeTab);
   const [instructorPickerOpen, setInstructorPickerOpen] = useState(false);
+  // Navigation survives participant-keyed data remounts; subscriptions stay isolated.
+  const [coachNavigation, setCoachNavigation] = useState<CoachNavigation>({
+    view: 'list',
+    selectedInstructorId: null,
+  });
 
   useEffect(() => {
     if (props.syncTabWithRoute) {
@@ -263,6 +269,10 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     [props]
   );
   const progressById = useParticipantProgressStore((state) => state.byId);
+  const coachProgress = useCoachParticipantProgress(
+    selectedProgressParticipantId,
+    (activeTab === 'coach' || activeTab === 'instructors') && coachNavigation.view === 'comments'
+  );
   const requiresProgressSelection =
     shouldShowParticipantPicker({
       participants,
@@ -614,6 +624,10 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
         )}
         {(activeTab === 'coach' || activeTab === 'instructors') && (
           <StudentCoachPanel
+            navigation={coachNavigation}
+            onNavigationChange={setCoachNavigation}
+            progressLoadState={coachProgress.loadState}
+            onRetryProgress={coachProgress.retry}
             bookings={isolatedLegacyBookings}
             courses={props.courses}
             instructors={props.instructors}

@@ -18,7 +18,9 @@ export const useParticipantProgressStore = create<ParticipantProgressState>((set
     set((state) => {
       const next = { ...state.byId };
       for (const item of items) {
-        next[item.participantId] = item;
+        if (!next[item.participantId] || next[item.participantId]!.revision <= item.revision) {
+          next[item.participantId] = item;
+        }
       }
       return { byId: next, loaded: true };
     }),

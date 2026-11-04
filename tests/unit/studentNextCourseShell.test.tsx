@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { cabinetLessonTiming } from '../fixtures/cabinetLessonTiming';
 import { buildResortConditionsPresentation } from '../../src/features/resort-conditions';
 import { toYMD } from '../../src/features/student-cabinet/components/student/studentCabinetPresentation';
@@ -37,6 +38,9 @@ const { managedMock, calendarSpy, coursesSpy, progressSpy } = vi.hoisted(() => (
   calendarSpy: vi.fn(),
   coursesSpy: vi.fn(),
   progressSpy: vi.fn(),
+}));
+vi.mock('../../src/features/student-cabinet/useCoachParticipantProgress', () => ({
+  useCoachParticipantProgress: () => ({ loadState: 'loaded', retry: vi.fn() }),
 }));
 vi.mock('../../src/app/providers/LanguageContext', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/app/providers/LanguageContext')>()),
@@ -128,7 +132,37 @@ vi.mock('../../src/features/student-cabinet/components/student/StudentHistoryPan
   StudentHistoryPanel: () => null,
 }));
 vi.mock('../../src/features/student-cabinet/components/student/StudentCoachPanel', () => ({
-  StudentCoachPanel: () => null,
+  StudentCoachPanel: (props: {
+    navigation?: { view: string; selectedInstructorId: string | null };
+    onNavigationChange?: (navigation: {
+      view: string;
+      selectedInstructorId: string | null;
+    }) => void;
+    selectedParticipantId?: string;
+  }) => {
+    const [local, setLocal] = useState({
+      view: 'list',
+      selectedInstructorId: null as string | null,
+    });
+    const navigation = props.navigation ?? local;
+    return (
+      <>
+        <output data-testid="coach-section">
+          {navigation.view}:{props.selectedParticipantId}
+        </output>
+        {['comments', 'videos', 'homework', 'recommendations'].map((view) => (
+          <button
+            key={view}
+            onClick={() =>
+              (props.onNavigationChange ?? setLocal)({ view, selectedInstructorId: 'coach' })
+            }
+          >
+            {view}
+          </button>
+        ))}
+      </>
+    );
+  },
 }));
 vi.mock('../../src/features/student-cabinet/components/student/BookInstructorPickerModal', () => ({
   BookInstructorPickerModal: () => null,
@@ -154,7 +188,7 @@ vi.mock(
     >()),
     StudentCabinetTabBar: ({ onSelect }: { onSelect: (tab: StudentCabinetTab) => void }) => (
       <nav>
-        {(['home', 'calendar', 'courses'] as const).map((tab) => (
+        {(['home', 'calendar', 'courses', 'coach'] as const).map((tab) => (
           <button key={tab} onClick={() => onSelect(tab)}>
             {tab}
           </button>
@@ -327,6 +361,40 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+});
+
+describe('coach participant navigation', () => {
+  it.each(['comments', 'videos', 'homework', 'recommendations'])(
+    'preserves %s through A → B → A',
+    async (section) => {
+      const user = userEvent.setup();
+      setup();
+      await user.click(screen.getByRole('button', { name: 'coach', exact: true }));
+      await user.click(screen.getByRole('button', { name: section, exact: true }));
+      for (const [name, id] of [
+        ['Bob', 'b'],
+        ['Alice', 'a'],
+      ]) {
+        await user.click(screen.getByRole('button', { name: `Select ${name} Full Name` }));
+        expect(screen.getByTestId('coach-section')).toHaveTextContent(`${section}:${id}`);
+      }
+      await user.click(screen.getByRole('button', { name: 'home', exact: true }));
+      expect(screen.queryByTestId('coach-section')).toBeNull();
+    }
+  );
+
+  it('excludes avatar gestures while retaining ordinary swipe navigation', () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'coach', exact: true }));
+    const swipe = (target: Element) => {
+      fireEvent.touchStart(target, { touches: [{ target, clientX: 300, clientY: 50 }] });
+      fireEvent.touchEnd(target, { changedTouches: [{ target, clientX: 20, clientY: 50 }] });
+    };
+    swipe(screen.getByRole('button', { name: 'Select Bob Full Name' }));
+    expect(screen.getByTestId('coach-section')).toBeInTheDocument();
+    swipe(document.body);
+    expect(screen.queryByTestId('coach-section')).toBeNull();
+  });
 });
 
 describe('Shell → Home → next course card', () => {

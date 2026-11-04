@@ -2,6 +2,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import type { Course, UserProfile } from '../../src/types';
 import type { InstructorLessonBookingItem } from '../../src/features/booking-collaboration/bookingCollaborationContracts';
+import {
+  updateCanonicalParticipantProgress,
+  refreshInstructorParticipantProgress,
+} from '../../src/features/participant-progress/participantProgressService';
+import { useParticipantProgressStore } from '../../src/features/participant-progress/participantProgressStore';
+import { emptyParticipantProgressView } from '../../src/features/participant-progress/applyParticipantProgressToProfile';
+
+vi.mock('../../src/features/participant-progress/participantProgressService', () => ({
+  updateCanonicalParticipantProgress: vi.fn().mockResolvedValue(undefined),
+  refreshInstructorParticipantProgress: vi.fn(),
+}));
 
 vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({
@@ -85,7 +96,111 @@ const courses = [
 ] as Course[];
 
 describe('useInstructorWorkspace canonical lesson isolation', () => {
+  it.each([
+    { skillScores: { carving: 4 }, skillComments: { carving: 'Other instructor text' } },
+    { skillScores: { other: 4 }, skillComments: { other: 'Different skill text' } },
+    { skillScores: { carving: 0 }, skillComments: {} },
+    { skillScores: {}, skillComments: { carving: 'Comment-only update' } },
+  ])('keeps the editing revision across store updates: %j', async (newValues) => {
+    const id = 'participant_workspace_01';
+    const initial = {
+      ...emptyParticipantProgressView(id),
+      revision: 7,
+      skillComments: { carving: 'Original' },
+    };
+    useParticipantProgressStore.getState().setItems([initial]);
+    const { result } = renderHook(() =>
+      useInstructorWorkspace({
+        userProfile,
+        instructors: [],
+        lessonBookings: [individualBooking],
+        reviews: [],
+        courses,
+        usersList: [],
+      })
+    );
+    act(() =>
+      result.current.openEvalModal(id, 'Student', 1, initial.skillScores, initial.skillComments)
+    );
+    act(() =>
+      useParticipantProgressStore.getState().setItems([{ ...initial, revision: 8, ...newValues }])
+    );
+    await act(async () =>
+      result.current.handleSaveStudentScores(id, { carving: 5 }, 1, { carving: 'Old form edit' })
+    );
+    expect(updateCanonicalParticipantProgress).toHaveBeenLastCalledWith(
+      expect.objectContaining({ expectedRevision: 7, skillComments: { carving: 'Old form edit' } })
+    );
+  });
+  it('rebases only after explicit reload and does not restore a deleted comment', async () => {
+    const id = 'participant_workspace_01';
+    const initial = {
+      ...emptyParticipantProgressView(id),
+      revision: 3,
+      skillComments: { carving: 'Deleted remotely' },
+    };
+    useParticipantProgressStore.getState().setItems([initial]);
+    const { result } = renderHook(() =>
+      useInstructorWorkspace({
+        userProfile,
+        instructors: [],
+        lessonBookings: [individualBooking],
+        reviews: [],
+        courses,
+        usersList: [],
+      })
+    );
+    act(() => result.current.openEvalModal(id, 'Student', 1));
+    const fresh = { ...initial, revision: 4, skillComments: {} };
+    vi.mocked(refreshInstructorParticipantProgress).mockImplementationOnce(async () => {
+      useParticipantProgressStore.getState().setItems([fresh]);
+      return [fresh];
+    });
+    expect(result.current.evalModalState.expectedRevision).toBe(3);
+    await act(async () => result.current.reloadEvalProgress());
+    expect(result.current.evalModalState).toMatchObject({
+      expectedRevision: 4,
+      existingComments: {},
+    });
+    await act(async () => result.current.handleSaveStudentScores(id, {}, 1, {}));
+    expect(updateCanonicalParticipantProgress).toHaveBeenLastCalledWith(
+      expect.objectContaining({ expectedRevision: 4, skillComments: {} })
+    );
+    act(() => result.current.closeEvalModal());
+    await expect(result.current.handleSaveStudentScores(id, {}, 1, {})).rejects.toThrow(
+      'Open the participant assessment'
+    );
+  });
+  it('keeps saved text for zero-rated and unrated skills in the canonical command', async () => {
+    useParticipantProgressStore
+      .getState()
+      .setItems([emptyParticipantProgressView('participant_workspace_01')]);
+    const { result } = renderHook(() =>
+      useInstructorWorkspace({
+        userProfile,
+        instructors: [],
+        lessonBookings: [individualBooking],
+        reviews: [],
+        courses,
+        usersList: [],
+      })
+    );
+    act(() => result.current.openEvalModal('participant_workspace_01', 'Student', 1));
+    await act(async () =>
+      result.current.handleSaveStudentScores('participant_workspace_01', { carving: 0 }, 1, {
+        carving: 'Zero note',
+        unrated: 'Unrated note',
+      })
+    );
+    expect(updateCanonicalParticipantProgress).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        participantId: 'participant_workspace_01',
+        skillComments: { carving: 'Zero note', unrated: 'Unrated note' },
+      })
+    );
+  });
   afterEach(() => {
+    act(() => useParticipantProgressStore.getState().clear());
     vi.useRealTimers();
   });
 

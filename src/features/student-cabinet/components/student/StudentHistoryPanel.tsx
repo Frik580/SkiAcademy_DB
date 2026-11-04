@@ -8,6 +8,7 @@ import { useProfileStore } from '../../../profile/profileStore';
 import { ActionButton } from '../../../../ui/ActionButton';
 import { usePresentedParticipantLessonFeedback } from '../../usePresentedParticipantLessonFeedback';
 import { useLessonBookingStore } from '../../../lesson-bookings/lessonBookingStore';
+import { STUDENT_CABINET_CONTENT_CLASS } from './studentCabinetPresentation';
 
 interface StudentHistoryPanelProps {
   userProfile: UserProfile;
@@ -83,7 +84,7 @@ export const StudentHistoryPanel: React.FC<StudentHistoryPanelProps> = ({
   );
 
   return (
-    <div className="space-y-0 pb-24 max-w-3xl mx-auto w-full px-4 sm:px-6 min-w-0">
+    <div className={`space-y-0 pb-24 ${STUDENT_CABINET_CONTENT_CLASS}`}>
       <section className="py-6 space-y-4">
         <ScPageIntro
           onBack={onBack}

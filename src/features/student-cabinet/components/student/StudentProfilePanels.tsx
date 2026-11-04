@@ -116,23 +116,13 @@ interface ProfilePanelShellProps {
   titleKey: TranslationKey;
   onGoToTab: (tab: StudentCabinetTab) => void;
   children: React.ReactNode;
-  wide?: boolean;
 }
 
-const ProfilePanelShell: React.FC<ProfilePanelShellProps> = ({
-  titleKey,
-  onGoToTab,
-  children,
-  wide = false,
-}) => {
+const ProfilePanelShell: React.FC<ProfilePanelShellProps> = ({ titleKey, onGoToTab, children }) => {
   const { t } = useStudentCabinetTranslations();
 
   return (
-    <div
-      className={`pb-24 mx-auto pt-6 px-4 sm:px-6 w-full min-w-0 space-y-6 ${
-        wide ? 'max-w-none' : 'max-w-3xl'
-      }`}
-    >
+    <div className={`pb-24 pt-6 space-y-6 ${STUDENT_CABINET_CONTENT_CLASS}`}>
       <div className={SC_PAGE_INTRO_CLASS}>
         <StudentPanelBackLink onClick={() => onGoToTab('settings')} labelKey="scNavProfile" />
         <ScPageTitle>{t(titleKey)}</ScPageTitle>

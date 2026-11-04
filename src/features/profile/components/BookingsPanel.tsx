@@ -7,6 +7,7 @@ import { CustomerProposalInbox } from '../../../features/booking-collaboration';
 import { ScPageIntro } from '../../../features/student-cabinet';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { StudentCabinetTab } from '../../../features/student-cabinet';
+import { STUDENT_CABINET_CONTENT_CLASS } from '../../student-cabinet/components/student/studentCabinetPresentation';
 
 export interface BookingsPanelProps {
   userProfile: UserProfile;
@@ -72,7 +73,7 @@ export const BookingsPanel: React.FC<BookingsPanelProps> = ({
   const userBookings = bookings;
 
   return (
-    <div className="space-y-6 pb-24 max-w-3xl mx-auto px-4 sm:px-6 w-full min-w-0">
+    <div className={`space-y-6 pb-24 ${STUDENT_CABINET_CONTENT_CLASS}`}>
       <div className="pt-6">
         <ScPageIntro
           onBack={showBackLink && onGoToTab ? () => onGoToTab('training') : undefined}

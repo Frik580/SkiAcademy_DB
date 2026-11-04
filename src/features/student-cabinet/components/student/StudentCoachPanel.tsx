@@ -25,7 +25,7 @@ import {
   formatMessageTimestamp,
   getInstructorHomeworkMessages,
   getInstructorMessageThreadIds,
-  getInstructorSkillComments,
+  getUnattributedSkillComments,
   getInstructorVideoMessages,
   getPreferredChatBooking,
   getStudentBookingsWithInstructor,
@@ -126,7 +126,6 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
   instructors,
   userProfile,
   usersList = [],
-  activityLogs = [],
   skillConfig,
   selectedParticipantId,
   onGoToTab,
@@ -221,16 +220,7 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
         selectedParticipantId
       )
     : [];
-  const skillComments = selectedInstructor
-    ? getInstructorSkillComments(
-        userProfile,
-        skillConfig,
-        lang,
-        selectedInstructor.id,
-        usersList,
-        activityLogs
-      )
-    : [];
+  const skillComments = getUnattributedSkillComments(userProfile, skillConfig, lang);
   const recommendationRows = selectedInstructor
     ? feedback.instructorFeedback(selectedInstructor.id)
     : [];
@@ -412,10 +402,13 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
         onBack={goBackToList}
         backLabel={selectedInstructor.name}
       >
+        <p className="type-compact text-[var(--ink-dim)]">{t('scCoachNoAttributedComments')}</p>
         {skillComments.length === 0 ? (
           <p className="type-compact text-[var(--ink-dim)]">{t('scCoachNoComments')}</p>
         ) : (
           <div className="space-y-3">
+            <ScSectionTitle>{t('scCoachCurrentSkillComments')}</ScSectionTitle>
+            <p className="type-compact text-[var(--ink-dim)]">{t('scCoachCommentAuthorUnknown')}</p>
             {skillComments.map(({ skillId, title, comment, hasScore, score, maxPoints }) => (
               <ScTintCard key={skillId} tint="amber" className="px-4 py-3.5 space-y-1.5">
                 <div className="flex items-start justify-between gap-3">

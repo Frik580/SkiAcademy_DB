@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SKILL_CONFIG } from '../../src/domain/achievements';
 import { formatSkillScore } from '../../src/lib/i18n/skillScore';
 import type { Language } from '../../src/lib/i18n/translations';
+import { translations } from '../../src/lib/i18n/translations';
 import type { ActivityLog, Booking, Instructor, UserProfile } from '../../src/types';
 import { ClientSkillProgressView } from '../../src/features/profile/components/ClientSkillProgressView';
 import { StudentSkillEvaluationModal } from '../../src/features/profile/components/StudentSkillEvaluationModal';
@@ -12,7 +13,15 @@ import { StudentCoachPanel } from '../../src/features/student-cabinet/components
 
 const locale = vi.hoisted(() => ({ language: 'en' as Language }));
 vi.mock('../../src/app/providers/LanguageContext', () => ({
-  useLanguage: () => ({ language: locale.language, t: (key: string) => key }),
+  useLanguage: () => ({
+    language: locale.language,
+    t: (key: string) =>
+      key.startsWith('scCoachNoAttributed') ||
+      key === 'scCoachCurrentSkillComments' ||
+      key === 'scCoachCommentAuthorUnknown'
+        ? translations[locale.language][key as keyof typeof translations.en]
+        : key,
+  }),
   translateInstructor: (instructor: Instructor) => instructor,
 }));
 vi.mock('../../src/features/student-cabinet/components/student/LazySkillRadarChart', () => ({
@@ -204,3 +213,88 @@ it('saves an explicitly chosen zero while leaving other missing skills absent', 
     expect(save).toHaveBeenCalledWith('participant', { skill: 0 }, 1, {}, undefined)
   );
 });
+
+describe.each<Language>(['ru', 'en'])(
+  'skill comment attribution in the coach panel (%s)',
+  (language) => {
+    it('labels current text as unknown when switching instructors and Participants, including missing history', () => {
+      locale.language = language;
+      const copy = translations[language];
+      const profile = {
+        uid: 'student',
+        level: 1,
+        skillScores: { skill: 2 },
+        skillComments: { skill: 'Instructor B current text' },
+      } as UserProfile;
+      const instructors = ['coach-a', 'coach-b'].map((id) => ({
+        id,
+        name: id,
+        isAvailable: true,
+      })) as Instructor[];
+      const logs = instructors.map(({ id }, index) => ({
+        id: `log-${index}`,
+        userId: 'student',
+        actorId: id,
+        type: 'skill_scores_updated',
+        timestamp: `2026-10-0${index + 1}T10:00:00.000Z`,
+        metadata: { instructorId: id, commentedSkillIds: ['skill'] },
+      })) as ActivityLog[];
+      const props = {
+        bookings: instructors.map(({ id }) => ({
+          id: `lesson-${id}`,
+          userId: 'student',
+          instructorId: id,
+          date: '2026-10-01',
+          status: 'completed',
+        })) as Booking[],
+        courses: [],
+        instructors,
+        userProfile: profile,
+        selectedParticipantId: 'participant-self',
+        skillConfig: {
+          items: [{ id: 'skill', titleEn: 'Carving', title: 'Карвинг', maxPoints: 3 }],
+        },
+        activityLogs: logs,
+        onGoToTab: vi.fn(),
+        onChat: vi.fn(),
+        onOpenLesson: vi.fn(),
+        onBookInstructor: vi.fn(),
+      };
+      const { rerender } = render(<StudentCoachPanel {...props} />);
+      fireEvent.click(screen.getAllByRole('button', { name: /scCoachComments/ })[0]);
+      const expectUnknown = (text: string) => {
+        expect(screen.getByText(copy.scCoachNoAttributedComments)).toBeInTheDocument();
+        expect(screen.getByText(copy.scCoachCurrentSkillComments)).toBeInTheDocument();
+        expect(screen.getByText(copy.scCoachCommentAuthorUnknown)).toBeInTheDocument();
+        expect(screen.getAllByText(`“${text}”`)).toHaveLength(1);
+      };
+      expectUnknown('Instructor B current text');
+      expect(screen.queryByText('Instructor A historical text')).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'coach-a' }));
+      fireEvent.click(screen.getAllByRole('button', { name: /scCoachComments/ })[1]);
+      expectUnknown('Instructor B current text');
+
+      rerender(
+        <StudentCoachPanel
+          {...props}
+          selectedParticipantId="participant-dependent"
+          userProfile={{ ...profile, skillComments: { skill: 'Dependent current text' } }}
+          activityLogs={[]}
+        />
+      );
+      expectUnknown('Dependent current text');
+      expect(screen.queryByText('“Instructor B current text”')).toBeNull();
+
+      rerender(
+        <StudentCoachPanel
+          {...props}
+          selectedParticipantId="participant-other"
+          userProfile={{ ...profile, uid: 'another-student', skillComments: {} }}
+        />
+      );
+      expect(screen.queryByText('“Dependent current text”')).toBeNull();
+      expect(screen.queryByText('“Instructor B current text”')).toBeNull();
+      expect(screen.getByText('scCoachNoComments')).toBeInTheDocument();
+    });
+  }
+);

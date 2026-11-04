@@ -28,6 +28,7 @@ import type {
   StudentTrainingPanelInput,
 } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
+import { STUDENT_CABINET_CONTENT_CLASS } from './studentCabinetPresentation';
 
 export { StudentDevelopmentPanel };
 
@@ -51,7 +52,7 @@ export const StudentTrainingPanel: React.FC<StudentTrainingPanelInput> = ({ onGo
   const { t } = useStudentCabinetTranslations();
 
   return (
-    <div className="space-y-8 pb-24 max-w-3xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0">
+    <div className={`space-y-8 pb-24 pt-6 ${STUDENT_CABINET_CONTENT_CLASS}`}>
       <ScPageIntro
         onBack={() => onGoToTab('home')}
         title={t('scNavTraining')}

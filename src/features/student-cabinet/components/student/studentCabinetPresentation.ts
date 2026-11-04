@@ -1,3 +1,5 @@
+export const STUDENT_CABINET_CONTENT_CLASS = 'max-w-7xl mx-auto w-full px-4 sm:px-6 min-w-0';
+
 const LEVEL_NAMES_EN: Record<number, string> = {
   1: 'BEGINNER',
   2: 'CARVE',

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { STUDENT_CABINET_CONTENT_CLASS } from './studentCabinetPresentation';
 import { formatSkillScore } from '../../../../lib/i18n/skillScore';
 import { ActivityLog, Booking, Course, Instructor, UserProfile } from '../../../../types';
 import { SkillConfig } from '../../../../domain/achievements';
@@ -607,7 +608,7 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
   };
 
   return (
-    <div className="space-y-6 pb-24 max-w-3xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0">
+    <div className={`space-y-6 pb-24 pt-6 ${STUDENT_CABINET_CONTENT_CLASS}`}>
       {view === 'list' && renderList()}
       {view === 'chat' && renderChat()}
       {view === 'videos' && renderVideos()}

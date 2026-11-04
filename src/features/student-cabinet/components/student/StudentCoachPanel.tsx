@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { formatSkillScore } from '../../../../lib/i18n/skillScore';
 import { ActivityLog, Booking, Course, Instructor, UserProfile } from '../../../../types';
 import { SkillConfig } from '../../../../domain/achievements';
 import {
@@ -414,16 +415,14 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
           <p className="type-compact text-[var(--ink-dim)]">{t('scCoachNoComments')}</p>
         ) : (
           <div className="space-y-3">
-            {skillComments.map(({ skillId, title, comment, score, maxPoints }) => (
+            {skillComments.map(({ skillId, title, comment, hasScore, score, maxPoints }) => (
               <ScTintCard key={skillId} tint="amber" className="px-4 py-3.5 space-y-1.5">
                 <div className="flex items-start justify-between gap-3">
                   <p className="type-caption font-medium uppercase text-[var(--ink-dim)]">
                     {title}
                   </p>
                   <p className="type-caption font-medium text-amber-600 tabular-nums shrink-0">
-                    {t('scCoachSkillScore')
-                      .replace('{earned}', String(score))
-                      .replace('{max}', String(maxPoints))}
+                    {formatSkillScore({ hasScore, earned: score, maxPoints }, language)}
                   </p>
                 </div>
                 <p className="type-compact text-[var(--ink)]">&ldquo;{comment}&rdquo;</p>

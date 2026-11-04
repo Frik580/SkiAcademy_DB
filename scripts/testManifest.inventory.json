@@ -599,6 +599,7 @@
   "tests/unit/selectInstructorProposalPartyCandidates.test.ts": "app-unit",
   "tests/unit/sha256Hex.test.ts": "app-unit",
   "tests/unit/sharedDomainBooking.test.ts": "app-unit",
+  "tests/unit/skillScoreDisplay.test.tsx": "app-unit",
   "tests/unit/slotOverlap.test.ts": "app-unit",
   "tests/unit/starterCredit.test.ts": "app-unit",
   "tests/unit/studentCabinetAdminCancellationSync.test.ts": "app-unit",

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { formatPointsCount } from '../../../../lib/i18n/pluralize';
+import { formatSkillScore } from '../../../../lib/i18n/skillScore';
 import {
   getLevelLabel,
   getLevelProgressPercent,
@@ -120,7 +121,7 @@ export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelInput> = (
                       </p>
                       {!hideProgress && (
                         <p className="type-caption text-[var(--ink-dim)] tabular-nums mt-1">
-                          {item.earned} / {item.maxPoints} · {item.percent}%
+                          {formatSkillScore(item, language)}
                         </p>
                       )}
                     </div>

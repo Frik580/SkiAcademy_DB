@@ -78,6 +78,7 @@ export const matchesSkillRingFilter = (item: SkillItem, filter: SkillRingFilter)
 export interface PrioritySkillItem {
   id: string;
   title: string;
+  hasScore: boolean;
   earned: number;
   maxPoints: number;
   percent: number;
@@ -105,6 +106,7 @@ export const getPrioritySkillItems = (
       return {
         id: item.id,
         title: getSkillItemTitle(item, language),
+        hasScore: Object.hasOwn(scores, item.id),
         earned,
         maxPoints: item.maxPoints,
         percent,
@@ -170,6 +172,7 @@ export const getNextStepAction = (
         return {
           id: item.id,
           title: getSkillItemTitle(item, language),
+          hasScore: Object.hasOwn(scores, item.id),
           earned,
           maxPoints: item.maxPoints,
           percent,

@@ -233,8 +233,9 @@
   }
 }
 
-@container next-session (min-width: 500px) {
-  .sc-next-session-layout {
-    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  }
+.sc-next-session-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 0.875rem;
 }

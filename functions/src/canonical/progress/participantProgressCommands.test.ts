@@ -225,6 +225,87 @@ function envelope(
 }
 
 describe('participantProgressCommands', () => {
+  it.each([participantId, childParticipantId])(
+    'removes only mastered active pins for %s, preserving history across correction and replay',
+    async (targetId) => {
+      const checklist = {
+        todaySkillItemIds: ['carving', 'skating', 'unknown'],
+        customTodayTasks: [{ id: 'custom-1', text: 'Keep practicing' }],
+        completedTodayTaskIds: ['skill:carving', 'custom:custom-1'],
+        completedTodayDate: '2026-01-01',
+        dismissedTodayTaskIds: ['recommendation-1'],
+      };
+      const checklists = { [participantId]: checklist, [childParticipantId]: checklist };
+      const world = seedWorld();
+      const userPath = `users/${studentAccountId}`;
+      const executor = createInMemoryCanonicalTransactionExecutor({
+        ...world,
+        [userPath]: { ...world[userPath], participantTodayChecklists: checklists },
+      });
+      const commands = createProductionCanonicalCommands(environment(), executor);
+      const readChecklists = () =>
+        executor.snapshot().docs.get(userPath)?.data
+          .participantTodayChecklists as typeof checklists;
+      const assess = (revision: number, score: number) =>
+        envelope({
+          participantId: targetId,
+          expectedRevision: revision,
+          idempotencyKey: `today-${targetId}-${revision}`,
+          skillScores: { carving: score, skating: 5 },
+        });
+      expect((await commands.execute(assess(0, 24))).status).toBe('success');
+      expect(readChecklists()).toEqual(checklists);
+      const maxAssessment = assess(1, 25);
+      expect((await commands.execute(maxAssessment)).status).toBe('success');
+      expect(readChecklists()[targetId]).toEqual({
+        ...checklist,
+        todaySkillItemIds: ['skating', 'unknown'],
+      });
+      const otherId = targetId === participantId ? childParticipantId : participantId;
+      expect(readChecklists()[otherId]).toEqual(checklist);
+      const eventPath = `participant_progress_events/${targetId}_2`;
+      const historical = executor.snapshot().docs.get(eventPath)?.data;
+      expect(historical).toMatchObject({ oldScores: { carving: 24 }, newScores: { carving: 25 } });
+      expect((await commands.execute(assess(2, 10))).status).toBe('success');
+      expect(readChecklists()[targetId].todaySkillItemIds).toEqual(['skating', 'unknown']);
+      expect((await commands.execute(maxAssessment)).status).toBe('success');
+      expect(readChecklists()[targetId].todaySkillItemIds).toEqual(['skating', 'unknown']);
+      expect(executor.snapshot().docs.get(eventPath)?.data).toEqual(historical);
+      expect(
+        executor.snapshot().docs.get(`participant_progress/${targetId}`)?.data.skillScores
+      ).toEqual({ carving: 10, skating: 5 });
+    }
+  );
+
+  it('removes a pin when the first saved assessment is already maximum', async () => {
+    const world = seedWorld();
+    const path = `users/${studentAccountId}`;
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      ...world,
+      [path]: {
+        ...world[path],
+        participantTodayChecklists: {
+          [childParticipantId]: { todaySkillItemIds: ['carving'] },
+        },
+      },
+    });
+    const commands = createProductionCanonicalCommands(environment(), executor);
+    const request = envelope({
+      participantId: childParticipantId,
+      expectedRevision: 0,
+      skillScores: { carving: 25 },
+    });
+    const invalid = { ...request, context: { ...request.context, expectedRevision: 99 } };
+    expect((await commands.execute(invalid)).status).toBe('error');
+    expect(executor.snapshot().docs.get(path)?.data.participantTodayChecklists).toEqual({
+      [childParticipantId]: { todaySkillItemIds: ['carving'] },
+    });
+    expect((await commands.execute(request)).status).toBe('success');
+    expect(executor.snapshot().docs.get(path)?.data.participantTodayChecklists).toEqual({
+      [childParticipantId]: { todaySkillItemIds: [] },
+    });
+  });
+
   it('atomically keeps participant daily baselines across updates, replay and the school-day rollover', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedWorld());
     const at = new Date('2026-01-01T18:50:00Z');

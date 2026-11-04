@@ -1,3 +1,4 @@
+import { removeMasteredTodaySkills } from './participantTodaySkills';
 import { readProgressionConfig, stageProgressEvent } from './participantLevelSupport';
 import {
   reviewParticipantQualifications,
@@ -305,6 +306,7 @@ function updateParticipantProgressHandler(
   let config!: ProgressionConfig;
   let writeEvent!: () => void;
   let presentationActivityLog: ReturnType<typeof progressActivityLog>;
+  let checklistUpdate: { path: string; data: Record<string, unknown> } | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'update_participant_progress'> = {
     read: async (session) => {
@@ -447,11 +449,8 @@ function updateParticipantProgressHandler(
       });
 
       presentationActivityLog = undefined;
-      if (
-        management?.authority === 'self' &&
-        management.status === 'active' &&
-        management.participantId === participantId
-      ) {
+      checklistUpdate = undefined;
+      if (management?.status === 'active' && management.participantId === participantId) {
         const recipientPath = accountPath(management.accountId);
         const recipientRead = await session.tx.get({ path: recipientPath });
         session.plan.planRead({ path: recipientPath, category: 'authorization_check' });
@@ -464,40 +463,58 @@ function updateParticipantProgressHandler(
           identityDocumentMatchesReadScope(scope, recipientData) &&
           (scope.dataScope === 'live' || recipientData.dataScope === 'test')
         ) {
-          let skillItems: ReturnType<typeof skillActivityMetadata> = new Map();
-          if (
-            Object.entries(planned.skillScores).some(
-              ([itemId, score]) => score !== (current?.skillScores[itemId] ?? 0)
-            )
-          ) {
-            skillItems = skillActivityMetadata({ items: config.items });
-          }
-          presentationActivityLog = progressActivityLog({
-            accountId: management.accountId,
-            actorId: actor.accountId,
-            instructorId,
-            commandKey: identity.commandKey,
-            at: environment.clock.decidedAt(),
-            previous: current,
-            next: planned,
-            scope,
-            skillItems,
-          });
-          if (presentationActivityLog) {
-            const existingLog = await session.tx.get({ path: presentationActivityLog.path });
-            session.plan.planRead({
-              path: presentationActivityLog.path,
+          const checklistData = removeMasteredTodaySkills(
+            recipientData,
+            management.accountId,
+            participantId,
+            planned.skillScores,
+            config
+          );
+          if (checklistData) {
+            checklistUpdate = { path: recipientPath, data: checklistData };
+            session.plan.planMutation({
+              path: recipientPath,
+              kind: 'update',
               category: 'aggregate',
+              estimatedPayloadBytes: 16_384,
             });
-            if (existingLog.exists) {
-              presentationActivityLog = undefined;
-            } else {
-              session.plan.planMutation({
+          }
+          if (management.authority === 'self') {
+            let skillItems: ReturnType<typeof skillActivityMetadata> = new Map();
+            if (
+              Object.entries(planned.skillScores).some(
+                ([itemId, score]) => score !== (current?.skillScores[itemId] ?? 0)
+              )
+            ) {
+              skillItems = skillActivityMetadata({ items: config.items });
+            }
+            presentationActivityLog = progressActivityLog({
+              accountId: management.accountId,
+              actorId: actor.accountId,
+              instructorId,
+              commandKey: identity.commandKey,
+              at: environment.clock.decidedAt(),
+              previous: current,
+              next: planned,
+              scope,
+              skillItems,
+            });
+            if (presentationActivityLog) {
+              const existingLog = await session.tx.get({ path: presentationActivityLog.path });
+              session.plan.planRead({
                 path: presentationActivityLog.path,
-                kind: 'create',
                 category: 'aggregate',
-                estimatedPayloadBytes: 8_192,
               });
+              if (existingLog.exists) {
+                presentationActivityLog = undefined;
+              } else {
+                session.plan.planMutation({
+                  path: presentationActivityLog.path,
+                  kind: 'create',
+                  category: 'aggregate',
+                  estimatedPayloadBytes: 8_192,
+                });
+              }
             }
           }
         }
@@ -526,6 +543,9 @@ function updateParticipantProgressHandler(
         session.tx.update({ path: progressDocumentPath }, payload);
       } else {
         session.tx.create({ path: progressDocumentPath }, payload);
+      }
+      if (checklistUpdate) {
+        session.tx.update({ path: checklistUpdate.path }, checklistUpdate.data);
       }
       if (presentationActivityLog) {
         session.tx.create({ path: presentationActivityLog.path }, presentationActivityLog.data);

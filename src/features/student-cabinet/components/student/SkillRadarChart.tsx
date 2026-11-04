@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { formatSkillScore } from '../../../../lib/i18n/skillScore';
 import {
   DEFAULT_SKILL_CONFIG,
   calculateSkillProgress,
@@ -589,12 +590,12 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
                           {!isCollapsed && (
                             <ul className="space-y-2">
                               {levelExercises.map(
-                                ({ item, earned, maxPoints, pinned, isMaxScore }) => {
+                                ({ item, hasScore, earned, maxPoints, pinned, isMaxScore }) => {
                                   const coachComment = userProfile.skillComments?.[item.id]?.trim();
                                   return (
                                     <li
                                       key={item.id}
-                                      className="rounded-lg border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-4 py-3 flex items-start justify-between gap-3"
+                                      className="rounded-lg border border-[var(--border-subtle)] bg-[var(--profile-bg)] px-4 py-3 flex flex-wrap items-start justify-between gap-3"
                                     >
                                       <div className="flex items-start gap-2.5 min-w-0 flex-1">
                                         {isMaxScore ? (
@@ -640,7 +641,10 @@ export const SkillRadarChart: React.FC<SkillRadarChartInput> = ({
                                             : 'text-[var(--ink-dim)]'
                                         }`}
                                       >
-                                        {earned}/{maxPoints}
+                                        {formatSkillScore(
+                                          { hasScore, earned, maxPoints },
+                                          language
+                                        )}
                                       </span>
                                     </li>
                                   );

@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { formatSkillScore } from '../../../lib/i18n/skillScore';
 import { UserProfile } from '../../../types';
 import {
   SkillConfig,
@@ -99,7 +100,14 @@ export const ClientSkillProgressView: React.FC<ClientSkillProgressViewProps> = (
                               : 'text-[var(--ink-dim)]'
                           }`}
                         >
-                          {earned} / {item.maxPoints}
+                          {formatSkillScore(
+                            {
+                              hasScore: Object.hasOwn(userProfile.skillScores ?? {}, item.id),
+                              earned,
+                              maxPoints: item.maxPoints,
+                            },
+                            language
+                          )}
                         </p>
                       )}
                       {userProfile.skillComments?.[item.id]?.trim() && (

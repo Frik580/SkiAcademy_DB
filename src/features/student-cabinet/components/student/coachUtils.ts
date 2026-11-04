@@ -112,6 +112,7 @@ export const getInstructorHomeworkMessages = (
 
 export type InstructorSkillComment = {
   skillId: string;
+  hasScore: boolean;
   title: string;
   comment: string;
   score: number;
@@ -184,6 +185,7 @@ export const getInstructorSkillComments = (
       const score = scores[item.id] ?? 0;
       return {
         skillId: item.id,
+        hasScore: Object.hasOwn(scores, item.id),
         title: getSkillItemTitle(item, language),
         comment,
         score: Math.min(item.maxPoints, Math.max(0, score)),

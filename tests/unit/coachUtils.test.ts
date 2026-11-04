@@ -152,6 +152,7 @@ describe('getInstructorSkillComments', () => {
         title: 'Carving',
         comment: 'Keep knees bent',
         score: 8,
+        hasScore: true,
         maxPoints: 20,
       },
     ]);

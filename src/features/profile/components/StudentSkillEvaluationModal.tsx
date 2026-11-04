@@ -1,4 +1,5 @@
 import { SkillRadarChart } from '../../student-cabinet/components/student/SkillRadarChart';
+import { formatSkillScore } from '../../../lib/i18n/skillScore';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   SkillConfig,
@@ -321,6 +322,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
         ) : (
           stageItems.map((item) => {
             const currentScore = scores[item.id] ?? 0;
+            const hasScore = Object.hasOwn(scores, item.id);
             return (
               <div
                 key={item.id}
@@ -341,19 +343,19 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
 
                 {/* Rating Controls */}
                 <div className="flex flex-col items-end gap-2 shrink-0 min-w-0 w-full md:w-80">
-                  <div className="flex w-full items-center justify-end gap-3">
+                  <div className="flex flex-wrap w-full items-center justify-end gap-3">
                     <div className="flex flex-wrap items-center gap-1.5 bg-black/30 border border-[var(--border)] p-1">
                       {[...Array(item.maxPoints + 1)].map((_, val) => (
                         <button
                           key={val}
                           disabled={readOnly}
                           aria-label={`${getSkillItemTitle(item, language)}: ${val} / ${item.maxPoints}`}
-                          aria-pressed={Object.hasOwn(scores, item.id) && currentScore === val}
+                          aria-pressed={hasScore && currentScore === val}
                           onClick={() => handleScoreChange(item.id, val, item.maxPoints)}
                           className={`w-6 h-6 type-button transition cursor-pointer ${
-                            Object.hasOwn(scores, item.id) && currentScore === val
+                            hasScore && currentScore === val
                               ? 'bg-[var(--accent)] text-[var(--accent-foreground)] shadow'
-                              : val <= currentScore
+                              : hasScore && val <= currentScore
                                 ? 'bg-accent-muted text-accent'
                                 : 'bg-transparent text-[var(--ink-dim)] hover:text-[var(--ink)]'
                           }`}
@@ -363,17 +365,12 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
                       ))}
                     </div>
 
-                    <div className="text-right w-14 shrink-0">
+                    <div className="text-right min-w-0">
                       <span className="type-caption font-medium text-amber-400">
-                        {Object.hasOwn(scores, item.id)
-                          ? currentScore
-                          : language === 'ru'
-                            ? 'Не оценено'
-                            : 'Not evaluated'}
-                      </span>
-                      <span className="type-caption text-[var(--ink-dim)]">
-                        {' '}
-                        / {item.maxPoints}
+                        {formatSkillScore(
+                          { hasScore, earned: currentScore, maxPoints: item.maxPoints },
+                          language
+                        )}
                       </span>
                     </div>
                   </div>

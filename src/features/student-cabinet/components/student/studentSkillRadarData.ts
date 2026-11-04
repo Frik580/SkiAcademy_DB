@@ -13,6 +13,7 @@ export type RadarDimensionFilter = 'all' | RadarDimensionKey;
 
 export interface RadarExercise {
   item: SkillItem;
+  hasScore: boolean;
   earned: number;
   maxPoints: number;
   pinned: boolean;
@@ -134,6 +135,7 @@ export function buildRadarDimensions({
       dimensionMap[key].max += item.maxPoints;
       dimensionMap[key].exercises.push({
         item,
+        hasScore: Object.hasOwn(scores, item.id),
         earned,
         maxPoints: item.maxPoints,
         pinned: pinnedIds.has(item.id),

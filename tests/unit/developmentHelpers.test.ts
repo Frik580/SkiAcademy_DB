@@ -4,8 +4,10 @@ import {
   getPrioritySkillItems,
   getSkillItemRingCategory,
   matchesSkillRingFilter,
+  getLevelProgressPercent,
 } from '../../src/features/student-cabinet/components/student/studentCabinetUtils';
-import { DEFAULT_SKILL_CONFIG } from '../../src/domain/achievements';
+import { DEFAULT_SKILL_CONFIG, calculateSkillProgress } from '../../src/domain/achievements';
+import { buildRadarDimensions } from '../../src/features/student-cabinet/components/student/studentSkillRadarData';
 import { UserProfile } from '../../src/types';
 
 const baseProfile: UserProfile = {
@@ -21,6 +23,68 @@ const baseProfile: UserProfile = {
 };
 
 describe('development helpers', () => {
+  it('preserves priority order, automatic next step, XP totals, level progress and radar math', () => {
+    const config = {
+      ...DEFAULT_SKILL_CONFIG,
+      items: ['missing', 'zero', 'positive', 'full'].map((id) => ({
+        ...DEFAULT_SKILL_CONFIG.items[0],
+        id,
+        title: id,
+        titleEn: id,
+        maxPoints: 3,
+        levelTarget: 1,
+      })),
+    };
+    const profile = {
+      ...baseProfile,
+      skillScores: { zero: 0, positive: 1, full: 3 },
+      todaySkillItemIds: ['positive'],
+    };
+    const original = structuredClone(profile);
+    const priority = getPrioritySkillItems(profile, config);
+    expect(priority.map((item) => item.id)).toEqual(['positive', 'missing', 'zero']);
+    expect(priority.map((item) => item.hasScore)).toEqual([true, false, true]);
+    expect(getNextStepAction(profile, undefined, config, 'en')).toEqual({
+      kind: 'exercise',
+      exerciseId: 'missing',
+      exerciseTitle: 'missing',
+      pointsGain: 3,
+      levelProgressDelta: 30,
+      targetLevel: 2,
+      pinned: false,
+    });
+    expect(getLevelProgressPercent(profile, config)).toMatchObject({ percent: 40, remaining: 6 });
+    expect(calculateSkillProgress(profile.skillScores, config.items, 1, 80)).toMatchObject({
+      targetEarnedPoints: 4,
+      targetMaxPoints: 12,
+      targetRequiredPoints: 10,
+      remainingPointsNeeded: 6,
+      overall: { earned: 4, max: 12, percentage: 33 },
+    });
+    const dimensions = buildRadarDimensions({
+      items: config.items,
+      scores: profile.skillScores,
+      targetStage: 1,
+      pinnedIds: new Set(),
+    });
+    const dimension = dimensions.find((entry) => entry.exercises.length > 0)!;
+    expect(dimension).toMatchObject({ earned: 4, max: 12, percent: 33 });
+    expect(dimension.exercises.map((item) => [item.earned, item.hasScore])).toEqual([
+      [0, false],
+      [0, true],
+      [1, true],
+      [3, true],
+    ]);
+    const allExplicit = { ...profile, skillScores: { ...profile.skillScores, missing: 0 } };
+    expect(getNextStepAction(allExplicit, undefined, config, 'en')).toEqual(
+      getNextStepAction(profile, undefined, config, 'en')
+    );
+    expect(getLevelProgressPercent(allExplicit, config)).toEqual(
+      getLevelProgressPercent(profile, config)
+    );
+    expect(profile).toEqual(original);
+  });
+
   it('classifies skill items by dominant ring category', () => {
     const techniqueItem = DEFAULT_SKILL_CONFIG.items.find((i) => i.id === 'l1_9');
     const controlItem = DEFAULT_SKILL_CONFIG.items.find((i) => i.id === 'l1_1');

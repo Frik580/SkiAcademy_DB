@@ -30,6 +30,7 @@ import { StudentHistoryList } from './StudentHistoryList';
 import { WalletPanel } from '../../../../features/profile';
 import type { StudentProfileHubInput, StudentProfilePanelProps } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
+import { STUDENT_CABINET_CONTENT_CLASS } from './studentCabinetPresentation';
 import { usePresentedParticipantLessonFeedback } from '../../usePresentedParticipantLessonFeedback';
 import { useSelectedParticipantLessonStats } from '../../useSelectedParticipantLessonStats';
 import { accountReviewEvidenceFromCanonicalPresentation } from '../../../participant-achievements';
@@ -145,7 +146,7 @@ export const StudentProfileHubPanel: React.FC<StudentProfileHubInput> = ({ onGoT
   const { t } = useStudentCabinetTranslations();
 
   return (
-    <div className="space-y-8 pb-24 max-w-3xl mx-auto pt-6 px-4 sm:px-6 w-full min-w-0">
+    <div className={`space-y-8 pb-24 pt-6 ${STUDENT_CABINET_CONTENT_CLASS}`}>
       <ScPageIntro
         onBack={() => onGoToTab('home')}
         title={t('scNavProfile')}

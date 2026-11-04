@@ -29,6 +29,7 @@ import { StudentNextStepCard } from './StudentNextStepCard';
 import { StudentDashboardTile } from './StudentDashboardTile';
 import { StudentDashboardColumns } from './StudentDashboardColumns';
 import './studentCabinetFoundation.css';
+import { STUDENT_CABINET_CONTENT_CLASS } from './studentCabinetPresentation';
 import { useSettingsStore } from '../../../settings/settingsStore';
 import {
   STUDENT_DASHBOARD_TILES,
@@ -438,7 +439,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
           onOpenDevelopment={onContinueDevelopment}
         />
       </div>
-      <div className="sc-dashboard max-w-7xl mx-auto w-full px-4 sm:px-6 min-w-0">
+      <div className={`sc-dashboard ${STUDENT_CABINET_CONTENT_CLASS}`}>
         <header className="py-6 space-y-2.5 min-w-0">
           <p className="type-body font-medium text-[var(--ink)] break-words">
             {getGreeting(lang, getFirstName(userProfile.displayName))}

@@ -76,18 +76,17 @@ export function createQueryParticipantProgressReadModelsHandler(firestore: Fires
         readContext,
         readScope,
       });
-      // Old strict readers do not know levelState. This is a wire projection,
-      // never a rewrite of historical/canonical progress.
-      return participantProgressContract === 2
-        ? result
-        : {
-            ...result,
-            items: result.items.map((item) => {
-              const legacyItem = { ...item };
-              delete legacyItem.levelState;
-              return legacyItem;
-            }),
-          };
+      // Negotiate optional fields for deployed clients with strict schemas.
+      return {
+        ...result,
+        items: result.items.map((item) => {
+          const projected = { ...item };
+          if (participantProgressContract !== 3) delete projected.skillCommentAttribution;
+          if (participantProgressContract !== 2 && participantProgressContract !== 3)
+            delete projected.levelState;
+          return projected;
+        }),
+      };
     } catch (error) {
       if (error instanceof ParticipantProgressReadDeniedError) {
         throw new HttpsError('permission-denied', 'This action is not permitted.');

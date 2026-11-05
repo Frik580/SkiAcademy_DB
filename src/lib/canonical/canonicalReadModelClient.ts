@@ -234,7 +234,7 @@ export async function queryParticipantProgressReadModels(
     QueryParticipantProgressReadModelsResult
   >(
     QUERY_PARTICIPANT_PROGRESS_READ_MODELS_CALLABLE,
-    { ...input, participantProgressContract: 2 },
+    { ...input, participantProgressContract: 3 },
     {
       idempotencyKey: `read:participant_progress:${identityHash}`,
       maxAttempts: 1,

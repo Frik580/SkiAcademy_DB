@@ -225,6 +225,142 @@ function envelope(
 }
 
 describe('participantProgressCommands', () => {
+  it('retries an atomic event-create collision once without duplicate progress or history', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedWorld());
+    let attempts = 0;
+    const commands = createProductionCanonicalCommands(environment(), {
+      runAtomic: (input) =>
+        executor.runAtomic({
+          ...input,
+          run: async (session) => {
+            const result = await input.run(session);
+            if (attempts++ === 0)
+              throw Object.assign(
+                new Error(`ALREADY_EXISTS participant_progress_events/${participantId}_1`),
+                { code: 6 }
+              );
+            return result;
+          },
+        }),
+    });
+    expect((await commands.execute(envelope({ expectedRevision: 0 }))).status).toBe('success');
+    expect(attempts).toBe(2);
+    expect(
+      executor.snapshot().docs.get(`participant_progress/${participantId}`)!.data.revision
+    ).toBe(1);
+    expect(
+      [...executor.snapshot().docs.keys()].filter((key) =>
+        key.startsWith('participant_progress_events/')
+      )
+    ).toHaveLength(1);
+  });
+  it('does not infer historical text authorship, preserving unknown skills and zero scores', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedWorld());
+    const commands = createProductionCanonicalCommands(environment(), executor);
+    expect((await commands.execute(envelope({ expectedRevision: 0 }))).status).toBe('success');
+    const path = `participant_progress/${participantId}`;
+    const persisted = { ...executor.snapshot().docs.get(path)!.data };
+    delete persisted.skillCommentAttribution;
+    persisted.skillScores = { carving: 10, retired_skill: 0 };
+    persisted.skillComments = { carving: 'Good edge', retired_skill: 'Historical note' };
+    const oldExecutor = createInMemoryCanonicalTransactionExecutor({
+      ...seedWorld(),
+      [path]: persisted,
+    });
+    const oldCommands = createProductionCanonicalCommands(environment(), oldExecutor);
+    expect(
+      (
+        await oldCommands.execute(
+          envelope({
+            expectedRevision: 1,
+            idempotencyKey: 'historical_unknown',
+            skillScores: { carving: 11, retired_skill: 0 },
+            skillComments: { carving: 'Good edge', retired_skill: 'Historical note' },
+          })
+        )
+      ).status
+    ).toBe('success');
+    expect(oldExecutor.snapshot().docs.get(path)!.data).toMatchObject({
+      skillCommentAttribution: {},
+      skillComments: persisted.skillComments,
+      skillScores: { carving: 11, retired_skill: 0 },
+    });
+  });
+  it('rejects oversized two-snapshot events atomically before Firestore commit', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedWorld());
+    const commands = createProductionCanonicalCommands(environment(), executor);
+    const comments = Object.fromEntries(
+      Array.from({ length: 128 }, (_, i) => [`skill_${i}`, '\u0800'.repeat(2000)])
+    );
+    expect(
+      (await commands.execute(envelope({ expectedRevision: 0, skillComments: comments }))).status
+    ).toBe('success');
+    const before = executor.snapshot().docs.get(`participant_progress/${participantId}`)!.data;
+    const result = await commands.execute(
+      envelope({
+        expectedRevision: 1,
+        idempotencyKey: 'oversized_event',
+        skillComments: { ...comments, skill_0: '\u0801'.repeat(2000) },
+      })
+    );
+    expect(result).toMatchObject({ status: 'error', error: { code: 'validation' } });
+    expect(executor.snapshot().docs.get(`participant_progress/${participantId}`)!.data).toEqual(
+      before
+    );
+    expect(executor.snapshot().docs.has(`participant_progress_events/${participantId}_2`)).toBe(
+      false
+    );
+  });
+  it('keeps per-text authorship, unknown historical authors, deletion history and replay atomic', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedWorld());
+    const commands = createProductionCanonicalCommands(environment(), executor);
+    const path = `participant_progress/${participantId}`;
+    const read = () => executor.snapshot().docs.get(path)!.data;
+    const save = (revision: number, comments: Record<string, string>, score = 10) =>
+      envelope({
+        expectedRevision: revision,
+        idempotencyKey: `attribution_${revision}`,
+        skillScores: { carving: score },
+        skillComments: comments,
+      });
+    const first = save(0, { carving: 'First text' });
+    expect((await commands.execute(first)).status).toBe('success');
+    const author = {
+      instructorId,
+      accountId: instructorAccountId,
+      updatedAt: decidedAt,
+      revision: 1,
+    };
+    expect(read().skillCommentAttribution).toEqual({ carving: author });
+    expect((await commands.execute(save(1, { carving: 'First text' }, 0))).status).toBe('success');
+    expect(read().skillCommentAttribution).toEqual({ carving: author });
+    expect((await commands.execute(save(2, { carving: 'Changed text' }, 0))).status).toBe(
+      'success'
+    );
+    expect(read().skillCommentAttribution).toEqual({ carving: { ...author, revision: 3 } });
+    const deletion = save(3, {}, 0);
+    expect((await commands.execute(deletion)).status).toBe('success');
+    expect(read().skillCommentAttribution).toEqual({});
+    const event = executor
+      .snapshot()
+      .docs.get(`participant_progress_events/${participantId}_4`)!.data;
+    expect(event).toMatchObject({
+      instructorId,
+      oldComments: { carving: 'Changed text' },
+      newComments: {},
+      revision: 4,
+    });
+    expect((await commands.execute(deletion)).status).toBe('success');
+    expect(
+      executor.snapshot().docs.get(`participant_progress_events/${participantId}_4`)!.data
+    ).toEqual(event);
+    expect(
+      [...executor.snapshot().docs.keys()].filter((key) =>
+        key.startsWith('participant_progress_events/')
+      )
+    ).toHaveLength(4);
+  });
+
   it.each([participantId, childParticipantId])(
     'removes only mastered active pins for %s, preserving history across correction and replay',
     async (targetId) => {

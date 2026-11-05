@@ -16,9 +16,7 @@ vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({
     language: locale.language,
     t: (key: string) =>
-      key.startsWith('scCoachNoAttributed') ||
-      key === 'scCoachCurrentSkillComments' ||
-      key === 'scCoachCommentAuthorUnknown'
+      key === 'scCoachCurrentSkillComments'
         ? translations[locale.language][key as keyof typeof translations.en]
         : key,
   }),
@@ -344,9 +342,15 @@ describe.each<Language>(['ru', 'en'])(
       const { rerender } = render(<StudentCoachPanel {...props} />);
       fireEvent.click(screen.getAllByRole('button', { name: /scCoachComments/ })[0]);
       const expectUnknown = (text: string) => {
-        expect(screen.getByText(copy.scCoachNoAttributedComments)).toBeInTheDocument();
+        expect(
+          screen.queryByText(
+            /confirmed authorship|подтверждённым авторством|scCoachNoAttributedComments/
+          )
+        ).toBeNull();
         expect(screen.getByText(copy.scCoachCurrentSkillComments)).toBeInTheDocument();
-        expect(screen.getByText(copy.scCoachCommentAuthorUnknown)).toBeInTheDocument();
+        expect(
+          screen.queryByText(/Author unknown|Автор неизвестен|scCoachCommentAuthorUnknown/)
+        ).toBeNull();
         expect(screen.getAllByText(`“${text}”`)).toHaveLength(1);
       };
       expectUnknown('Instructor B current text');

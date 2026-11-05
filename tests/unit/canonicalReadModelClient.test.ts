@@ -707,7 +707,7 @@ describe('canonicalReadModelClient', () => {
     await queryManagedParticipantProgressReadModels();
     expect(callFunctionMock).toHaveBeenCalledWith(
       QUERY_PARTICIPANT_PROGRESS_READ_MODELS_CALLABLE,
-      { scope: 'managed', participantProgressContract: 2 },
+      { scope: 'managed', participantProgressContract: 3 },
       expect.objectContaining({
         maxAttempts: 1,
       })

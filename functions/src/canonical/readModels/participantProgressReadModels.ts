@@ -59,6 +59,9 @@ function toReadModel(
     ...(progress.levelState ? { levelState: progress.levelState } : {}),
     skillScores: progress.skillScores,
     skillComments: progress.skillComments,
+    ...(progress.skillCommentAttribution
+      ? { skillCommentAttribution: progress.skillCommentAttribution }
+      : {}),
     ...(progress.dailyProgress ? { dailyProgress: progress.dailyProgress } : {}),
     revision: progress.revision,
     updatedAt: progress.updatedAt,

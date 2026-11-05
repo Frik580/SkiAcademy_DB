@@ -417,7 +417,6 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
         onBack={goBackToList}
         backLabel={selectedInstructor.name}
       >
-        <p className="type-compact text-[var(--ink-dim)]">{t('scCoachNoAttributedComments')}</p>
         {progressLoadState === 'idle' || progressLoadState === 'loading' ? (
           <p role="status" className="type-compact text-[var(--ink-dim)]">
             {t('loading')}
@@ -432,7 +431,6 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
         ) : (
           <div className="space-y-3">
             <ScSectionTitle>{t('scCoachCurrentSkillComments')}</ScSectionTitle>
-            <p className="type-compact text-[var(--ink-dim)]">{t('scCoachCommentAuthorUnknown')}</p>
             {skillComments.map(({ skillId, title, comment, hasScore, score, maxPoints }) => (
               <ScTintCard key={skillId} tint="amber" className="px-4 py-3.5 space-y-1.5">
                 <div className="flex items-start justify-between gap-3">

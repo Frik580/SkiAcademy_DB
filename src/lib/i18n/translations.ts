@@ -416,11 +416,7 @@ export const translations = {
     scCoachVideoReviews: 'Video reviews',
     scCoachVideoReviewsSub: 'Coach video feedback from your lessons',
     scCoachComments: 'Comments on my skills',
-    scCoachNoAttributedComments:
-      'No skill comments with confirmed authorship from this instructor are available.',
     scCoachCurrentSkillComments: 'Current skill comments',
-    scCoachCommentAuthorUnknown:
-      'Author unknown. These comments belong to the selected participant’s current progress and are not attributed to the selected instructor.',
     scCoachCommentsSub: 'Notes on your technique and exercises',
     scCoachHomework: 'Homework',
     scCoachHomeworkSub: 'Assignments and materials from your coach',
@@ -3031,11 +3027,7 @@ export const translations = {
     scCoachVideoReviews: 'Видеоразборы',
     scCoachVideoReviewsSub: 'Видеообратная связь от тренера',
     scCoachComments: 'Комментарии к моим навыкам',
-    scCoachNoAttributedComments:
-      'Нет доступных комментариев к навыкам с подтверждённым авторством этого инструктора.',
     scCoachCurrentSkillComments: 'Текущие комментарии к навыкам',
-    scCoachCommentAuthorUnknown:
-      'Автор неизвестен. Эти комментарии относятся к текущему прогрессу выбранного участника и не приписываются выбранному инструктору.',
     scCoachCommentsSub: 'Заметки по технике и упражнениям',
     scCoachHomework: 'Домашние задания',
     scCoachHomeworkSub: 'Задания и материалы от тренера',

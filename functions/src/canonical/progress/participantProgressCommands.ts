@@ -289,7 +289,7 @@ export async function assertInstructorMayUpdateParticipantProgress(
   return management;
 }
 
-function updateParticipantProgressHandler(
+async function updateParticipantProgressHandler(
   envelope: CommandEnvelope<'update_participant_progress'>,
   environment: CommandExecutionEnvironment,
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
@@ -432,6 +432,25 @@ function updateParticipantProgressHandler(
         ),
         skillScores: envelope.intent.skillScores,
         skillComments: envelope.intent.skillComments,
+        skillCommentAttribution: Object.fromEntries(
+          Object.entries(envelope.intent.skillComments).flatMap(([skillId, comment]) => {
+            if (comment !== current?.skillComments[skillId]) {
+              return [
+                [
+                  skillId,
+                  {
+                    instructorId,
+                    accountId: actor.accountId,
+                    updatedAt: decidedAt,
+                    revision: nextRevision,
+                  },
+                ],
+              ];
+            }
+            const attribution = current?.skillCommentAttribution?.[skillId];
+            return attribution ? [[skillId, attribution]] : [];
+          })
+        ),
         dailyProgress: nextParticipantDailyProgress(current, environment.clock.decidedAt()),
         updatedBy: {
           kind: 'instructor',
@@ -557,12 +576,31 @@ function updateParticipantProgressHandler(
     },
   };
 
-  return executeAuthoritativeIdempotentCanonicalCommand({
-    envelope,
-    environment,
-    executor,
-    handler,
-  });
+  const execute = () =>
+    executeAuthoritativeIdempotentCanonicalCommand({
+      envelope,
+      environment,
+      executor,
+      handler,
+    });
+  try {
+    return await execute();
+  } catch (error) {
+    // Firestore Emulator can report an immutable event create collision as
+    // ALREADY_EXISTS instead of ABORTED. Retry this whole atomic command once:
+    // expectedRevision then rejects the loser, or idempotency returns the winner.
+    const code =
+      typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined;
+    const message = error instanceof Error ? error.message : '';
+    if (
+      (code === 6 || code === 'already-exists') &&
+      planned &&
+      message.includes(`participant_progress_events/${participantId}_${planned.revision}`)
+    ) {
+      return execute();
+    }
+    throw error;
+  }
 }
 
 export function createParticipantProgressCommandHandlers(

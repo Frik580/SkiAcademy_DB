@@ -66,50 +66,56 @@ export function stageProgressEvent(
   reason?: unknown
 ): () => void {
   const path = `participant_progress_events/${next.participantId}_${next.revision}`;
-  session.plan.planMutation({
-    path,
-    kind: 'create',
-    category: 'aggregate',
-    estimatedPayloadBytes: 32768,
-  });
   const before = calculateParticipantStage(
     previous?.level ?? 1,
     previous?.skillScores ?? {},
     config
   );
   const after = calculateParticipantStage(next.level, next.skillScores, config);
-  return () =>
-    session.tx.create(
-      { path },
-      {
-        ...canonicalScopeFields(session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE),
-        participantId: next.participantId,
-        commandId: next.audit.lastChangedByCommandId,
-        actor: envelope.context.actor,
-        at: next.updatedAt,
-        revision: next.revision,
-        kind: envelope.kind,
-        oldLevel: previous?.level ?? 1,
-        newLevel: next.level,
-        oldScores: previous?.skillScores ?? {},
-        newScores: next.skillScores,
-        oldComments: previous?.skillComments ?? {},
-        newComments: next.skillComments,
-        thresholdReached: !before.ready && after.ready,
-        stage: { ...after, nextLevel: after.nextLevel ?? null },
-        config: {
-          passPercentage: config.passPercentage,
-          items: config.items.map(({ id, levelTarget, maxPoints }) => ({
-            id,
-            levelTarget,
-            maxPoints,
-          })),
-        },
-        ...(previous?.levelState ? { previousLevelState: previous.levelState } : {}),
-        ...(next.levelState ? { levelState: next.levelState } : {}),
-        ...(reason ? { reason } : {}),
-      }
-    );
+  const data = {
+    ...canonicalScopeFields(session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE),
+    participantId: next.participantId,
+    commandId: next.audit.lastChangedByCommandId,
+    actor: envelope.context.actor,
+    // Only assessment commands resolve an instructor for this event. A level
+    // operation must never inherit the previous assessment's updatedBy.
+    ...(envelope.kind === 'update_participant_progress' && next.updatedBy
+      ? { instructorId: next.updatedBy.instructorId }
+      : {}),
+    at: next.updatedAt,
+    revision: next.revision,
+    kind: envelope.kind,
+    oldLevel: previous?.level ?? 1,
+    newLevel: next.level,
+    oldScores: previous?.skillScores ?? {},
+    newScores: next.skillScores,
+    oldComments: previous?.skillComments ?? {},
+    newComments: next.skillComments,
+    thresholdReached: !before.ready && after.ready,
+    stage: { ...after, nextLevel: after.nextLevel ?? null },
+    config: {
+      passPercentage: config.passPercentage,
+      items: config.items.map(({ id, levelTarget, maxPoints }) => ({
+        id,
+        levelTarget,
+        maxPoints,
+      })),
+    },
+    ...(previous?.levelState ? { previousLevelState: previous.levelState } : {}),
+    ...(next.levelState ? { levelState: next.levelState } : {}),
+    ...(reason ? { reason } : {}),
+  };
+  // Both snapshots must fit one immutable Firestore document. Reserve encoding
+  // overhead rather than silently losing the history or failing during commit.
+  const estimatedPayloadBytes = Buffer.byteLength(JSON.stringify(data), 'utf8') + 16_384;
+  if (estimatedPayloadBytes >= 1_048_576) {
+    throw new CanonicalCommandError('validation', {
+      correlationId: envelope.context.correlationId,
+      details: { field: 'skillComments', reason: 'malformed' },
+    });
+  }
+  session.plan.planMutation({ path, kind: 'create', category: 'aggregate', estimatedPayloadBytes });
+  return () => session.tx.create({ path }, data);
 }
 
 /** Preserve the existing self-participant activity feed for actual level changes. */

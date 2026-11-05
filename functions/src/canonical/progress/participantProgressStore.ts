@@ -11,8 +11,9 @@ function toTransactionPath(path: string): string {
 }
 
 export const PARTICIPANT_PROGRESS_PLANNING_ESTIMATES = {
-  // Current maps plus the bounded 128-entry daily score baseline.
-  progressBytes: 16_384,
+  // 128 comments x 2,000 UTF-8 code points (up to 6,000 bytes each),
+  // bounded author IDs and score maps, plus Firestore encoding headroom.
+  progressBytes: 850_000,
 } as const;
 
 export function participantProgressPath(participantId: ParticipantId): string {

@@ -162,6 +162,13 @@ suite('participant progress optimistic concurrency in real Firestore', () => {
       [skillId]: 'Добавить упражнения на кантование',
     });
     expect((await commands.execute(a)).status).toBe('success');
+    const firstAuthor = {
+      instructorId: actors[0]!.instructor,
+      accountId: actors[0]!.account,
+      updatedAt: (await ref.get()).data()!.updatedAt,
+      revision: 2,
+    };
+    expect((await ref.get()).data()!.skillCommentAttribution).toEqual({ [skillId]: firstAuthor });
     const stale = await commands.execute(b);
     expect(stale).toMatchObject({
       status: 'error',
@@ -203,6 +210,41 @@ suite('participant progress optimistic concurrency in real Firestore', () => {
       revision: 4,
       skillScores: { [skillId]: 0 },
       skillComments: {},
+      skillCommentAttribution: {},
     });
-  });
+    // A second instructor edits the text, then a score-only edit preserves its author.
+    expect(
+      (await commands.execute(command(0, 4, 'author_create', 3, { [skillId]: 'First' }))).status
+    ).toBe('success');
+    expect(
+      (await commands.execute(command(1, 5, 'author_replace', 3, { [skillId]: 'Second' }))).status
+    ).toBe('success');
+    const secondAuthor = (await ref.get()).data()!.skillCommentAttribution[skillId];
+    expect(secondAuthor).toMatchObject({
+      instructorId: actors[1]!.instructor,
+      accountId: actors[1]!.account,
+      revision: 6,
+    });
+    expect(
+      (await commands.execute(command(0, 6, 'author_score_only', 4, { [skillId]: 'Second' })))
+        .status
+    ).toBe('success');
+    expect((await ref.get()).data()!.skillCommentAttribution[skillId]).toEqual(secondAuthor);
+    expect(
+      (await db.doc(`participant_progress_events/${participantId}_7`).get()).data()
+    ).toMatchObject({
+      instructorId: actors[0]!.instructor,
+      oldScores: { [skillId]: 3 },
+      newScores: { [skillId]: 4 },
+      oldComments: { [skillId]: 'Second' },
+      newComments: { [skillId]: 'Second' },
+    });
+    expect(
+      (await db.doc(`participant_progress_events/${participantId}_6`).get()).data()
+    ).toMatchObject({
+      instructorId: actors[1]!.instructor,
+      oldComments: { [skillId]: 'First' },
+      newComments: { [skillId]: 'Second' },
+    });
+  }, 30_000);
 });

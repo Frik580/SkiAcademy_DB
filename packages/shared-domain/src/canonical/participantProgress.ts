@@ -155,6 +155,22 @@ const PersistedAggregateRevisionSchema = AggregateRevisionSchema.refine(
   'Persisted aggregate revision must be at least one'
 );
 
+/** Server-confirmed authorship of the current text; absent for historical unknown authors. */
+export const ParticipantProgressCommentAttributionSchema = z
+  .object({
+    instructorId: InstructorIdSchema,
+    accountId: AccountIdSchema,
+    updatedAt: CanonicalTimestampSchema,
+    revision: PersistedAggregateRevisionSchema,
+  })
+  .strict();
+
+export const ParticipantProgressSkillCommentAttributionSchema = z
+  .record(ParticipantProgressSkillIdSchema, ParticipantProgressCommentAttributionSchema)
+  .superRefine((entries, context) => {
+    addSkillMapSizeIssue(context, 'skillCommentAttribution', Object.keys(entries).length);
+  });
+
 export const ParticipantProgressSchema = z
   .object({
     participantId: ParticipantIdSchema,
@@ -163,6 +179,7 @@ export const ParticipantProgressSchema = z
     level: ParticipantProgressLevelSchema,
     skillScores: ParticipantProgressSkillScoresSchema,
     skillComments: ParticipantProgressSkillCommentsSchema,
+    skillCommentAttribution: ParticipantProgressSkillCommentAttributionSchema.optional(),
     dailyProgress: ParticipantDailyProgressSchema.optional(),
     levelState: ParticipantLevelStateSchema.optional(),
     updatedBy: ParticipantProgressUpdatedBySchema.optional(),

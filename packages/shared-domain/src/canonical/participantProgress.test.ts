@@ -14,6 +14,17 @@ const validIntent = {
 };
 
 describe('canonical participant progress contract', () => {
+  it.each(['instructorId', 'updatedBy', 'skillCommentAttribution'])(
+    'rejects client-supplied %s',
+    (key) => {
+      expect(
+        parseCommandIntent('update_participant_progress', {
+          ...validIntent,
+          [key]: { instructorId: 'spoofed_instructor' },
+        }).success
+      ).toBe(false);
+    }
+  );
   it('requires participantId and rejects account-level fallback fields', () => {
     expect(parseCommandIntent('update_participant_progress', validIntent).success).toBe(true);
     expect(

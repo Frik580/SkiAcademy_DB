@@ -35,6 +35,7 @@ describe('progress wire compatibility without historical rewrites', () => {
       skillScores: {},
       skillComments: {},
       revision: 1,
+      skillCommentAttribution: {},
       levelState: { marker: 'new-state' },
     };
     const result = { scope: 'managed', items: [item] };
@@ -48,12 +49,20 @@ describe('progress wire compatibility without historical rewrites', () => {
     const legacy = await handler(request({ scope: 'managed' }));
     expect(legacy.items[0]).not.toHaveProperty('levelState');
     expect(
-      ParticipantProgressReadModelSchema.omit({ levelState: true }).safeParse(legacy.items[0])
-        .success
+      ParticipantProgressReadModelSchema.omit({
+        levelState: true,
+        skillCommentAttribution: true,
+      }).safeParse(legacy.items[0]).success
     ).toBe(true);
     expect(
       (await handler(request({ scope: 'managed', participantProgressContract: 2 }))).items[0]
     ).toHaveProperty('levelState');
+    const version2 = (await handler(request({ scope: 'managed', participantProgressContract: 2 })))
+      .items[0];
+    expect(version2).not.toHaveProperty('skillCommentAttribution');
+    const version3 = (await handler(request({ scope: 'managed', participantProgressContract: 3 })))
+      .items[0];
+    expect(version3).toHaveProperty('skillCommentAttribution', {});
     expect(item.levelState).toEqual({ marker: 'new-state' });
   });
   it('does not accept unknown query fields as a compatibility fallback', async () => {

@@ -227,7 +227,7 @@ test('authenticated coach comments preserve participant data and navigation', as
     await expect(student.getByText(`“${comment}”`, { exact: true })).toBeVisible();
     await expect(student.getByText(title, { exact: true })).toBeVisible();
     await expect(student.getByText('No comments yet.', { exact: false })).toHaveCount(0);
-    await expect(student.getByText('Author unknown.', { exact: false })).toBeVisible();
+    await expect(student.getByText('Author unknown.', { exact: false })).toHaveCount(0);
     await expect(student.getByText(`“${unknown}”`, { exact: true })).toBeVisible();
   };
   try {
@@ -287,10 +287,39 @@ test('authenticated coach comments preserve participant data and navigation', as
       expect((await progressRef.get()).data()).toMatchObject({
         participantId: a,
         skillScores: { [skill.id]: 1 },
+        skillCommentAttribution: {
+          [skill.id]: {
+            instructorId: runtime.workspaceInstructorId,
+            revision: 2,
+          },
+        },
       });
+      const saved = (await progressRef.get()).data()!;
+      const attribution = saved.skillCommentAttribution[skill.id];
+      expect(attribution.updatedAt).toEqual(saved.updatedAt);
+      const event = (
+        await db.doc(`participant_progress_events/${a}_${saved.revision}`).get()
+      ).data()!;
+      expect(event.instructorId).toBe(runtime.workspaceInstructorId);
+      expect(event.newComments[skill.id]).toBe(comment);
+      expect(event.oldComments[skill.id]).toBeUndefined();
     });
     await test.step('Read saved canonical text; preserve section and isolate A → B → A', async () => {
+      const managedRead = student.waitForResponse(
+        (response) =>
+          response.url().endsWith('/queryParticipantProgressReadModels') &&
+          response.request().method() === 'POST' &&
+          response.request().postDataJSON()?.data?.scope === 'managed'
+      );
       await openComments();
+      const readPayload = (await (await managedRead).json()).result;
+      expect(
+        readPayload.items.find((item: { participantId: string }) => item.participantId === a)
+      ).toMatchObject({
+        skillCommentAttribution: {
+          [skill.id]: { instructorId: runtime.workspaceInstructorId, revision: 2 },
+        },
+      });
       await expectComment();
       await student.evaluate(
         ({ b, comment, unknown }) => {

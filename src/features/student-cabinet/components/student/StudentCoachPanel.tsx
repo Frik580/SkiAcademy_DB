@@ -431,23 +431,42 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
         ) : (
           <div className="space-y-3">
             <ScSectionTitle>{t('scCoachCurrentSkillComments')}</ScSectionTitle>
-            {skillComments.map(({ skillId, title, comment, hasScore, score, maxPoints }) => (
-              <ScTintCard key={skillId} tint="amber" className="px-4 py-3.5 space-y-1.5">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="type-caption font-medium uppercase text-[var(--ink-dim)]">
-                    {title}
-                  </p>
-                  <p className="type-caption font-medium text-amber-600 tabular-nums shrink-0">
-                    {maxPoints > 0
-                      ? formatSkillScore({ hasScore, earned: score, maxPoints }, language)
-                      : hasScore
-                        ? score
-                        : null}
-                  </p>
+            {skillComments.map(({ skillId, title, comment, hasScore, score, maxPoints }) => {
+              const percent =
+                hasScore && Number.isFinite(score) && Number.isFinite(maxPoints) && maxPoints > 0
+                  ? Math.min(100, Math.max(0, (score / maxPoints) * 100))
+                  : 0;
+              return (
+                <div
+                  key={skillId}
+                  className="sc-tint-card relative overflow-hidden rounded-xl border border-[#FFD60A]/22 bg-[var(--bg)] px-4 py-3.5"
+                >
+                  <div
+                    aria-hidden="true"
+                    data-testid="skill-comment-fill"
+                    className="pointer-events-none absolute inset-y-0 left-0 bg-[#FFD60A]/10 transition-[width] duration-500 ease-out motion-reduce:transition-none"
+                    style={{ width: `${percent}%` }}
+                  />
+                  <div className="relative z-10 space-y-1.5">
+                    <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+                      <p className="min-w-0 break-words type-caption font-medium uppercase text-[var(--ink-dim)]">
+                        {title}
+                      </p>
+                      <p className="type-caption font-medium text-amber-600 tabular-nums shrink-0">
+                        {maxPoints > 0
+                          ? formatSkillScore({ hasScore, earned: score, maxPoints }, language)
+                          : hasScore
+                            ? score
+                            : null}
+                      </p>
+                    </div>
+                    <p className="break-words type-compact text-[var(--ink)]">
+                      &ldquo;{comment}&rdquo;
+                    </p>
+                  </div>
                 </div>
-                <p className="type-compact text-[var(--ink)]">&ldquo;{comment}&rdquo;</p>
-              </ScTintCard>
-            ))}
+              );
+            })}
           </div>
         )}
       </CoachSectionShell>

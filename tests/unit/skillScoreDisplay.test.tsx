@@ -58,8 +58,48 @@ const cases = [
   { score: 3, maxPoints: 3, rated: '3 / 3 · 100%' },
   { score: undefined, maxPoints: 6, rated: '' },
   { score: 2, maxPoints: 6, rated: '2 / 6 · 33%' },
+  { score: 3, maxPoints: 5, rated: '3 / 5 · 60%' },
+  { score: 5, maxPoints: 5, rated: '5 / 5 · 100%' },
+  { score: 5, maxPoints: 10, rated: '5 / 10 · 50%' },
 ];
 const surfaces = ['list', 'radar', 'priority', 'assessment', 'comments'] as const;
+
+it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY, undefined])(
+  'keeps the skill comment unfilled with an unusable maximum (%s)',
+  (maxPoints) => {
+    render(
+      <StudentCoachPanel
+        navigation={{ view: 'comments', selectedInstructorId: 'coach' }}
+        bookings={[
+          {
+            id: 'lesson',
+            userId: 'student',
+            instructorId: 'coach',
+            status: 'completed',
+          } as Booking,
+        ]}
+        courses={[]}
+        instructors={[{ id: 'coach', name: 'Coach' } as Instructor]}
+        userProfile={
+          {
+            uid: 'student',
+            skillScores: { skill: 5 },
+            skillComments: { skill: 'Saved note' },
+          } as UserProfile
+        }
+        skillConfig={{
+          items: maxPoints === undefined ? [] : [{ id: 'skill', title: 'Skill', maxPoints }],
+        }}
+        onGoToTab={vi.fn()}
+        onChat={vi.fn()}
+        onOpenLesson={vi.fn()}
+        onBookInstructor={vi.fn()}
+      />
+    );
+    expect(screen.getByTestId('skill-comment-fill')).toHaveStyle({ width: '0%' });
+    expect(screen.getByText('“Saved note”')).toBeInTheDocument();
+  }
+);
 
 it('renders loading and read errors with retry, then only the selected participant comments', () => {
   const retry = vi.fn();
@@ -104,6 +144,7 @@ it('renders loading and read errors with retry, then only the selected participa
     );
     expect(screen.getByText(`“${text}”`)).toBeInTheDocument();
     expect(screen.getByText('retired')).toBeInTheDocument();
+    expect(screen.getByTestId('skill-comment-fill')).toHaveStyle({ width: '0%' });
     expect(
       screen.queryByText(`“${id === 'a' ? 'Participant B text' : 'Participant A text'}”`)
     ).toBeNull();
@@ -238,6 +279,11 @@ describe.each<Language>(['ru', 'en'])('individual skill display (%s)', (language
             />
           );
           fireEvent.click(screen.getByRole('button', { name: /scCoachComments/ }));
+          expect(screen.getByTestId('skill-comment-fill')).toHaveStyle({
+            width: `${score === undefined ? 0 : (score / maxPoints) * 100}%`,
+          });
+          expect(screen.getByTestId('skill-comment-fill')).toHaveAttribute('aria-hidden', 'true');
+          expect(screen.getByText('“Coach comment without a required score”')).toBeInTheDocument();
         }
         expect(screen.getAllByText(expected).length).toBeGreaterThan(0);
         if (score === undefined) {
@@ -363,11 +409,16 @@ describe.each<Language>(['ru', 'en'])(
         <StudentCoachPanel
           {...props}
           selectedParticipantId="participant-dependent"
-          userProfile={{ ...profile, skillComments: { skill: 'Dependent current text' } }}
+          userProfile={{
+            ...profile,
+            skillScores: { skill: 3 },
+            skillComments: { skill: 'Dependent current text' },
+          }}
           activityLogs={[]}
         />
       );
       expectUnknown('Dependent current text');
+      expect(screen.getByTestId('skill-comment-fill')).toHaveStyle({ width: '100%' });
       expect(screen.queryByText('“Instructor B current text”')).toBeNull();
 
       rerender(

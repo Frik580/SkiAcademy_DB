@@ -1,3 +1,5 @@
+import type { ParticipantProgressReadModel } from '@ski-academy/shared-domain';
+
 export interface CustomTodayTask {
   id: string;
   text: string;
@@ -69,6 +71,8 @@ export interface UserProfile {
   skillScores?: Record<string, number>;
   /** Instructor comments per skill exercise id */
   skillComments?: Record<string, string>;
+  /** In-memory canonical Participant projection; never account-owned authorship. */
+  skillCommentAttribution?: ParticipantProgressReadModel['skillCommentAttribution'];
   hideProgressTracking?: boolean;
   /**
    * Legacy account-level Today checklist.

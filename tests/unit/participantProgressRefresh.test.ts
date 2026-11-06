@@ -150,3 +150,70 @@ it('passes saved comments through the canonical command, instructor read and man
     skill: 'participant_b note',
   });
 });
+
+it('preserves per-skill authorship through refresh, store and Participant presentation', async () => {
+  const { applyParticipantProgressToProfile, selectCabinetProgressView } =
+    await import('../../src/features/participant-progress/applyParticipantProgressToProfile');
+  const { getCurrentSkillComments } =
+    await import('../../src/features/student-cabinet/components/student/coachUtils');
+  const author = {
+    instructorId: 'instructor_a',
+    accountId: 'account_a',
+    updatedAt: { seconds: 1793959200, nanoseconds: 0 },
+    revision: 1,
+  };
+  const second = { ...author, instructorId: 'instructor_b', accountId: 'account_b', revision: 2 };
+  const saved = {
+    ...row(),
+    skillComments: { skill: 'Current', other: 'Other', legacy: 'Old' },
+    skillCommentAttribution: { skill: author, other: second },
+  };
+  mocks.managed.mockResolvedValue({ items: [saved, row('participant_b')] });
+  await refreshManagedParticipantProgress();
+  const view = selectCabinetProgressView(store.getState().byId, 'participant_a');
+  expect(view?.skillCommentAttribution).toEqual(saved.skillCommentAttribution);
+  const profile = applyParticipantProgressToProfile(
+    { uid: 'account_owner' } as import('../../src/types').UserProfile,
+    view
+  );
+  const instructors = [
+    { id: 'instructor_a', name: 'Sophia Smith' },
+    { id: 'instructor_b', name: 'Coach B' },
+  ] as import('../../src/types').Instructor[];
+  const comments = getCurrentSkillComments(profile, undefined, 'en', instructors);
+  expect(comments.map((item) => item.authorName)).toEqual([
+    'Sophia Smith',
+    'Coach B',
+    'Author unknown',
+  ]);
+  expect(comments[0]?.attribution).toEqual(author);
+  expect(comments[0]?.updatedAtLabel).toBeTruthy();
+  expect(getCurrentSkillComments(profile, undefined, 'ru', [])[2]?.authorName).toBe(
+    '\u0410\u0432\u0442\u043e\u0440 \u043d\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u0435\u043d'
+  );
+  expect(getCurrentSkillComments(profile, undefined, 'en', [])[0]?.authorName).toBe(
+    'Author unknown'
+  );
+  for (const id of ['participant_b', 'participant_missing', 'participant_a']) {
+    const selected = selectCabinetProgressView(store.getState().byId, id);
+    expect(selected?.skillCommentAttribution).toEqual(
+      id === 'participant_a' ? saved.skillCommentAttribution : undefined
+    );
+  }
+  expect(
+    applyParticipantProgressToProfile(profile, undefined).skillCommentAttribution
+  ).toBeUndefined();
+  for (const [revision, skillComments, skillCommentAttribution] of [
+    [2, { skill: 'Current' }, { skill: author }],
+    [3, { skill: 'Edited' }, { skill: second }],
+    [4, {}, {}],
+  ] as const) {
+    mocks.managed.mockResolvedValue({
+      items: [{ ...row(), revision, skillComments, skillCommentAttribution }],
+    });
+    await refreshManagedParticipantProgress();
+    expect(store.getState().byId.participant_a?.skillCommentAttribution).toEqual(
+      skillCommentAttribution
+    );
+  }
+});

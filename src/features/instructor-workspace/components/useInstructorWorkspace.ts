@@ -166,6 +166,7 @@ export const useInstructorWorkspace = ({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [evalModalState, setEvalModalState] = useState({
     isOpen: false,
+    readOnly: false,
     participantId: '',
     studentName: '',
     studentLevel: 1,
@@ -346,7 +347,11 @@ export const useInstructorWorkspace = ({
     correctionReason?: string
   ) => {
     try {
-      if (!evalModalState.isOpen || evalModalState.participantId !== participantId) {
+      if (
+        !evalModalState.isOpen ||
+        evalModalState.readOnly ||
+        evalModalState.participantId !== participantId
+      ) {
         throw new Error('Open the participant assessment before saving.');
       }
 
@@ -387,12 +392,14 @@ export const useInstructorWorkspace = ({
     studentName: string,
     _studentLevel: number,
     _existingScores?: Record<string, number>,
-    _existingComments?: Record<string, string>
+    _existingComments?: Record<string, string>,
+    readOnly = false
   ) => {
     const progress = useParticipantProgressStore.getState().byId[participantId];
     if (!progress) return;
     setEvalModalState({
       isOpen: true,
+      readOnly,
       participantId,
       studentName,
       studentLevel: progress.level,
@@ -408,7 +415,7 @@ export const useInstructorWorkspace = ({
     if (!refreshed.some((item) => item.participantId === participantId)) {
       throw new Error('Participant progress refresh failed.');
     }
-    openEvalModal(participantId, studentName, 1);
+    openEvalModal(participantId, studentName, 1, undefined, undefined, evalModalState.readOnly);
   };
 
   const closeEvalModal = () => {

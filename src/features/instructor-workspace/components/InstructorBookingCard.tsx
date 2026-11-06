@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import type { SkillConfig } from '../../../domain/achievements';
+import { InstructorLessonContextDialog } from './InstructorLessonContextDialog';
 import { Calendar, Check, Clock, MessageSquare, Users, X } from 'lucide-react';
 import { formatLessonDifficultyOrUnspecified } from '../../../app/providers/LanguageContext';
 import { UserProfile } from '../../../types';
@@ -25,6 +27,8 @@ import { InstructorParticipantLessonFeedbackEditor } from './InstructorParticipa
 
 interface InstructorBookingCardProps {
   booking: DisplayBooking;
+  skillConfig?: SkillConfig;
+  contextAuthors?: readonly { id: string; name: string }[];
   nowMs: number;
   usersList: UserProfile[];
   theme: string;
@@ -40,7 +44,8 @@ interface InstructorBookingCardProps {
     studentName: string,
     studentLevel: number,
     existingScores?: Record<string, number>,
-    existingComments?: Record<string, string>
+    existingComments?: Record<string, string>,
+    readOnly?: boolean
   ) => void;
   collaboration: ReturnType<typeof useInstructorBookingCollaboration>;
   canCreateProposal: boolean;
@@ -49,6 +54,8 @@ interface InstructorBookingCardProps {
 
 export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
   booking,
+  skillConfig,
+  contextAuthors,
   nowMs,
   theme,
   language,
@@ -62,6 +69,18 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
   onCreateProposal,
 }) => {
   const b = booking;
+  const [contextTarget, setContextTarget] = useState<{
+    bookingId: string;
+    participantId: string;
+  } | null>(null);
+  const contextParticipant =
+    contextTarget?.bookingId === b.id
+      ? b.participants.find(
+          (participant) =>
+            participant.participantId === contextTarget.participantId &&
+            b.participantIds.includes(participant.participantId)
+        )
+      : undefined;
   const progressById = useParticipantProgressStore((state) => state.byId);
   const [feedbackEditor, setFeedbackEditor] = useState<InstructorLessonFeedbackEditorTarget | null>(
     null
@@ -119,7 +138,16 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
           </div>
           <div className="min-w-0">
             <div className="type-caption text-[var(--ink)] font-medium flex items-center gap-1.5">
-              {studentName}
+              <button
+                type="button"
+                className="min-h-11 text-left underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)] break-words"
+                aria-label={studentName + ': ' + t('lessonContextTitle')}
+                onClick={() =>
+                  setContextTarget({ bookingId: b.id, participantId: participant.participantId })
+                }
+              >
+                {studentName}
+              </button>
               {b.isGuest && (
                 <span className="px-1.5 py-0.2 bg-amber-500/15 text-amber-600 dark:text-amber-400 type-caption rounded-xs border border-amber-500/30">
                   {t('guestBadge') || 'Гость'}
@@ -329,6 +357,50 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
           </button>
         </div>
       </div>
+
+      {contextParticipant ? (
+        <InstructorLessonContextDialog
+          key={b.id + ':' + contextParticipant.participantId}
+          context={{
+            participantId: contextParticipant.participantId,
+            bookingId: b.id,
+            studentName: contextParticipant.clientName || t('lessonContextParticipant'),
+            avatar: contextParticipant.clientAvatar,
+            discipline: b.discipline,
+            date: b.date,
+            time: b.time,
+            status: b.status,
+            canAssess: isLessonContextProgressAssessmentEnabled(b, nowMs),
+            canReadFeedback:
+              isLessonContextProgressAssessmentEnabled(b, nowMs) &&
+              contextParticipant.attendanceStatus === 'present',
+          }}
+          skillConfig={skillConfig}
+          authors={contextAuthors}
+          onClose={() => setContextTarget(null)}
+          onOpenProgress={() => {
+            const progress = progressById[contextParticipant.participantId];
+            if (!progress) return;
+            setContextTarget(null);
+            onOpenEval(
+              contextParticipant.participantId,
+              contextParticipant.clientName,
+              progress.level,
+              progress.skillScores,
+              progress.skillComments,
+              !isLessonContextProgressAssessmentEnabled(b, nowMs)
+            );
+          }}
+          onOpenFeedback={() => {
+            setContextTarget(null);
+            setFeedbackEditor({
+              participantId: contextParticipant.participantId,
+              lessonBookingId: b.id,
+              studentName: contextParticipant.clientName,
+            });
+          }}
+        />
+      ) : null}
 
       {feedbackEditor ? (
         <InstructorParticipantLessonFeedbackEditor

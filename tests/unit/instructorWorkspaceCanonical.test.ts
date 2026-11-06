@@ -96,6 +96,30 @@ const courses = [
 ] as Course[];
 
 describe('useInstructorWorkspace canonical lesson isolation', () => {
+  it('retains explicit lesson-context read-only mode across progress reload', async () => {
+    const id = 'participant_workspace_01';
+    const value = emptyParticipantProgressView(id);
+    useParticipantProgressStore.getState().setItems([value]);
+    vi.mocked(refreshInstructorParticipantProgress).mockResolvedValue([value]);
+    const { result } = renderHook(() =>
+      useInstructorWorkspace({
+        userProfile,
+        instructors: [],
+        lessonBookings: [individualBooking],
+        reviews: [],
+        courses,
+        usersList: [],
+      })
+    );
+    act(() => result.current.openEvalModal(id, 'Student', 1, undefined, undefined, true));
+    expect(result.current.canAssessParticipant(id)).toBe(true);
+    expect(result.current.evalModalState.readOnly).toBe(true);
+    await act(async () => result.current.reloadEvalProgress());
+    expect(result.current.evalModalState.readOnly).toBe(true);
+    await expect(result.current.handleSaveStudentScores(id, {}, 1, {})).rejects.toThrow(
+      'Open the participant assessment'
+    );
+  });
   it.each([
     { skillScores: { carving: 4 }, skillComments: { carving: 'Other instructor text' } },
     { skillScores: { other: 4 }, skillComments: { other: 'Different skill text' } },

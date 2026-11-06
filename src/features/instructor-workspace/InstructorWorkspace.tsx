@@ -84,7 +84,9 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = (props) =
 
       <StudentSkillEvaluationModal
         isOpen={evalModalState.isOpen}
-        readOnly={!workspace.canAssessParticipant(evalModalState.participantId)}
+        readOnly={
+          evalModalState.readOnly || !workspace.canAssessParticipant(evalModalState.participantId)
+        }
         onClose={closeEvalModal}
         participantId={evalModalState.participantId}
         studentName={evalModalState.studentName}

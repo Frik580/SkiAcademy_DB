@@ -207,7 +207,7 @@ export const getCurrentSkillComments = (
   profile: Pick<UserProfile, 'skillComments' | 'skillScores' | 'skillCommentAttribution'>,
   skillConfig: SkillConfig | undefined,
   language: 'en' | 'ru',
-  instructors: Instructor[]
+  instructors: readonly Pick<Instructor, 'id' | 'name'>[]
 ) =>
   getUnattributedSkillComments(profile, skillConfig, language).map((row) => {
     const attribution = profile.skillCommentAttribution?.[row.skillId];

@@ -247,6 +247,8 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
               <InstructorBookingCard
                 key={b.id}
                 booking={b}
+                skillConfig={workspace.skillConfig}
+                contextAuthors={instructors.map(({ id, name }) => ({ id, name }))}
                 nowMs={nowMs}
                 usersList={usersList}
                 theme={theme}

@@ -1,0 +1,14 @@
+[data-testid='instructor-lesson-context'] .admin-modal-footer > button {
+  min-height: 44px;
+  white-space: normal;
+}
+
+@media (max-width: 639px) {
+  [data-testid='instructor-lesson-context'].admin-modal.ui-modal {
+    max-height: 100%;
+    height: 100%;
+  }
+  [data-testid='instructor-lesson-context'] .admin-modal-footer > button {
+    flex: 1 1 100%;
+  }
+}

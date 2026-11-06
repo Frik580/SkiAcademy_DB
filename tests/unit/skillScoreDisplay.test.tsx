@@ -342,7 +342,7 @@ it('saves an explicitly chosen zero while leaving other missing skills absent', 
 describe.each<Language>(['ru', 'en'])(
   'skill comment attribution in the coach panel (%s)',
   (language) => {
-    it('labels current text as unknown when switching instructors and Participants, including missing history', () => {
+    it('preserves comment authorship when switching instructors and Participants, including missing history', () => {
       locale.language = language;
       const copy = translations[language];
       const profile = {
@@ -395,8 +395,9 @@ describe.each<Language>(['ru', 'en'])(
         ).toBeNull();
         expect(screen.getByText(copy.scCoachCurrentSkillComments)).toBeInTheDocument();
         expect(
-          screen.queryByText(/Author unknown|Автор неизвестен|scCoachCommentAuthorUnknown/)
-        ).toBeNull();
+          screen.getByText(language === 'ru' ? 'Автор неизвестен' : 'Author unknown')
+        ).toBeInTheDocument();
+        expect(screen.queryByText(/^coach-[ab] · /)).toBeNull();
         expect(screen.getAllByText(`“${text}”`)).toHaveLength(1);
       };
       expectUnknown('Instructor B current text');
@@ -404,6 +405,25 @@ describe.each<Language>(['ru', 'en'])(
       fireEvent.click(screen.getByRole('button', { name: 'coach-a' }));
       fireEvent.click(screen.getAllByRole('button', { name: /scCoachComments/ })[1]);
       expectUnknown('Instructor B current text');
+
+      const confirmedProfile: UserProfile = {
+        ...profile,
+        skillCommentAttribution: {
+          skill: {
+            instructorId: 'coach-b',
+            accountId: 'coach-b-account',
+            updatedAt: { seconds: 1790848800, nanoseconds: 0 },
+            revision: 1,
+          },
+        },
+      };
+      rerender(<StudentCoachPanel {...props} userProfile={confirmedProfile} activityLogs={[]} />);
+      expect(screen.getByText(/^coach-b · /)).toBeInTheDocument();
+      expect(screen.getByText('“Instructor B current text”')).toBeInTheDocument();
+      expect(screen.queryByText(/Author unknown|Автор неизвестен/)).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'coach-b' }));
+      fireEvent.click(screen.getAllByRole('button', { name: /scCoachComments/ })[0]);
+      expect(screen.getByText(/^coach-b · /)).toBeInTheDocument();
 
       rerender(
         <StudentCoachPanel
@@ -420,6 +440,20 @@ describe.each<Language>(['ru', 'en'])(
       expectUnknown('Dependent current text');
       expect(screen.getByTestId('skill-comment-fill')).toHaveStyle({ width: '100%' });
       expect(screen.queryByText('“Instructor B current text”')).toBeNull();
+
+      rerender(<StudentCoachPanel {...props} userProfile={confirmedProfile} activityLogs={[]} />);
+      expect(screen.getByText(/^coach-b · /)).toBeInTheDocument();
+      expect(screen.queryByText('“Dependent current text”')).toBeNull();
+
+      rerender(
+        <StudentCoachPanel
+          {...props}
+          userProfile={{ ...confirmedProfile, skillComments: {} }}
+          activityLogs={[]}
+        />
+      );
+      expect(screen.getByText('scCoachNoComments')).toBeInTheDocument();
+      expect(screen.queryByText(/Author unknown|Автор неизвестен|^coach-[ab] · /)).toBeNull();
 
       rerender(
         <StudentCoachPanel

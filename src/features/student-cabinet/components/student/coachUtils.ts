@@ -202,6 +202,33 @@ export const getUnattributedSkillComments = (
     .filter((row): row is InstructorSkillComment => row != null);
 };
 
+/** Current text only. Names are resolved by the server-confirmed instructor ID. */
+export const getCurrentSkillComments = (
+  profile: Pick<UserProfile, 'skillComments' | 'skillScores' | 'skillCommentAttribution'>,
+  skillConfig: SkillConfig | undefined,
+  language: 'en' | 'ru',
+  instructors: Instructor[]
+) =>
+  getUnattributedSkillComments(profile, skillConfig, language).map((row) => {
+    const attribution = profile.skillCommentAttribution?.[row.skillId];
+    const name = attribution
+      ? instructors.find((instructor) => instructor.id === attribution.instructorId)?.name.trim()
+      : undefined;
+    return {
+      ...row,
+      attribution,
+      authorName: name || (language === 'ru' ? 'Автор неизвестен' : 'Author unknown'),
+      updatedAtLabel: attribution
+        ? formatMessageTimestamp(
+            new Date(
+              attribution.updatedAt.seconds * 1000 + attribution.updatedAt.nanoseconds / 1e6
+            ).toISOString(),
+            language
+          )
+        : undefined,
+    };
+  });
+
 /** Firestore thread ids for chat messages with a given instructor (lessons + course enrollments). */
 export const getInstructorMessageThreadIds = (
   bookings: Booking[],

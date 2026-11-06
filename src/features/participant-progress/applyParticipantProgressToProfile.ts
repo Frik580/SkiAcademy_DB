@@ -10,6 +10,7 @@ export interface ParticipantProgressView {
   readonly level: number;
   readonly skillScores: Record<string, number>;
   readonly skillComments: Record<string, string>;
+  readonly skillCommentAttribution?: ParticipantProgressReadModel['skillCommentAttribution'];
   readonly revision: number;
   readonly dailyProgress?: ParticipantDailyProgress;
   readonly levelState?: ParticipantLevelState;
@@ -24,6 +25,9 @@ export function toParticipantProgressView(
     ...(item.levelState ? { levelState: item.levelState } : {}),
     skillScores: { ...item.skillScores },
     skillComments: { ...item.skillComments },
+    skillCommentAttribution: item.skillCommentAttribution
+      ? structuredClone(item.skillCommentAttribution)
+      : undefined,
     revision: item.revision,
     ...(item.dailyProgress ? { dailyProgress: item.dailyProgress } : {}),
   };
@@ -64,6 +68,7 @@ export function applyParticipantProgressToProfile(
       levelState: undefined,
       skillScores: undefined,
       skillComments: undefined,
+      skillCommentAttribution: undefined,
     };
   }
   return {
@@ -72,6 +77,9 @@ export function applyParticipantProgressToProfile(
     levelState: progress.levelState,
     skillScores: { ...progress.skillScores },
     skillComments: { ...progress.skillComments },
+    skillCommentAttribution: progress.skillCommentAttribution
+      ? structuredClone(progress.skillCommentAttribution)
+      : undefined,
   };
 }
 

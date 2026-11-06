@@ -171,6 +171,15 @@ GuestContact is persisted atomically with its guest application. Replaying the s
 
 Instructor progress reading and assessment use separate authorization checks.
 
+Accepted product rule (2026-11-06): an instructor with a currently valid
+server-authorized basis to read a Participant's progress may read that
+Participant's assessment and pedagogical comment history, including other
+instructors' observations. This grants no access to private chats or attachments.
+Server authorization, existing block semantics and Participant isolation remain
+required; a cancelled lesson creates no new access basis. The protected API for
+historical observations is a separate implementation stage. The current comment
+attribution projection does not expand server permissions.
+
 A valid assigned canonical Booking (`confirmed` or `completed`, not deleted,
 Participant present in both party and service party) grants read access immediately,
 including before lesson start. Existing valid InstructorRelationship read access

@@ -431,6 +431,9 @@ export const translations = {
     scCoachNoVideos: 'No video reviews yet. They will appear when your coach sends video feedback.',
     scCoachNoComments: 'No comments yet. They will appear after your coach evaluates your skills.',
     scCoachSkillScore: '{earned} / {max} XP',
+    scCoachEarlierHomework: 'Show earlier assignments',
+    scCoachHomeworkContinue:
+      'No assignments for you in this part of the history. You can check earlier assignments.',
     scCoachNoHomework: 'No homework yet. Assignments from your coach will appear here.',
     scCoachNoRecommendations: 'No recommendations yet.',
     scCoachOpenHub: 'Chat and materials',
@@ -3042,6 +3045,9 @@ export const translations = {
     scCoachNoVideos: 'Видеоразборов пока нет. Они появятся, когда тренер отправит видео.',
     scCoachNoComments: 'Комментариев пока нет. Они появятся после оценки навыков тренером.',
     scCoachSkillScore: '{earned} / {max} XP',
+    scCoachEarlierHomework: 'Показать предыдущие задания',
+    scCoachHomeworkContinue:
+      'В этой части истории нет заданий для вас. Можно посмотреть предыдущие задания.',
     scCoachNoHomework: 'Домашних заданий пока нет. Задания от тренера появятся здесь.',
     scCoachNoRecommendations: 'Рекомендаций пока нет.',
     scCoachOpenHub: 'Чат и материалы',

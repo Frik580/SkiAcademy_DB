@@ -34,6 +34,7 @@ import {
   resolveMessageCourseTitle,
 } from './coachUtils';
 import { useInstructorBookingMessages } from './useInstructorBookingMessages';
+import { useInstructorHomeworkHistory } from './useInstructorHomeworkHistory';
 import { ParticipantLessonFeedbackList } from '../ParticipantLessonFeedbackList';
 import { CoachParticipantAccessPanel } from '../../../../features/booking-collaboration';
 import { usePresentedParticipantLessonFeedback } from '../../usePresentedParticipantLessonFeedback';
@@ -199,7 +200,7 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
   );
 
   const { messages, loading: messagesLoading } = useInstructorBookingMessages(
-    view !== 'list' ? messageThreadIds : EMPTY_BOOKING_IDS
+    view !== 'list' && view !== 'homework' ? messageThreadIds : EMPTY_BOOKING_IDS
   );
 
   const instructorBookings = useMemo(
@@ -225,9 +226,14 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
   const videoMessages = selectedInstructor
     ? getInstructorVideoMessages(messages, selectedInstructor, instructorUserId)
     : [];
+  const homeworkHistory = useInstructorHomeworkHistory(
+    messageThreadIds,
+    JSON.stringify([userProfile.uid, selectedParticipantId, selectedInstructorId]),
+    view === 'homework' && Boolean(selectedInstructor)
+  );
   const homeworkMessages = selectedInstructor
     ? getInstructorHomeworkMessages(
-        messages,
+        homeworkHistory.messages,
         selectedInstructor,
         instructorUserId,
         userProfile.uid,
@@ -482,13 +488,15 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
         onBack={goBackToList}
         backLabel={selectedInstructor.name}
       >
-        {messagesLoading ? (
+        {homeworkHistory.loading && homeworkMessages.length === 0 ? (
           <p className="type-compact text-[var(--ink-dim)]">{t('loading')}</p>
-        ) : homeworkMessages.length === 0 ? (
-          <p className="type-compact text-[var(--ink-dim)]">{t('scCoachNoHomework')}</p>
+        ) : homeworkMessages.length === 0 && !homeworkHistory.error ? (
+          <p className="type-compact text-[var(--ink-dim)]">
+            {t(homeworkHistory.hasMore ? 'scCoachHomeworkContinue' : 'scCoachNoHomework')}
+          </p>
         ) : (
           <div className="space-y-3">
-            {[...homeworkMessages].reverse().map((msg) => {
+            {homeworkMessages.map((msg) => {
               const lessonDate = resolveMessageLessonDate(
                 msg.bookingId,
                 bookings,
@@ -504,7 +512,11 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
                 userProfile.uid
               );
               return (
-                <ScTintCard key={msg.id} tint="green" className="px-4 py-3.5 space-y-2">
+                <ScTintCard
+                  key={JSON.stringify([msg.threadId, msg.id])}
+                  tint="green"
+                  className="px-4 py-3.5 space-y-2"
+                >
                   <div className="space-y-0.5">
                     {courseTitle && (
                       <p className="type-compact font-medium text-[var(--ink)]">{courseTitle}</p>
@@ -560,6 +572,22 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
               );
             })}
           </div>
+        )}
+        {homeworkHistory.error && (
+          <div role="alert" className="space-y-2">
+            <p className="type-compact text-[var(--ink-dim)]">{t('requestFailed')}</p>
+            <ScTextButton onClick={homeworkHistory.loadMore}>{t('retry')}</ScTextButton>
+          </div>
+        )}
+        {!homeworkHistory.error && homeworkHistory.hasMore && (
+          <button
+            type="button"
+            onClick={homeworkHistory.loadMore}
+            disabled={homeworkHistory.loading}
+            className="type-button text-[var(--accent)] disabled:opacity-50"
+          >
+            {homeworkHistory.loading ? t('loading') : t('scCoachEarlierHomework')}
+          </button>
         )}
       </CoachSectionShell>
     );

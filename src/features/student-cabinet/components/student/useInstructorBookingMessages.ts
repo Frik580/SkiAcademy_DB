@@ -3,49 +3,61 @@ import { ChatMessage } from '../../../../types';
 import { InstructorMessage } from './coachUtils';
 import { subscribeToChatMessages } from '../../../../features/chat';
 
-export const useInstructorBookingMessages = (bookingIds: string[]) => {
-  const [messagesByBooking, setMessagesByBooking] = useState<Map<string, ChatMessage[]>>(new Map());
-  const [loading, setLoading] = useState(true);
-
-  const bookingKey = useMemo(() => bookingIds.slice().sort().join(','), [bookingIds]);
+export const useInstructorBookingMessages = (bookingIds: string[], scope = '') => {
+  const [attempt, setAttempt] = useState(0);
+  const bookingKey = JSON.stringify([scope, [...new Set(bookingIds)].sort(), attempt]);
+  const [state, setState] = useState({
+    key: '',
+    messagesByBooking: new Map<string, ChatMessage[]>(),
+    loading: false,
+    error: false,
+  });
 
   useEffect(() => {
-    const ids = bookingKey ? bookingKey.split(',') : [];
-
-    if (ids.length === 0) {
-      setMessagesByBooking((prev) => (prev.size === 0 ? prev : new Map()));
-      setLoading((prev) => (prev ? false : prev));
-      return;
-    }
-
-    setLoading(true);
+    const [, ids] = JSON.parse(bookingKey) as [string, string[], number];
+    let active = true;
     const localMap = new Map<string, ChatMessage[]>();
     const loadedIds = new Set<string>();
+    const failedIds = new Set<string>();
+    const publish = () =>
+      setState({
+        key: bookingKey,
+        messagesByBooking: new Map(localMap),
+        loading: loadedIds.size < ids.length,
+        error: failedIds.size > 0,
+      });
+    publish();
 
     const unsubscribes = ids.map((bookingId) => {
       return subscribeToChatMessages(
         bookingId,
         (messages) => {
-          const list = messages;
-          list.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+          if (!active) return;
+          const list = [...messages].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
           localMap.set(bookingId, list);
           loadedIds.add(bookingId);
-          setMessagesByBooking(new Map(localMap));
-          if (loadedIds.size >= ids.length) setLoading(false);
+          failedIds.delete(bookingId);
+          publish();
         },
         () => {
+          if (!active) return;
           loadedIds.add(bookingId);
-          if (loadedIds.size >= ids.length) setLoading(false);
+          failedIds.add(bookingId);
+          publish();
         }
       );
     });
 
-    return () => unsubscribes.forEach((unsub) => unsub());
+    return () => {
+      active = false;
+      unsubscribes.forEach((unsub) => unsub());
+    };
   }, [bookingKey]);
 
   const messages: InstructorMessage[] = useMemo(() => {
     const merged: InstructorMessage[] = [];
-    for (const [threadId, list] of messagesByBooking) {
+    if (state.key !== bookingKey) return merged;
+    for (const [threadId, list] of state.messagesByBooking) {
       list.forEach((msg) =>
         merged.push({
           ...msg,
@@ -55,7 +67,12 @@ export const useInstructorBookingMessages = (bookingIds: string[]) => {
       );
     }
     return merged.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-  }, [messagesByBooking]);
+  }, [state.key, state.messagesByBooking, bookingKey]);
 
-  return { messages, loading };
+  return {
+    messages,
+    loading: state.key === bookingKey ? state.loading : bookingIds.length > 0,
+    error: state.key === bookingKey && state.error,
+    retry: () => setAttempt((previous) => previous + 1),
+  };
 };

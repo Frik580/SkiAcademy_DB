@@ -199,8 +199,14 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
     [bookings, courses, selectedInstructor, userProfile.uid, view]
   );
 
-  const { messages, loading: messagesLoading } = useInstructorBookingMessages(
-    view !== 'list' && view !== 'homework' ? messageThreadIds : EMPTY_BOOKING_IDS
+  const {
+    messages,
+    loading: messagesLoading,
+    error: messagesError,
+    retry: retryMessages,
+  } = useInstructorBookingMessages(
+    view === 'videos' ? messageThreadIds : EMPTY_BOOKING_IDS,
+    JSON.stringify([userProfile.uid, selectedParticipantId, selectedInstructorId])
   );
 
   const instructorBookings = useMemo(
@@ -383,7 +389,7 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
       >
         {messagesLoading ? (
           <p className="type-compact text-[var(--ink-dim)]">{t('loading')}</p>
-        ) : videoMessages.length === 0 ? (
+        ) : videoMessages.length === 0 && !messagesError ? (
           <p className="type-compact text-[var(--ink-dim)]">{t('scCoachNoVideos')}</p>
         ) : (
           <div className="space-y-4">
@@ -408,6 +414,12 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
                 />
               </ScTintCard>
             ))}
+          </div>
+        )}
+        {messagesError && (
+          <div role="alert" className="space-y-2">
+            <p className="type-compact text-[var(--ink-dim)]">{t('requestFailed')}</p>
+            <ScTextButton onClick={retryMessages}>{t('retry')}</ScTextButton>
           </div>
         )}
       </CoachSectionShell>

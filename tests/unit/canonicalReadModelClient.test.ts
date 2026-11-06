@@ -24,6 +24,7 @@ import {
   __resetCanonicalReadInFlightRegistryForTests,
   queryAccountInstructorReviewReadModels,
   queryManagedParticipantProgressReadModels,
+  queryParticipantProgressHistoryReadModels,
   queryParticipantLessonFeedbackReadModels,
 } from '../../src/lib/canonical/canonicalReadModelClient';
 import {
@@ -64,6 +65,37 @@ describe('canonicalReadModelClient', () => {
   beforeEach(() => {
     callFunctionMock.mockReset();
     __resetCanonicalReadInFlightRegistryForTests();
+  });
+  it('loads history pages lazily, preserves scope/cursor, and repeats transport after completion', async () => {
+    const request = {
+      scope: 'instructor' as const,
+      participantId: 'history_person' as never,
+      cursor: 'page_cursor',
+      requestedTestSessionId: 'test_history' as never,
+    };
+    const response = {
+      scope: 'instructor',
+      participantId: 'history_person',
+      items: [],
+      nextCursor: 'next_page',
+    };
+    callFunctionMock.mockResolvedValue(response);
+    expect(await queryParticipantProgressHistoryReadModels(request)).toEqual(response);
+    await queryParticipantProgressHistoryReadModels(request);
+    expect(callFunctionMock).toHaveBeenCalledTimes(2);
+    expect(callFunctionMock).toHaveBeenCalledWith(
+      'queryParticipantProgressHistoryReadModels',
+      request,
+      expect.objectContaining({ maxAttempts: 1 })
+    );
+  });
+  it('propagates history permission errors and rejects unexpected response fields', async () => {
+    const request = { scope: 'instructor' as const, participantId: 'history_person' as never };
+    const denied = Object.assign(new Error('Denied'), { code: 'functions/permission-denied' });
+    callFunctionMock.mockRejectedValueOnce(denied);
+    await expect(queryParticipantProgressHistoryReadModels(request)).rejects.toBe(denied);
+    callFunctionMock.mockResolvedValueOnce({ ...request, items: [], email: 'private' });
+    await expect(queryParticipantProgressHistoryReadModels(request)).rejects.toThrow();
   });
   it('does not deduplicate distinct exact-ID review reads', async () => {
     callFunctionMock.mockResolvedValue({

@@ -25,6 +25,7 @@ export * from './emailDeliverySettingsReadModel';
 export * from './outboxDeadLetterReadModel';
 export * from './instructorReviewReadModel';
 export * from './participantProgressReadModel';
+export * from './participantProgressHistoryReadModel';
 export * from './participantAchievementsReadModel';
 export * from './participantLessonFeedbackReadModel';
 export * from './testSessionReadModel';

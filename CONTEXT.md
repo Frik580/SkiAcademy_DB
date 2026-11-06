@@ -176,8 +176,10 @@ server-authorized basis to read a Participant's progress may read that
 Participant's assessment and pedagogical comment history, including other
 instructors' observations. This grants no access to private chats or attachments.
 Server authorization, existing block semantics and Participant isolation remain
-required; a cancelled lesson creates no new access basis. The protected API for
-historical observations is a separate implementation stage. The current comment
+required; a cancelled lesson creates no new access basis. The protected
+`queryParticipantProgressHistoryReadModels` callable exposes bounded, authorized
+observation history from existing events; see [the API contract](docs/participant-progress-history.md).
+Lesson-context UI integration remains a separate stage. The current comment
 attribution projection does not expand server permissions.
 
 A valid assigned canonical Booking (`confirmed` or `completed`, not deleted,

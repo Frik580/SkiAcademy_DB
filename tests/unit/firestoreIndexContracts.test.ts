@@ -73,6 +73,18 @@ const assignmentDaysIndex: CompositeIndex = {
 
 const criticalIndexContracts: Array<{ name: string; index: CompositeIndex }> = [
   {
+    name: 'participant progress history numeric revision pagination',
+    index: {
+      collectionGroup: 'participant_progress_events',
+      queryScope: 'COLLECTION',
+      fields: [
+        { fieldPath: 'participantId', order: 'ASCENDING' },
+        { fieldPath: 'revision', order: 'DESCENDING' },
+        { fieldPath: '__name__', order: 'DESCENDING' },
+      ],
+    },
+  },
+  {
     name: 'instructor occupancy course days',
     index: occupancyDaysIndex,
   },

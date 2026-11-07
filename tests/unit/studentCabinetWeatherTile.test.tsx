@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -179,5 +181,25 @@ describe('Student Cabinet weather tile', () => {
     renderWeather(presentation());
     expect(screen.queryByRole('button', { name: /Switch temperature/ })).not.toBeInTheDocument();
     expect(screen.getByTestId('weather-temperature')).toHaveTextContent('-7°C');
+  });
+
+  it('keeps the weather glass background and blur aligned with the navbar', () => {
+    const weatherCss = readFileSync(
+      resolve(process.cwd(), 'src/features/student-cabinet/components/student/studentCabinetWeather.css'),
+      'utf8'
+    );
+    const globalCss = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8');
+    const weatherRule = weatherCss.match(
+      /\.sc-dashboard-card\[data-dashboard-tile='weather'\]:has\(\.sc-weather-tile\)\s*\{([^}]*)\}/
+    )?.[1];
+    const navbarRule = globalCss.match(/\.ui-navbar,\s*\.ui-navbar-panel\s*\{([^}]*)\}/)?.[1];
+    expect(weatherRule).toBeDefined();
+    expect(navbarRule).toBeDefined();
+
+    const propertyValue = (rule: string | undefined, property: string) =>
+      rule?.match(new RegExp(`(?:^|\\n)\\s*${property}\\s*:\\s*([^;]+);`))?.[1]?.trim();
+    for (const property of ['background-color', '-webkit-backdrop-filter', 'backdrop-filter']) {
+      expect(propertyValue(weatherRule, property)).toBe(propertyValue(navbarRule, property));
+    }
   });
 });

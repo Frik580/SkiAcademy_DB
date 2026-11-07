@@ -52,6 +52,9 @@ import {
   type QueryInstructorReviewReadModelsInput,
   type QueryInstructorReviewReadModelsResult,
   type QueryParticipantProgressReadModelsInput,
+  QueryParticipantProgressHistoryReadModelsResultSchema,
+  type QueryParticipantProgressHistoryReadModelsInput,
+  type QueryParticipantProgressHistoryReadModelsResult,
   type QueryParticipantProgressReadModelsResult,
   type QueryParticipantAchievementsReadModelsInput,
   type QueryParticipantAchievementsReadModelsResult,
@@ -240,6 +243,24 @@ export async function queryParticipantProgressReadModels(
       maxAttempts: 1,
     }
   );
+}
+
+export async function queryParticipantProgressHistoryReadModels(
+  input: CanonicalReadQueryInput<QueryParticipantProgressHistoryReadModelsInput>
+): Promise<QueryParticipantProgressHistoryReadModelsResult> {
+  const identityHash = canonicalDeterministicHash([
+    'read:participant_progress_history:v1',
+    input.participantId,
+    input.cursor ?? 'first',
+  ]);
+  const result = await invokeCanonicalReadCallable<
+    CanonicalReadQueryInput<QueryParticipantProgressHistoryReadModelsInput>,
+    unknown
+  >('queryParticipantProgressHistoryReadModels', input, {
+    idempotencyKey: `read:participant_progress_history:${identityHash}`,
+    maxAttempts: 1,
+  });
+  return QueryParticipantProgressHistoryReadModelsResultSchema.parse(result);
 }
 
 function chunkIds<T>(ids: readonly T[], size: number): T[][] {

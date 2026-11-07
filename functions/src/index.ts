@@ -46,6 +46,7 @@ import { createQueryEmailDeliverySettingsReadModelHandler } from './canonical/re
 import { createQueryOutboxDeadLetterReadModelHandler } from './canonical/readModels/queryOutboxDeadLetterReadModelCallable';
 import { createQueryInstructorReviewReadModelsHandler } from './canonical/readModels/queryInstructorReviewReadModelsCallable';
 import { createQueryParticipantProgressReadModelsHandler } from './canonical/readModels/queryParticipantProgressReadModelsCallable';
+import { createQueryParticipantProgressHistoryReadModelsHandler } from './canonical/readModels/queryParticipantProgressHistoryReadModelsCallable';
 import { createQueryParticipantAchievementsReadModelsHandler } from './canonical/readModels/queryParticipantAchievementsReadModelsCallable';
 import { createQueryParticipantLessonFeedbackReadModelsHandler } from './canonical/readModels/queryParticipantLessonFeedbackReadModelsCallable';
 import { createQueryTestSessionReadModelsHandler } from './canonical/readModels/queryTestSessionReadModelsCallable';
@@ -299,6 +300,16 @@ export const queryParticipantProgressReadModels = onCall(
   'queryParticipantProgressReadModels',
   CANONICAL_CALLABLE_OPTIONS,
   async (request) => createQueryParticipantProgressReadModelsHandler(getAdminFirestore())(request)
+);
+
+export const queryParticipantProgressHistoryReadModels = onCall(
+  'queryParticipantProgressHistoryReadModels',
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) =>
+    createQueryParticipantProgressHistoryReadModelsHandler(
+      getAdminFirestore(),
+      guestActionTokenSecret.value()
+    )(request)
 );
 
 export const queryParticipantAchievementsReadModels = onCall(

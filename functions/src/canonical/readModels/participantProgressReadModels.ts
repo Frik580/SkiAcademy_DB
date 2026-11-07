@@ -172,7 +172,7 @@ async function assertManagedAccess(
   }
 }
 
-async function instructorHasProgressAccess(
+export async function instructorHasProgressAccess(
   firestore: Firestore,
   instructorId: InstructorId,
   participant: Participant,

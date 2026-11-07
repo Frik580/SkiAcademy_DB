@@ -536,6 +536,7 @@
   "tests/unit/instructorCourseViewModel.test.ts": "app-unit",
   "tests/unit/instructorLessonAttendanceCard.test.tsx": "app-unit",
   "tests/unit/instructorLessonContext.test.tsx": "app-unit",
+  "tests/unit/instructorParticipantProgressHistory.test.tsx": "app-unit",
   "tests/unit/instructorLessonMetrics.test.ts": "app-unit",
   "tests/unit/instructorLessonProgressAssessment.test.ts": "app-unit",
   "tests/unit/instructorLessonRevenue.test.tsx": "app-unit",

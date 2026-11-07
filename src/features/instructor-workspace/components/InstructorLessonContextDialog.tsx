@@ -13,6 +13,7 @@ import {
   lessonContextSkills,
   lessonContextLevelName,
 } from '../instructorLessonContextPresentation';
+import { InstructorParticipantProgressHistorySection } from './InstructorParticipantProgressHistorySection';
 import './instructorLessonContext.css';
 
 export function InstructorLessonContextDialog({
@@ -195,6 +196,15 @@ export function InstructorLessonContextDialog({
             ))}
           </section>
         </>
+      )}
+      {progress.status === 'ready' && (
+        <InstructorParticipantProgressHistorySection
+          participantId={context.participantId}
+          bookingId={context.bookingId}
+          bookingStatus={context.status}
+          skillConfig={skillConfig}
+          authors={authors}
+        />
       )}
       <section aria-label={t('instructorRecommendations')} className="space-y-2">
         <h3 className="type-card-title">{t('instructorRecommendations')}</h3>

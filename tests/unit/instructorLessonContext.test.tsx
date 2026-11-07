@@ -12,7 +12,12 @@ import { emptyParticipantProgressView } from '../../src/features/participant-pro
 import { useParticipantProgressStore } from '../../src/features/participant-progress/participantProgressStore';
 import { useAuthStore } from '../../src/features/auth/authStore';
 
-const mocks = vi.hoisted(() => ({ progress: vi.fn(), feedback: vi.fn(), command: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  progress: vi.fn(),
+  feedback: vi.fn(),
+  command: vi.fn(),
+  history: vi.fn(),
+}));
 vi.mock('../../src/features/participant-progress/participantProgressService', async (original) => ({
   ...(await original<object>()),
   refreshInstructorParticipantProgress: mocks.progress,
@@ -24,6 +29,10 @@ vi.mock(
     queryInstructorLessonParticipantFeedback: mocks.feedback,
   })
 );
+vi.mock('../../src/lib/canonical/canonicalReadModelClient', async (original) => ({
+  ...(await original<object>()),
+  queryParticipantProgressHistoryReadModels: mocks.history,
+}));
 vi.mock('../../src/lib/canonical/canonicalCommandClient', async (original) => ({
   ...(await original<object>()),
   executeAuthenticatedCanonicalCommand: mocks.command,
@@ -117,6 +126,53 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('instructor lesson learning context', () => {
+  it('loads history only inside an expanded open dialog and includes previous versions in its focus trap', async () => {
+    mocks.history.mockResolvedValue({
+      scope: 'instructor',
+      participantId: context.participantId,
+      items: [
+        {
+          id: 'event_keyboard',
+          participantId: context.participantId,
+          revision: 1,
+          at: { seconds: 1793957400, nanoseconds: 0 },
+          kind: 'update_participant_progress',
+          skillChanges: [],
+          commentChanges: [
+            { skillId: first.id, previousText: 'First old', newText: 'First new' },
+            { skillId: second.id, previousText: 'Second old', newText: 'Second new' },
+          ],
+        },
+      ],
+      nextCursor: 'next',
+    });
+    const { unmount } = render(dialog());
+    await ready();
+    expect(mocks.history).not.toHaveBeenCalled();
+    const user = userEvent.setup();
+    const button = screen.getByRole('button', { name: 'Learning history' });
+    button.focus();
+    await user.keyboard('{Enter}');
+    const versions = await screen.findAllByText('Previous version');
+    await user.tab();
+    expect(versions[0]).toHaveFocus();
+    // jsdom does not implement native summary Enter activation; test disclosure by click.
+    fireEvent.click(versions[0]);
+    expect(screen.getByText('First old')).toBeVisible();
+    await user.tab();
+    expect(versions[1]).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Show more' })).toHaveFocus();
+    unmount();
+    expect(mocks.history).toHaveBeenCalledTimes(1);
+    render(dialog());
+    await ready();
+    expect(mocks.history).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Learning history' }));
+    await screen.findByText('First new');
+    expect(mocks.history).toHaveBeenCalledTimes(2);
+  });
+
   it('reads exact Participant, shows official level, zero versus missing scores, and performs no writes', async () => {
     render(dialog());
     await ready();

@@ -179,8 +179,9 @@ Server authorization, existing block semantics and Participant isolation remain
 required; a cancelled lesson creates no new access basis. The protected
 `queryParticipantProgressHistoryReadModels` callable exposes bounded, authorized
 observation history from existing events; see [the API contract](docs/participant-progress-history.md).
-Lesson-context UI integration remains a separate stage. The current comment
-attribution projection does not expand server permissions.
+The lesson-context dialog loads this Participant history only on explicit expansion,
+with per-page authorization and context/session-isolated local state. The current
+comment attribution projection does not expand server permissions.
 
 A valid assigned canonical Booking (`confirmed` or `completed`, not deleted,
 Participant present in both party and service party) grants read access immediately,

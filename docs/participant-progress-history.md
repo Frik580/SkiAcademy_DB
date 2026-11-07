@@ -3,7 +3,37 @@
 The instructor-only `queryParticipantProgressHistoryReadModels` callable reads the
 existing immutable `participant_progress_events` collection. It does not write
 history or alter assessment, levels, current progress, chats, or lesson feedback.
-The lesson-context UI is a separate integration step.
+The lesson-context dialog includes an instructor-only, initially collapsed Learning
+history section. It loads the first page on expansion and one further page per
+explicit Show more action, using the existing client entry point. Items remain in
+server order and are deduplicated by event ID, including empty continuation pages.
+
+The section is owned by Participant × Booking × Booking status × auth/scope
+generation; switching context or reopening the dialog discards its local cache.
+Late results cannot populate a new context. Permission-denied/unauthenticated
+responses clear all displayed history and stop pagination; transient errors retain
+loaded pages and the cursor for explicit retry. No history listeners, polling,
+eager reads, profile lookups or full-history drain are added.
+
+Events group all score/comment changes, use the configured skill names/maxima and
+preserve absent versus zero scores. Retired skills retain raw scores without an
+invented maximum. Verified event Instructor IDs resolve names only from the
+already available instructor list; unresolved names display Author unknown.
+Dates use Asia/Almaty; previous comment versions are keyboard-accessible disclosures.
+History belongs to the Participant across lessons, separately from current context.
+
+UI changes require Hosting only; the API deployment prerequisites below belong to
+the prior API slice. No backend, Rules, indexes, migration or settings change is
+introduced by this integration.
+
+UI validation (2026-11-07): targeted history/dialog/client/score tests, TypeScript,
+app build, affected-file ESLint/Prettier, translations, manifest and manifest-runner
+checks passed. Independent review found one focus-trap issue; the local summary
+focusability fix and Dialog keyboard regression passed focused review. Isolated
+Chromium checks passed RU/EN and light/dark at 375, 390, 768, 1024 and 1440 px,
+including long comments, no horizontal overflow, keyboard disclosure, Escape and
+focus restoration. These fixtures do not verify authenticated Firebase access:
+AUTHENTICATED WORKFLOW: NOT VERIFIED. No commit, push, merge or deployment.
 
 ## Contract and access
 

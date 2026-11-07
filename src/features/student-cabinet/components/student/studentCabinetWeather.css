@@ -1,18 +1,46 @@
 @reference '../../../../index.css';
 
 .sc-dashboard-card[data-dashboard-tile='weather']:has(.sc-weather-tile) {
+  position: relative;
+  isolation: isolate;
   overflow: hidden;
   padding: 0;
-  /* Match the shared navbar glass surface without an opaque card background. */
+  /* Keep the same translucent glass surface as the shared navbar. */
   background-color: color-mix(in srgb, var(--card-bg) 70%, transparent);
   -webkit-backdrop-filter: blur(24px) saturate(150%);
   backdrop-filter: blur(24px) saturate(150%);
   border-color: color-mix(in srgb, var(--accent) 16%, var(--border));
 }
 
+/* A solid dashboard backdrop has no detail for backdrop-filter to blur.
+   Put a subtle accent atmosphere behind the weather tile's glass layer. */
+.sc-dashboard-card[data-dashboard-tile='weather']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle at 95% 0%,
+      color-mix(in srgb, var(--accent) 30%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      circle at 0% 95%,
+      color-mix(in srgb, var(--accent) 18%, transparent),
+      transparent 70%
+    );
+}
+
 .sc-weather-tile {
+  position: relative;
+  z-index: 1;
   min-width: 0;
   padding: 1rem;
+  background-color: color-mix(in srgb, var(--card-bg) 50%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(24px) saturate(150%);
 }
 
 .sc-weather-tile [data-dashboard-header] {

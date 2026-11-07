@@ -9,8 +9,9 @@
   height: 58px;
   color: var(--ink);
   background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(16px);
+  /* Keep vendor prefix first: production CSS minification otherwise drops the standard property. */
   -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border);
 }
 

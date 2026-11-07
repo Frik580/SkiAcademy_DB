@@ -224,6 +224,20 @@ describe('ConditionsStrip', () => {
     expect(css).toContain('top: var(--app-navbar-height)');
     expect(css.split('@media')[0]).toContain('position: sticky');
     expect(css).toContain('-webkit-overflow-scrolling: touch');
+    // The production minifier discards the unprefixed backdrop-filter when it precedes
+    // the WebKit declaration. Keep the same vendor-first order as .ui-navbar.
+    const stripRule = css.match(/\.conditions-strip\s*\{([^}]*)\}/)?.[1];
+    const navbarCss = readFileSync('src/index.css', 'utf8');
+    const navbarRule = navbarCss.match(/\.ui-navbar,\s*\.ui-navbar-panel\s*\{([^}]*)\}/)?.[1];
+    expect(stripRule).toBeDefined();
+    expect(navbarRule).toBeDefined();
+    for (const rule of [stripRule, navbarRule]) {
+      const prefixed = /^\s*-webkit-backdrop-filter:/m.exec(rule!)?.index;
+      const standard = /^\s*backdrop-filter:/m.exec(rule!)?.index;
+      expect(prefixed).toBeDefined();
+      expect(standard).toBeDefined();
+      expect(standard!).toBeGreaterThan(prefixed!);
+    }
   });
 
   it('removes the overflow hint at the end and restores it after scrolling back', () => {

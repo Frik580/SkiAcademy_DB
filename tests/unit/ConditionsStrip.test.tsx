@@ -232,10 +232,11 @@ describe('ConditionsStrip', () => {
     expect(stripRule).toBeDefined();
     expect(navbarRule).toBeDefined();
     for (const rule of [stripRule, navbarRule]) {
-      const prefixed = rule!.indexOf('-webkit-backdrop-filter:');
-      const standard = rule!.indexOf('backdrop-filter:', prefixed + 1);
-      expect(prefixed).toBeGreaterThanOrEqual(0);
-      expect(standard).toBeGreaterThan(prefixed);
+      const prefixed = /^\\s*-webkit-backdrop-filter:/m.exec(rule!)?.index;
+      const standard = /^\\s*backdrop-filter:/m.exec(rule!)?.index;
+      expect(prefixed).toBeDefined();
+      expect(standard).toBeDefined();
+      expect(standard!).toBeGreaterThan(prefixed!);
     }
   });
 

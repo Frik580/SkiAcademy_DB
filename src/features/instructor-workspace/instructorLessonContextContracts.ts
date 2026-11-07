@@ -22,3 +22,11 @@ export interface InstructorLessonContextDialogProps {
   readonly onOpenProgress: () => void;
   readonly onOpenFeedback: () => void;
 }
+
+export interface InstructorProgressHistoryProps {
+  readonly participantId: string;
+  readonly bookingId: string;
+  readonly bookingStatus: BookingStatus;
+  readonly skillConfig: SkillConfig;
+  readonly authors?: readonly { readonly id: string; readonly name: string }[];
+}

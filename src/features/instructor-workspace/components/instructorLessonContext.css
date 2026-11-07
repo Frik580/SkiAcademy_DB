@@ -12,3 +12,14 @@
     flex: 1 1 100%;
   }
 }
+
+.learning-history {
+  overflow-wrap: anywhere;
+}
+.learning-history button {
+  min-height: 44px;
+  white-space: normal;
+}
+.learning-history summary {
+  cursor: pointer;
+}

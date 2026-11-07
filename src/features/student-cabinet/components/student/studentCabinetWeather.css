@@ -3,7 +3,10 @@
 .sc-dashboard-card[data-dashboard-tile='weather']:has(.sc-weather-tile) {
   overflow: hidden;
   padding: 0;
-  background-color: color-mix(in srgb, var(--accent) 7%, var(--card-bg));
+  /* Match the shared navbar glass surface without an opaque card background. */
+  background-color: color-mix(in srgb, var(--card-bg) 70%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(24px) saturate(150%);
   border-color: color-mix(in srgb, var(--accent) 16%, var(--border));
 }
 

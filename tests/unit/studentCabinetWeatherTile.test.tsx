@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -181,12 +182,13 @@ describe('Student Cabinet weather tile', () => {
     expect(screen.queryByRole('button', { name: /Switch temperature/ })).not.toBeInTheDocument();
     expect(screen.getByTestId('weather-temperature')).toHaveTextContent('-7°C');
   });
+
   it('keeps the weather glass background and blur aligned with the navbar', () => {
     const weatherCss = readFileSync(
-      new URL('../../src/features/student-cabinet/components/student/studentCabinetWeather.css', import.meta.url),
+      resolve(process.cwd(), 'src/features/student-cabinet/components/student/studentCabinetWeather.css'),
       'utf8'
     );
-    const globalCss = readFileSync(new URL('../../src/index.css', import.meta.url), 'utf8');
+    const globalCss = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8');
     const weatherRule = weatherCss.match(
       /\.sc-dashboard-card\[data-dashboard-tile='weather'\]:has\(\.sc-weather-tile\)\s*\{([^}]*)\}/
     )?.[1];

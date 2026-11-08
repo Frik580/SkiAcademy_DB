@@ -754,6 +754,10 @@ export const translations = {
     collabCreateRelationship: 'Allow instructor',
     collabRevokeRelationship: 'Revoke access',
     instructorMoreActions: 'Instructor actions',
+    lessonHomeworkScope:
+      'Homework from loaded lesson chats in one chronological history. Each page checks up to 20 assignments; assignments for other participants are hidden. Course chats are not connected here. Sender names are message metadata, not verified authorship.',
+    lessonHomeworkSender: 'Sender name in message',
+    lessonHomeworkDenied: 'Access to one or more chats was denied. Their homework is unavailable.',
     learningHistory: 'Learning history',
     historyParticipantScope: 'Participant learning history across lessons and instructors.',
     historyLoading: 'Loading history…',
@@ -3396,6 +3400,10 @@ export const translations = {
     collabCreateRelationship: 'Разрешить инструктора',
     collabRevokeRelationship: 'Отозвать доступ',
     instructorMoreActions: 'Действия с инструктором',
+    lessonHomeworkScope:
+      'Единая хронологическая история из чатов загруженных занятий. Страница проверяет до 20 заданий; задания других участников скрыты. Чаты курсов здесь не подключены. Имя отправителя взято из сообщения и не подтверждает авторство.',
+    lessonHomeworkSender: 'Имя отправителя в сообщении',
+    lessonHomeworkDenied: 'Доступ к одному или нескольким чатам запрещён. Их задания недоступны.',
     learningHistory: 'История обучения',
     historyParticipantScope:
       'История обучения участника на разных занятиях и у разных инструкторов.',

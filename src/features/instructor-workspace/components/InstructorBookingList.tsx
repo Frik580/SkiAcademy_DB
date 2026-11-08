@@ -78,6 +78,11 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
     usersList,
     instructors,
   } = workspace;
+  const homeworkSources = workspace.instructorBookings.map((lesson) => ({
+    threadId: lesson.id,
+    participantIds: lesson.participantIds,
+    label: `${lesson.date} \u00b7 ${lesson.time}`,
+  }));
   const participantAccess = useBookingCollaborationStore((state) => state.participantAccess);
 
   const filters: Array<'all' | 'pending' | 'confirmed' | 'completed'> = [
@@ -247,6 +252,7 @@ export const InstructorBookingList: React.FC<InstructorBookingListProps> = ({
               <InstructorBookingCard
                 key={b.id}
                 booking={b}
+                homeworkSources={homeworkSources}
                 skillConfig={workspace.skillConfig}
                 contextAuthors={instructors.map(({ id, name }) => ({ id, name }))}
                 nowMs={nowMs}

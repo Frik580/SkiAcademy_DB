@@ -1,3 +1,4 @@
+import { InstructorHomeworkSection } from './InstructorHomeworkSection';
 import { useEffect } from 'react';
 import { UserRound } from 'lucide-react';
 import { AdminModal } from '../../admin/components/AdminModal';
@@ -18,6 +19,7 @@ import './instructorLessonContext.css';
 
 export function InstructorLessonContextDialog({
   context,
+  homeworkSources,
   skillConfig = DEFAULT_SKILL_CONFIG,
   authors,
   onClose,
@@ -206,6 +208,11 @@ export function InstructorLessonContextDialog({
           authors={authors}
         />
       )}
+      <InstructorHomeworkSection
+        participantId={context.participantId}
+        bookingId={context.bookingId}
+        sources={homeworkSources ?? []}
+      />
       <section aria-label={t('instructorRecommendations')} className="space-y-2">
         <h3 className="type-card-title">{t('instructorRecommendations')}</h3>
         {feedback.status === 'ready' ? (

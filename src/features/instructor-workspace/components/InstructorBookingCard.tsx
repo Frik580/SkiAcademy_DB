@@ -1,3 +1,4 @@
+import type { InstructorHomeworkSourceInput } from '../instructorLessonContextContracts';
 import React, { useState } from 'react';
 import type { SkillConfig } from '../../../domain/achievements';
 import { InstructorLessonContextDialog } from './InstructorLessonContextDialog';
@@ -27,6 +28,7 @@ import { InstructorParticipantLessonFeedbackEditor } from './InstructorParticipa
 
 interface InstructorBookingCardProps {
   booking: DisplayBooking;
+  homeworkSources?: readonly InstructorHomeworkSourceInput[];
   skillConfig?: SkillConfig;
   contextAuthors?: readonly { id: string; name: string }[];
   nowMs: number;
@@ -54,6 +56,7 @@ interface InstructorBookingCardProps {
 
 export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
   booking,
+  homeworkSources,
   skillConfig,
   contextAuthors,
   nowMs,
@@ -375,6 +378,15 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
               isLessonContextProgressAssessmentEnabled(b, nowMs) &&
               contextParticipant.attendanceStatus === 'present',
           }}
+          homeworkSources={
+            homeworkSources ?? [
+              {
+                threadId: b.id,
+                participantIds: b.participantIds,
+                label: `${b.date} · ${b.time}`,
+              },
+            ]
+          }
           skillConfig={skillConfig}
           authors={contextAuthors}
           onClose={() => setContextTarget(null)}

@@ -9,6 +9,7 @@
   "e2e/guest-lesson-booking.spec.ts": "playwright",
   "e2e/hero-cta-layout.spec.ts": "playwright",
   "e2e/instructor-revenue.spec.ts": "playwright",
+  "e2e/instructor-homework.spec.ts": "playwright",
   "e2e/instructor-smoke.spec.ts": "playwright",
   "e2e/kaspi-manual-payment.spec.ts": "playwright",
   "e2e/participant-level-progression.spec.ts": "playwright",

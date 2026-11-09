@@ -59,10 +59,10 @@ function HomeworkSection({ participantId, bookingId, sources }: Props) {
           {t('scCoachHomework')}
         </ActionButton>
       </h3>
+      <p className="type-caption text-[var(--ink-dim)]">{t('lessonHomeworkScope')}</p>
       <div id={id} hidden={!expanded}>
         {expanded && (
           <div className="space-y-3 min-w-0" aria-busy={history.loading}>
-            <p className="type-caption text-[var(--ink-dim)]">{t('lessonHomeworkScope')}</p>
             {!history.signedIn ? (
               <p role="alert">{t('lessonContextDenied')}</p>
             ) : !eligible.length ? (
@@ -119,9 +119,12 @@ function HomeworkSection({ participantId, bookingId, sources }: Props) {
                 {history.denied.length > 0 && <p role="alert">{t('lessonHomeworkDenied')}</p>}
                 {!history.loading &&
                   !history.error &&
-                  !history.denied.length &&
                   !history.items.length &&
-                  !history.hasMore && <p role="status">{t('scCoachNoHomework')}</p>}
+                  (history.hasMore || !history.denied.length) && (
+                    <p role="status">
+                      {t(history.hasMore ? 'lessonHomeworkEmptyPage' : 'lessonHomeworkEmpty')}
+                    </p>
+                  )}
                 {history.error && (
                   <div role="alert">
                     <p>{t('historyError')}</p>

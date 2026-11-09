@@ -147,7 +147,7 @@ it('distinguishes denial, empty and unavailable, clears revoked data and never r
   await screen.findByRole('alert');
   expect(screen.queryByText(/Homework 40/)).toBeNull();
   expect(screen.queryByRole('button', { name: 'Show more' })).toBeNull();
-  expect(screen.queryByText(/No homework yet/)).toBeNull();
+  expect(screen.queryByText(translations.en.lessonHomeworkEmpty)).toBeNull();
 });
 
 it('clears history on sign-out and makes no further reads', async () => {
@@ -197,6 +197,38 @@ it('discovers all 50 sources and excludes unrelated family Participants', async 
 it.each(['en', 'ru'])('renders localized empty state in %s', async (language) => {
   localStorage.setItem('alpine_glide_lang', language);
   render(view());
+  expect(screen.getByText(translations[language].lessonHomeworkScope)).toBeVisible();
+  expect(mocks.getDocs).not.toHaveBeenCalled();
   expand();
-  await screen.findByText(translations[language].scCoachNoHomework);
+  await screen.findByText(translations[language].lessonHomeworkEmpty);
+  expect(screen.queryByText(translations[language].lessonHomeworkEmptyPage)).toBeNull();
+});
+
+it.each(['en', 'ru'])('allows manual pagination through hidden pages in %s', async (language) => {
+  localStorage.setItem('alpine_glide_lang', language);
+  const copy = translations[language];
+  const hidden = Array.from({ length: 40 }, (_, i) => item(String(45 - i), ['b']));
+  mocks.getDocs
+    .mockResolvedValueOnce(respond(hidden.slice(0, 1)))
+    .mockResolvedValueOnce(respond(hidden.slice(1, 21)))
+    .mockResolvedValueOnce(respond([...hidden.slice(21), item('05', ['a'])]))
+    .mockResolvedValueOnce(respond([item('04')]));
+  render(view());
+  expand();
+
+  for (const reads of [2, 3]) {
+    await screen.findByText(copy.lessonHomeworkEmptyPage);
+    expect(screen.queryByText(copy.lessonHomeworkEmpty)).toBeNull();
+    expect(screen.queryAllByRole('article')).toHaveLength(0);
+    expect(mocks.getDocs).toHaveBeenCalledTimes(reads);
+    fireEvent.click(screen.getByRole('button', { name: copy.historyShowMore }));
+  }
+
+  await screen.findByText(/Homework 04/);
+  expect(screen.getAllByRole('article').map((article) => article.textContent)).toEqual([
+    expect.stringContaining('Homework 05'),
+    expect.stringContaining('Homework 04'),
+  ]);
+  expect(screen.queryByRole('button', { name: copy.historyShowMore })).toBeNull();
+  expect(mocks.getDocs).toHaveBeenCalledTimes(4);
 });

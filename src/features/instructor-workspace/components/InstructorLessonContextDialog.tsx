@@ -1,5 +1,4 @@
 import { InstructorHomeworkSection } from './InstructorHomeworkSection';
-import { useEffect } from 'react';
 import { UserRound } from 'lucide-react';
 import { AdminModal } from '../../admin/components/AdminModal';
 import { ParticipantLevelPanel } from '../../participant-progress/ParticipantLevelPanel';
@@ -15,6 +14,7 @@ import {
   lessonContextLevelName,
 } from '../instructorLessonContextPresentation';
 import { InstructorParticipantProgressHistorySection } from './InstructorParticipantProgressHistorySection';
+import { InstructorRecommendationHistorySection } from './InstructorRecommendationHistorySection';
 import './instructorLessonContext.css';
 
 export function InstructorLessonContextDialog({
@@ -35,34 +35,6 @@ export function InstructorLessonContextDialog({
       ? lessonContextComments(progress.value, skillConfig, language, authors)
       : [];
 
-  useEffect(() => {
-    // AdminModal owns focus trapping/restoration. Make background controls inert as well.
-    const root = document
-      .querySelector('[data-testid="instructor-lesson-context"]')
-      ?.closest('[data-admin-modal-root]');
-    if (!root) return;
-    const siblings = Array.from(document.body.children).filter(
-      (node): node is HTMLElement => node instanceof HTMLElement && node !== root
-    );
-    const previous = siblings.map((node) => ({
-      node,
-      inert: node.inert,
-      hidden: node.getAttribute('aria-hidden'),
-    }));
-    previous.forEach(({ node }) => {
-      node.inert = true;
-      node.setAttribute('inert', '');
-      node.setAttribute('aria-hidden', 'true');
-    });
-    return () =>
-      previous.forEach(({ node, inert, hidden }) => {
-        node.inert = inert;
-        if (!inert) node.removeAttribute('inert');
-        if (hidden === null) node.removeAttribute('aria-hidden');
-        else node.setAttribute('aria-hidden', hidden);
-      });
-  }, []);
-
   const stateText = (status: string) =>
     t(
       status === 'loading'
@@ -79,6 +51,7 @@ export function InstructorLessonContextDialog({
       closeLabel={t('closeBtn')}
       onClose={onClose}
       width="xl"
+      inertBackground
       data-testid="instructor-lesson-context"
       footer={
         <>
@@ -240,6 +213,12 @@ export function InstructorLessonContextDialog({
           </ActionButton>
         )}
       </section>
+      <InstructorRecommendationHistorySection
+        participantId={context.participantId}
+        bookingId={context.bookingId}
+        bookingStatus={context.status}
+        authors={authors}
+      />
       <section className="space-y-2">
         <h3 className="type-card-title">{t('lessonContextGoal')}</h3>
         <p className="type-caption text-[var(--ink-dim)]">{t('lessonContextNoGoal')}</p>

@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   feedback: vi.fn(),
   command: vi.fn(),
   history: vi.fn(),
+  recommendationHistory: vi.fn(),
 }));
 vi.mock('../../src/features/participant-progress/participantProgressService', async (original) => ({
   ...(await original<object>()),
@@ -32,6 +33,7 @@ vi.mock(
 vi.mock('../../src/lib/canonical/canonicalReadModelClient', async (original) => ({
   ...(await original<object>()),
   queryParticipantProgressHistoryReadModels: mocks.history,
+  queryInstructorParticipantRecommendationHistoryReadModels: mocks.recommendationHistory,
 }));
 vi.mock('../../src/lib/canonical/canonicalCommandClient', async (original) => ({
   ...(await original<object>()),
@@ -108,6 +110,7 @@ function deferred<T>() {
 }
 
 beforeEach(() => {
+  mocks.recommendationHistory.mockReset();
   vi.clearAllMocks();
   localStorage.setItem('alpine_glide_lang', 'en');
   useParticipantProgressStore.getState().clear();
@@ -126,6 +129,25 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('instructor lesson learning context', () => {
+  it('mounts recommendation history beside the separate current recommendations', async () => {
+    mocks.feedback.mockResolvedValueOnce({
+      participantId: context.participantId,
+      lessonBookingId: context.bookingId,
+      items: [{ itemId: 'current', text: 'Current recommendation', completed: false }],
+      revision: 1,
+    });
+    expect(mocks.recommendationHistory).not.toHaveBeenCalled();
+    const { unmount } = render(dialog({ ...context, canReadFeedback: true }));
+    await screen.findByText('Current recommendation');
+    const current = screen.getByRole('region', { name: t('instructorRecommendations') });
+    const history = screen.getByRole('region', { name: t('recommendationHistory') });
+    expect(current.nextElementSibling).toBe(history);
+    expect(within(history).getByRole('button')).toHaveAttribute('aria-expanded', 'false');
+    expect(mocks.recommendationHistory).not.toHaveBeenCalled();
+    unmount();
+    expect(mocks.recommendationHistory).not.toHaveBeenCalled();
+  });
+
   it('loads history only inside an expanded open dialog and includes previous versions in its focus trap', async () => {
     mocks.history.mockResolvedValue({
       scope: 'instructor',

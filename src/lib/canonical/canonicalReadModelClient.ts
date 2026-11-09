@@ -267,12 +267,14 @@ export async function queryParticipantProgressHistoryReadModels(
 }
 
 export async function queryInstructorParticipantRecommendationHistoryReadModels(
-  input: CanonicalReadQueryInput<QueryInstructorParticipantRecommendationHistoryReadModelsInput>
+  input: CanonicalReadQueryInput<QueryInstructorParticipantRecommendationHistoryReadModelsInput>,
+  viewId?: string
 ): Promise<QueryInstructorParticipantRecommendationHistoryReadModelsResult> {
   const identityHash = canonicalDeterministicHash([
     'read:instructor_participant_recommendation_history:v1',
     input.participantId,
     input.cursor ?? 'first',
+    viewId ?? 'shared',
   ]);
   const result = await invokeCanonicalReadCallable<
     CanonicalReadQueryInput<QueryInstructorParticipantRecommendationHistoryReadModelsInput>,

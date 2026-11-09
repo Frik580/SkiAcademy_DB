@@ -32,6 +32,13 @@ export interface InstructorProgressHistoryProps {
   readonly authors?: readonly { readonly id: string; readonly name: string }[];
 }
 
+export interface InstructorRecommendationHistoryInput {
+  readonly participantId: string;
+  readonly bookingId: string;
+  readonly bookingStatus: BookingStatus;
+  readonly authors?: InstructorLessonContextDialogProps['authors'];
+}
+
 /** Confirmed Participant membership from the instructor lesson read model, never account identity. */
 export interface InstructorHomeworkSourceInput {
   readonly threadId: string;

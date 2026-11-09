@@ -53,7 +53,10 @@ import {
   type QueryInstructorReviewReadModelsResult,
   type QueryParticipantProgressReadModelsInput,
   QueryParticipantProgressHistoryReadModelsResultSchema,
+  QueryInstructorParticipantRecommendationHistoryReadModelsResultSchema,
   type QueryParticipantProgressHistoryReadModelsInput,
+  type QueryInstructorParticipantRecommendationHistoryReadModelsInput,
+  type QueryInstructorParticipantRecommendationHistoryReadModelsResult,
   type QueryParticipantProgressHistoryReadModelsResult,
   type QueryParticipantProgressReadModelsResult,
   type QueryParticipantAchievementsReadModelsInput,
@@ -261,6 +264,24 @@ export async function queryParticipantProgressHistoryReadModels(
     maxAttempts: 1,
   });
   return QueryParticipantProgressHistoryReadModelsResultSchema.parse(result);
+}
+
+export async function queryInstructorParticipantRecommendationHistoryReadModels(
+  input: CanonicalReadQueryInput<QueryInstructorParticipantRecommendationHistoryReadModelsInput>
+): Promise<QueryInstructorParticipantRecommendationHistoryReadModelsResult> {
+  const identityHash = canonicalDeterministicHash([
+    'read:instructor_participant_recommendation_history:v1',
+    input.participantId,
+    input.cursor ?? 'first',
+  ]);
+  const result = await invokeCanonicalReadCallable<
+    CanonicalReadQueryInput<QueryInstructorParticipantRecommendationHistoryReadModelsInput>,
+    unknown
+  >('queryInstructorParticipantRecommendationHistoryReadModels', input, {
+    idempotencyKey: `read:instructor_participant_recommendation_history:${identityHash}`,
+    maxAttempts: 1,
+  });
+  return QueryInstructorParticipantRecommendationHistoryReadModelsResultSchema.parse(result);
 }
 
 function chunkIds<T>(ids: readonly T[], size: number): T[][] {

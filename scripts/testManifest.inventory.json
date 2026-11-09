@@ -169,6 +169,7 @@
   "functions/src/canonical/readModels/lessonBookingReadModels.test.ts": "functions-unit",
   "functions/src/canonical/readModels/managedParticipantPickerReadModels.emulator.test.ts": "canonical-backend",
   "functions/src/canonical/readModels/managedParticipantPickerReadModels.test.ts": "functions-unit",
+  "functions/src/canonical/readModels/instructorParticipantRecommendationHistoryReadModels.emulator.test.ts": "canonical-backend",
   "functions/src/canonical/readModels/participantAchievementsReadModels.test.ts": "functions-unit",
   "functions/src/canonical/readModels/participantInstructorAccessReadModels.test.ts": "functions-unit",
   "functions/src/canonical/readModels/participantLessonFeedbackReadModels.test.ts": "functions-unit",

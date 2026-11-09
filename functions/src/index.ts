@@ -46,6 +46,7 @@ import { createQueryEmailDeliverySettingsReadModelHandler } from './canonical/re
 import { createQueryOutboxDeadLetterReadModelHandler } from './canonical/readModels/queryOutboxDeadLetterReadModelCallable';
 import { createQueryInstructorReviewReadModelsHandler } from './canonical/readModels/queryInstructorReviewReadModelsCallable';
 import { createQueryParticipantProgressReadModelsHandler } from './canonical/readModels/queryParticipantProgressReadModelsCallable';
+import { createQueryInstructorParticipantRecommendationHistoryReadModelsHandler } from './canonical/readModels/queryInstructorParticipantRecommendationHistoryReadModelsCallable';
 import { createQueryParticipantProgressHistoryReadModelsHandler } from './canonical/readModels/queryParticipantProgressHistoryReadModelsCallable';
 import { createQueryParticipantAchievementsReadModelsHandler } from './canonical/readModels/queryParticipantAchievementsReadModelsCallable';
 import { createQueryParticipantLessonFeedbackReadModelsHandler } from './canonical/readModels/queryParticipantLessonFeedbackReadModelsCallable';
@@ -307,6 +308,16 @@ export const queryParticipantProgressHistoryReadModels = onCall(
   CANONICAL_CALLABLE_OPTIONS,
   async (request) =>
     createQueryParticipantProgressHistoryReadModelsHandler(
+      getAdminFirestore(),
+      guestActionTokenSecret.value()
+    )(request)
+);
+
+export const queryInstructorParticipantRecommendationHistoryReadModels = onCall(
+  'queryInstructorParticipantRecommendationHistoryReadModels',
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) =>
+    createQueryInstructorParticipantRecommendationHistoryReadModelsHandler(
       getAdminFirestore(),
       guestActionTokenSecret.value()
     )(request)

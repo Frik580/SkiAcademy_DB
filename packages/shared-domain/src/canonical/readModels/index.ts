@@ -29,3 +29,4 @@ export * from './participantProgressHistoryReadModel';
 export * from './participantAchievementsReadModel';
 export * from './participantLessonFeedbackReadModel';
 export * from './testSessionReadModel';
+export * from './instructorParticipantRecommendationHistoryReadModel';

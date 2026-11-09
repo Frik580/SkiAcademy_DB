@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
+import { E2E_LIVE_APP_PORT, E2E_LIVE_APP_URL } from './e2e/emulator-config';
 
-const port = 5173;
+const port = Number(process.env.CARVE_E2E_PREVIEW_PORT ?? 5173);
 const liveFixtures = process.env.CARVE_E2E_LIVE_FIXTURES !== 'false';
 const hostingSecurity = process.env.CARVE_TEST_HOSTING === 'true';
 
@@ -41,9 +42,8 @@ export default defineConfig({
         ...(liveFixtures
           ? [
               {
-                command:
-                  'npm exec vite -- --mode e2e --config e2e/vite.live.config.ts --host 127.0.0.1 --port 5174 --strictPort',
-                url: 'http://127.0.0.1:5174/src/app/routes/CabinetRouteContainer.tsx',
+                command: `npm exec vite -- --mode e2e --config e2e/vite.live.config.ts --host 127.0.0.1 --port ${E2E_LIVE_APP_PORT} --strictPort`,
+                url: `${E2E_LIVE_APP_URL}/src/app/routes/CabinetRouteContainer.tsx`,
                 reuseExistingServer: false,
                 timeout: 120_000,
               },

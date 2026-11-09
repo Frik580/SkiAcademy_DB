@@ -4,6 +4,8 @@ export const FUNCTIONS_EMULATOR_HOST = '127.0.0.1';
 export const FUNCTIONS_EMULATOR_PORT = 5001;
 export const FUNCTIONS_REGION = 'us-central1';
 export const FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
+export const E2E_LIVE_APP_PORT = Number(process.env.CARVE_E2E_LIVE_PORT ?? 5174);
+export const E2E_LIVE_APP_URL = `http://127.0.0.1:${E2E_LIVE_APP_PORT}`;
 
 export const E2E_STUDENT_EMAIL = 'student@e2e.test';
 export const E2E_STUDENT_PASSWORD = 'password123';

@@ -18,6 +18,7 @@ interface AdminModalProps {
   footer?: React.ReactNode;
   /** Chat owns its message scroller and composer inside the body. */
   bodyLayout?: 'scroll' | 'flex';
+  inertBackground?: boolean;
   'data-testid'?: string;
 }
 
@@ -60,6 +61,7 @@ export function AdminModal({
   children,
   footer,
   bodyLayout = 'scroll',
+  inertBackground = false,
   'data-testid': testId,
 }: AdminModalProps) {
   const depth = useContext(ModalDepth);
@@ -98,6 +100,19 @@ export function AdminModal({
     const focusFirst = () =>
       (focusableElements(dialog)[0] ?? dialog).focus({ preventScroll: true });
     if (isTopModal(root)) focusFirst();
+    const background = inertBackground
+      ? Array.from(document.body.children)
+          .filter((node): node is HTMLElement => node instanceof HTMLElement && node !== root)
+          .map((node) => ({
+            node,
+            inert: node.hasAttribute('inert'),
+            hidden: node.getAttribute('aria-hidden'),
+          }))
+      : [];
+    for (const { node } of background) {
+      node.setAttribute('inert', '');
+      node.setAttribute('aria-hidden', 'true');
+    }
     const handleKey = (event: KeyboardEvent) => {
       if (!isTopModal(root) || event.defaultPrevented) return;
       if (event.key === 'Escape') {
@@ -125,9 +140,14 @@ export function AdminModal({
     return () => {
       document.removeEventListener('keydown', handleKey);
       document.removeEventListener('focusin', handleFocus);
+      for (const { node, inert, hidden } of background) {
+        if (!inert) node.removeAttribute('inert');
+        if (hidden === null) node.removeAttribute('aria-hidden');
+        else node.setAttribute('aria-hidden', hidden);
+      }
       if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
     };
-  }, []);
+  }, [inertBackground]);
 
   if (typeof document === 'undefined') return null;
   return createPortal(

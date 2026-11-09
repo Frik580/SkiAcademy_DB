@@ -67,6 +67,7 @@ const maxTwenty = [
   'queryParticipantOccupancyReadModels',
   'queryParticipantProgressReadModels',
   'queryParticipantProgressHistoryReadModels',
+  'queryInstructorParticipantRecommendationHistoryReadModels',
   'queryTestSessionReadModels',
   'resolveInstructorLessonRevenue',
   'scheduledPurgeExpiredNotifications',
@@ -94,7 +95,7 @@ function deploymentSpec(): Record<string, Record<string, unknown>> {
 describe('reviewed Functions deployment configuration', () => {
   it('requires the exact scaling map and export inventory in the generated specification', () => {
     const spec = deploymentSpec();
-    expect(Object.keys(spec)).toHaveLength(52);
+    expect(Object.keys(spec)).toHaveLength(53);
     expect(
       Object.fromEntries(Object.entries(spec).map(([name, e]) => [name, e.maxInstances]))
     ).toEqual(expectedCaps);

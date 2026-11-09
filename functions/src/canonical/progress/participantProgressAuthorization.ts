@@ -2,6 +2,8 @@ import {
   bookingScopedEvidenceFromQualifyingProgressBooking,
   bookingScopedEvidenceFromQualifyingProgressReadBooking,
   timestampFromDate,
+  documentMatchesReadScope,
+  type CanonicalReadScope,
   type BookingScopedParticipantAccessEvidence,
   type InstructorId,
   type ParticipantId,
@@ -65,6 +67,7 @@ export async function loadInstructorProgressReadBookingScopedEvidence(
     instructorId: InstructorId;
     participantId: ParticipantId;
     at: ReturnType<typeof timestampFromDate>;
+    readScope?: CanonicalReadScope;
   }>
 ): Promise<readonly BookingScopedParticipantAccessEvidence[]> {
   const bookingQuery = firestore
@@ -78,7 +81,9 @@ export async function loadInstructorProgressReadBookingScopedEvidence(
   while (true) {
     const page = await (cursor ? bookingQuery.startAfter(cursor) : bookingQuery).limit(50).get();
     for (const doc of page.docs) {
-      const booking = parseBooking(doc.data() as Record<string, unknown>);
+      const data = doc.data();
+      if (input.readScope && !documentMatchesReadScope(input.readScope, data)) continue;
+      const booking = parseBooking(data);
       if (!booking) continue;
       const scoped = bookingScopedEvidenceFromQualifyingProgressReadBooking({
         booking,

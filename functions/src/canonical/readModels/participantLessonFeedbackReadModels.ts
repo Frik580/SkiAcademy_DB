@@ -179,7 +179,7 @@ async function loadFeedbackByIds(
     .filter((model): model is ParticipantLessonFeedbackReadModel => model !== undefined);
 }
 
-function historyQuery(
+export function participantLessonFeedbackHistoryQuery(
   firestore: Firestore,
   participantId: ParticipantId
 ): Query {
@@ -204,12 +204,11 @@ async function loadParticipantHistory(
     const items = await loadFeedbackByIds(firestore, feedbackIds, readScope);
     return items.filter(
       (item) =>
-        item.participantId === participantId &&
-        lessonBookingIds.includes(item.lessonBookingId)
+        item.participantId === participantId && lessonBookingIds.includes(item.lessonBookingId)
     );
   }
 
-  const snapshot = await historyQuery(firestore, participantId)
+  const snapshot = await participantLessonFeedbackHistoryQuery(firestore, participantId)
     .limit(MANAGED_FEEDBACK_HISTORY_LIMIT)
     .get();
   return snapshot.docs
@@ -293,16 +292,15 @@ async function queryManagedLatest(
   readScope: CanonicalReadScope
 ): Promise<QueryParticipantLessonFeedbackReadModelsResult> {
   await assertManagedAccess(firestore, accountId, [input.participantId]);
-  const snapshot = await historyQuery(firestore, input.participantId).limit(1).get();
+  const snapshot = await participantLessonFeedbackHistoryQuery(firestore, input.participantId)
+    .limit(1)
+    .get();
   const model = snapshot.docs[0]
     ? toScopedReadModel(snapshot.docs[0].data() as Record<string, unknown>, readScope)
     : undefined;
   return {
     scope: 'managed_latest',
-    item:
-      model && model.participantId === input.participantId
-        ? model
-        : null,
+    item: model && model.participantId === input.participantId ? model : null,
   };
 }
 
@@ -316,7 +314,8 @@ export async function queryParticipantLessonFeedbackReadModels(
     readScope?: CanonicalReadScope;
   }>
 ): Promise<QueryParticipantLessonFeedbackReadModelsResult> {
-  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  const readScope =
+    options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
   if (input.scope === 'instructor_lesson') {
     if (!options.instructorId) {
       throw new ParticipantLessonFeedbackReadDeniedError();

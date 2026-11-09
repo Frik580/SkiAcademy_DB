@@ -176,16 +176,19 @@ export async function instructorHasProgressAccess(
   firestore: Firestore,
   instructorId: InstructorId,
   participant: Participant,
-  at: ReturnType<typeof timestampFromDate>
+  at: ReturnType<typeof timestampFromDate>,
+  readScope?: CanonicalReadScope
 ): Promise<boolean> {
   const relationshipId = instructorRelationshipIdFromPair({
     participantId: participant.participantId,
     instructorId,
   });
   const relationshipSnap = await firestore.doc(instructorRelationshipPath(relationshipId)).get();
-  const instructorRelationship = parseInstructorRelationship(
-    relationshipSnap.data() as Record<string, unknown> | undefined
-  );
+  const scoped = <T>(
+    data: Record<string, unknown> | undefined,
+    parse: (value: Record<string, unknown> | undefined) => T | undefined
+  ) => (readScope ? parseIfVisibleInReadScope(data, parse, readScope) : parse(data));
+  const instructorRelationship = scoped(relationshipSnap.data(), parseInstructorRelationship);
   const managerBlockId = participantBlockIdFromDirection({
     participantId: participant.participantId,
     instructorId,
@@ -201,20 +204,24 @@ export async function instructorHasProgressAccess(
     firestore.doc(participantBlockPath(instructorBlockId)).get(),
   ]);
   const participantBlocks = [
-    parseParticipantBlock(managerBlockSnap.data() as Record<string, unknown> | undefined),
-    parseParticipantBlock(instructorBlockSnap.data() as Record<string, unknown> | undefined),
+    scoped(managerBlockSnap.data(), parseParticipantBlock),
+    scoped(instructorBlockSnap.data(), parseParticipantBlock),
   ].filter((block): block is ParticipantBlock => block !== undefined);
 
   let management;
   if (participant.management.kind === 'managed') {
-    management = parseParticipantManagement(
-      (
-        await firestore
-          .collection('participant_management')
-          .doc(participant.management.participantManagementId)
-          .get()
-      ).data() as Record<string, unknown> | undefined
-    );
+    const snapshot = await firestore
+      .collection('participant_management')
+      .doc(participant.management.participantManagementId)
+      .get();
+    management = readScope
+      ? parseIfVisibleInReadScope(
+          snapshot.data(),
+          parseParticipantManagement,
+          readScope,
+          'identity'
+        )
+      : parseParticipantManagement(snapshot.data());
   }
 
   const topology = buildParticipantAccessTopology({
@@ -235,6 +242,7 @@ export async function instructorHasProgressAccess(
     instructorId,
     participantId: participant.participantId,
     at,
+    readScope,
   });
   const access = evaluateInstructorParticipantAccess(topology, {
     instructorId,

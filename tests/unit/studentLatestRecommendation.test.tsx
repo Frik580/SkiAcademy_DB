@@ -5,6 +5,9 @@ import type { ManagedRecommendation } from '@ski-academy/shared-domain';
 import { translations, type TranslationKey } from '../../src/lib/i18n/translations';
 import { StudentCoachRecommendationsSection } from '../../src/features/student-cabinet/components/student/StudentHomeBottomSections';
 import { queryManagedRecommendationsPage } from '../../src/features/participant-lesson-feedback/participantLessonFeedbackService';
+import { StudentCoachSkillCommentsSection } from '../../src/features/student-cabinet/components/student/StudentCoachSkillCommentsSection';
+import { DEFAULT_SKILL_CONFIG } from '../../src/domain/achievements';
+import type { ParticipantProgressView } from '../../src/features/participant-progress/applyParticipantProgressToProfile';
 
 let language: 'ru' | 'en' = 'en';
 vi.mock('../../src/app/providers/LanguageContext', () => ({
@@ -181,5 +184,96 @@ describe('Coach recommendations', () => {
     await act(async () => finishOld(page([item(1)])));
     expect(screen.queryByText('Drill 1')).toBeNull();
     expect(load).toHaveBeenLastCalledWith(participant, undefined, expect.any(AbortSignal));
+  });
+});
+
+describe('Coach exercise comments tile', () => {
+  const skillIds = DEFAULT_SKILL_CONFIG.items.slice(0, 7).map((skill) => skill.id);
+  function progress(participantId = 'student_a', count = 7): ParticipantProgressView {
+    const ids = skillIds.slice(0, count);
+    return {
+      participantId,
+      level: 1,
+      revision: 1,
+      skillScores: {},
+      skillComments: Object.fromEntries(ids.map((id, index) => [id, `Coach note ${index}`])),
+      skillCommentAttribution: Object.fromEntries(
+        ids.map((id, index) => [
+          id,
+          {
+            instructorId: 'coach_a' as never,
+            accountId: 'account_a' as never,
+            updatedAt: { seconds: 1000 + index, nanoseconds: 0 },
+            revision: 1,
+          },
+        ])
+      ),
+    };
+  }
+  function commentsTile(value?: ParticipantProgressView, participantId = 'student_a') {
+    return (
+      <StudentCoachSkillCommentsSection
+        key={participantId}
+        participantId={participantId}
+        progress={value}
+        skillConfig={DEFAULT_SKILL_CONFIG}
+        instructors={[{ id: 'coach_a', name: 'Coach A' }]}
+      />
+    );
+  }
+
+  it('has a localized empty state and hides navigation without comments', () => {
+    render(commentsTile(progress('student_a', 0)));
+    expect(screen.getByText(translations.en.scNoCoachExerciseComments)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
+    expect(screen.queryByText(/^Page \d+$/)).toBeNull();
+  });
+
+  it('shows five latest comments and navigates without page numbers', async () => {
+    render(commentsTile(progress()));
+    const user = userEvent.setup();
+    expect(screen.getByRole('heading', { name: translations.en.scCoachExerciseComments })).toBeVisible();
+    expect(screen.getAllByRole('listitem')).toHaveLength(5);
+    expect(screen.getByText('Coach note 6')).toBeVisible();
+    expect(screen.queryByText('Coach note 0')).toBeNull();
+    expect(screen.getAllByText('Coach A')).toHaveLength(5);
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
+    expect(screen.queryByText(/^Page \d+$/)).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    expect(screen.getByText('Coach note 0')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByText('Coach note 6')).toBeVisible();
+  });
+
+  it('shows unknown authors without falsely assigning old comments', () => {
+    const value = progress('student_a', 1);
+    render(commentsTile({ ...value, skillCommentAttribution: undefined }));
+    expect(screen.getByText('Author unknown')).toBeVisible();
+    expect(screen.queryByText('Coach A')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
+  });
+
+  it('does not show another participant\'s progress and resets on switching participants', async () => {
+    const view = render(commentsTile(progress()));
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText('Coach note 0')).toBeVisible();
+    view.rerender(commentsTile(progress('student_b', 1), 'student_b'));
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+    expect(screen.getByText('Coach note 0')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
+    view.rerender(commentsTile(progress('student_a', 2), 'student_b'));
+    expect(screen.getByText(translations.en.scNoCoachExerciseComments)).toBeVisible();
+  });
+
+  it('renders Russian heading and empty state', () => {
+    language = 'ru';
+    render(commentsTile(progress('student_a', 0)));
+    expect(
+      screen.getByRole('heading', { name: translations.ru.scCoachExerciseComments })
+    ).toBeVisible();
+    expect(screen.getByText(translations.ru.scNoCoachExerciseComments)).toBeVisible();
   });
 });

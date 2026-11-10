@@ -376,12 +376,13 @@ describe('Student Home dashboard grid', () => {
       'nextSession',
       'todayAchievements',
       'instructorRecommendations',
+      'coachSkillComments',
     ]);
     expect(
       grid.querySelector('[data-dashboard-tile="instructorRecommendations"]')?.parentElement
         ?.parentElement
     ).toBe(grid.querySelector('[data-dashboard-column="right"]'));
-    expect(grid.querySelectorAll('[data-dashboard-tile]')).toHaveLength(10);
+    expect(grid.querySelectorAll('[data-dashboard-tile]')).toHaveLength(11);
     for (const tile of Array.from(grid.querySelectorAll('[data-dashboard-tile]'))) {
       expect(tile).toHaveClass(
         'sc-dashboard-card',
@@ -488,6 +489,7 @@ describe('Student Home dashboard grid', () => {
       'todayTasks',
       'nextSession',
       'instructorRecommendations',
+      'coachSkillComments',
     ]);
     // Tablet columns use independent stacks; desktop keeps the fixed 1:2 widths.
     expect(grid.querySelector('[data-dashboard-column="left"]')).toHaveClass(
@@ -521,6 +523,7 @@ describe('Student Home dashboard grid', () => {
       'nextSession',
       'todayTasks',
       'instructorRecommendations',
+      'coachSkillComments',
     ]);
     expect(grid.querySelector('[data-dashboard-tile="weather"]')).toBe(weather);
     expect(grid.querySelector('[data-dashboard-tile="todayTasks"]')).toBe(tasks);
@@ -538,6 +541,7 @@ describe('Student Home dashboard grid', () => {
       'nextSession',
       'todayTasks',
       'instructorRecommendations',
+      'coachSkillComments',
     ]);
     for (const item of grid.querySelectorAll<HTMLElement>('[data-dashboard-item]')) {
       expect(item.querySelectorAll('[data-dashboard-tile]')).toHaveLength(1);
@@ -578,6 +582,7 @@ describe('Student Home dashboard grid', () => {
       'todayAchievements',
       'nextSession',
       'instructorRecommendations',
+      'coachSkillComments',
     ]);
     for (const card of cards) expect(grid.contains(card)).toBe(true);
     act(() => {
@@ -606,6 +611,7 @@ describe('Student Home dashboard grid', () => {
       'todayAchievements',
       'nextSession',
       'instructorRecommendations',
+      'coachSkillComments',
     ]);
     expect(new Set(cards.map((card) => card.getAttribute('data-dashboard-tile'))).size).toBe(
       cards.length
@@ -628,6 +634,7 @@ describe('Student Home dashboard grid', () => {
       'nextSession',
       'skillRadar',
       'instructorRecommendations',
+      'coachSkillComments',
       'weather',
     ];
     expect(tileOrder()).toEqual(

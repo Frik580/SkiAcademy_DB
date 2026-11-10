@@ -65,12 +65,19 @@ export const STUDENT_DASHBOARD_TILES = {
     defaultSize: 'medium',
     defaultOrder: 9,
   },
+  coachSkillComments: {
+    key: 'coachSkillComments',
+    desktopColumn: 'right',
+    label: { ru: 'Комментарии тренеров к упражнениям', en: 'Coach comments on exercises' },
+    defaultSize: 'medium',
+    defaultOrder: 10,
+  },
   weather: {
     key: 'weather',
     desktopColumn: 'left',
     label: { ru: 'Погода', en: 'Weather' },
     defaultSize: 'small',
-    defaultOrder: 10,
+    defaultOrder: 11,
   },
 } as const satisfies Record<
   string,

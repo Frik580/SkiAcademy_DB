@@ -36,6 +36,8 @@ import {
 } from '../../../settings/studentDashboardLayout';
 import { LazySkillRadarChart } from './LazySkillRadarChart';
 import { StudentCoachSkillCommentsSection } from './StudentCoachSkillCommentsSection';
+import { StudentHomeworkDashboardSection } from './StudentHomeworkDashboardSection';
+import { getStudentHomeworkSources } from './studentHomeworkSources';
 import {
   StudentCabinetWeatherSection,
   StudentCoachRecommendationsSection,
@@ -135,6 +137,10 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
   };
 
   const nextSessionItems = props.nextSessionItems ?? sessionItems;
+  const homeworkSources = useMemo(
+    () => getStudentHomeworkSources(nextSessionItems, recommendationsParticipantId),
+    [nextSessionItems, recommendationsParticipantId]
+  );
   const sessionNow = useCabinetSessionNow(nextSessionItems);
   const { nextSessions, participantsBySessionKey } = useMemo(
     () => buildNextSessionCards(nextSessionItems, props.participantProfiles ?? [], sessionNow),
@@ -432,6 +438,20 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
           scopeParticipant={scopeParticipant}
           skillConfig={skillConfig}
           instructors={instructors}
+        />
+      </StudentDashboardTile>
+    ),
+    homework: (
+      <StudentDashboardTile
+        tileKey={STUDENT_DASHBOARD_TILES.homework.key}
+        size={STUDENT_DASHBOARD_TILES.homework.defaultSize}
+      >
+        <StudentHomeworkDashboardSection
+          key={JSON.stringify([userProfile.uid, recommendationsParticipantId])}
+          accountId={userProfile.uid}
+          participantId={recommendationsParticipantId}
+          scopeParticipant={scopeParticipant}
+          sources={homeworkSources}
         />
       </StudentDashboardTile>
     ),

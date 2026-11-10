@@ -72,12 +72,19 @@ export const STUDENT_DASHBOARD_TILES = {
     defaultSize: 'medium',
     defaultOrder: 10,
   },
+  homework: {
+    key: 'homework',
+    desktopColumn: 'right',
+    label: { ru: 'Домашние задания', en: 'Homework' },
+    defaultSize: 'medium',
+    defaultOrder: 11,
+  },
   weather: {
     key: 'weather',
     desktopColumn: 'left',
     label: { ru: 'Погода', en: 'Weather' },
     defaultSize: 'small',
-    defaultOrder: 11,
+    defaultOrder: 12,
   },
 } as const satisfies Record<
   string,

@@ -28,6 +28,7 @@ describe('fixed dashboard order', () => {
       'todayAchievements',
       'instructorRecommendations',
       'coachSkillComments',
+      'homework',
     ]);
     expect(defaults.order).toEqual([
       'currentSessions',
@@ -40,6 +41,7 @@ describe('fixed dashboard order', () => {
       'needsAttention',
       'instructorRecommendations',
       'coachSkillComments',
+      'homework',
       'weather',
     ]);
     expect(() => validateStudentDashboardLayout(defaults)).not.toThrow();
@@ -89,6 +91,7 @@ describe('fixed dashboard order', () => {
       'nextSession',
       'todayAchievements',
       'coachSkillComments',
+      'homework',
     ]);
   });
   it('rejects incomplete and duplicate writes', () => {
@@ -132,10 +135,10 @@ describe('fixed dashboard order', () => {
       [...container.querySelectorAll(`[data-dashboard-column="${column}"] > [data-dashboard-item]`)]
         .map((element) => element.getAttribute('data-dashboard-item'));
     expect(keys('left')).toEqual([
-      'currentSessions', 'nextStep', 'skillRadar', 'instructorRecommendations', 'weather',
+      'currentSessions', 'nextStep', 'skillRadar', 'instructorRecommendations', 'homework',
     ]);
     expect(keys('right')).toEqual([
-      'todayTasks', 'nextSession', 'needsAttention', 'coachSkillComments',
+      'todayTasks', 'nextSession', 'needsAttention', 'coachSkillComments', 'weather',
     ]);
     expect(container.querySelectorAll('[data-testid="student-dashboard-grid"] > [data-dashboard-item]'))
       .toHaveLength(0);
@@ -187,6 +190,6 @@ describe('fixed dashboard order', () => {
     expect(keys('right')).not.toContain('instructorRecommendations');
     rerender(<StudentDashboardColumns tiles={tiles} order={layout.order} />);
     expect(keys('left').slice(0, 3)).toEqual(['weather', 'countdown', 'currentSessions']);
-    expect(keys('right').at(-1)).toBe('coachSkillComments');
+    expect(keys('right').at(-1)).toBe('homework');
   });
 });

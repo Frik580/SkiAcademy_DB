@@ -176,6 +176,10 @@
   margin: 0;
 }
 
+.sc-latest-recommendation-pagination .sc-latest-recommendation-next {
+  margin-left: auto;
+}
+
 .sc-latest-recommendation-action[aria-disabled='true'] {
   opacity: 0.5;
   cursor: default;

@@ -447,15 +447,22 @@ test('instructor lesson context combines live progress, homework and recommendat
         exact: true,
       })
     ).toBeVisible();
-    await expect(
-      current.getByRole('progressbar', { name: getSkillItemTitle(zero, 'en'), exact: true })
-    ).toHaveAttribute('value', '0');
-    await expect(
-      current.getByRole('progressbar', { name: getSkillItemTitle(maximum, 'en'), exact: true })
-    ).toHaveAttribute('value', String(maximum.maxPoints));
-    await expect(
-      current.getByRole('progressbar', { name: getSkillItemTitle(unrated, 'en'), exact: true })
-    ).toHaveCount(0);
+    for (const skill of [zero, maximum, unrated]) {
+      const name = MASTERY_LEVELS.find((level) => level.id === skill.levelTarget)!.name;
+      const group = current.getByRole('button', { name: new RegExp(`^${name} \\d+$`) });
+      if ((await group.getAttribute('aria-expanded')) === 'false') await group.click();
+    }
+    for (const [skill, score] of [
+      [zero, `0 / ${zero.maxPoints} · 0%`],
+      [maximum, `${maximum.maxPoints} / ${maximum.maxPoints} · 100%`],
+      [unrated, `Not evaluated / ${unrated.maxPoints}`],
+    ] as const) {
+      const row = current.getByRole('listitem').filter({
+        has: page.getByText(getSkillItemTitle(skill, 'en'), { exact: true }),
+      });
+      await expect(row.getByText(score, { exact: true })).toBeVisible();
+    }
+    await expect(current.locator('progress')).toHaveCount(0);
     await expect(
       comments
         .getByRole('article')

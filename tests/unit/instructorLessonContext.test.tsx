@@ -8,6 +8,7 @@ import { InstructorLessonContextDialog } from '../../src/features/instructor-wor
 import { InstructorBookingCard } from '../../src/features/instructor-workspace/components/InstructorBookingCard';
 import type { DisplayBooking } from '../../src/features/instructor-workspace/components/useInstructorWorkspace';
 import type { InstructorLessonContextInput } from '../../src/features/instructor-workspace/instructorLessonContextContracts';
+import { lessonContextSkillGroups } from '../../src/features/instructor-workspace/instructorLessonContextPresentation';
 import { emptyParticipantProgressView } from '../../src/features/participant-progress/applyParticipantProgressToProfile';
 import { useParticipantProgressStore } from '../../src/features/participant-progress/participantProgressStore';
 import { useAuthStore } from '../../src/features/auth/authStore';
@@ -56,18 +57,23 @@ const context: InstructorLessonContextInput = {
 };
 const config = {
   ...DEFAULT_SKILL_CONFIG,
-  items: DEFAULT_SKILL_CONFIG.items.slice(0, 3).map((item) => ({ ...item, maxPoints: 5 })),
+  items: DEFAULT_SKILL_CONFIG.items.slice(0, 4).map((item, index) => ({
+    ...item,
+    levelTarget: [2, 1, 2, 3][index]!,
+    maxPoints: 5,
+  })),
 };
 const first = config.items[0]!;
 const second = config.items[1]!;
 const third = config.items[2]!;
+const fourth = config.items[3]!;
 const t = (key: keyof typeof translations.en) => translations.en[key];
 function progress(id = context.participantId) {
   return {
     ...emptyParticipantProgressView(id),
     revision: 2,
     level: 2,
-    skillScores: { [first.id]: 0, [second.id]: 3 },
+    skillScores: { [first.id]: 0, [second.id]: 3, [fourth.id]: 5 },
     skillComments: {
       [first.id]: 'Keep the stance',
       [second.id]: 'Use the edge',
@@ -99,7 +105,7 @@ function dialog(
   );
 }
 async function ready() {
-  await screen.findByRole('region', { name: t('lessonContextSkills') });
+  return screen.findByRole('region', { name: t('lessonContextSkills') });
 }
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -129,6 +135,34 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('instructor lesson learning context', () => {
+  it('groups every configured skill by its target in canonical and item order', () => {
+    const groups = lessonContextSkillGroups(progress(), DEFAULT_SKILL_CONFIG, 'en');
+    expect(groups.map((group) => group.name)).toEqual(['Beginner', 'Carve', 'Performance']);
+    for (const group of groups) {
+      expect(group.skills.map((skill) => skill.id)).toEqual(
+        DEFAULT_SKILL_CONFIG.items
+          .filter((item) => item.levelTarget === group.level)
+          .map((item) => item.id)
+      );
+    }
+    expect(groups.flatMap((group) => group.skills)).toHaveLength(DEFAULT_SKILL_CONFIG.items.length);
+
+    const custom = { ...config, items: [{ ...first, levelTarget: 6 }, ...config.items.slice(1)] };
+    const customGroups = lessonContextSkillGroups({ ...progress(), level: 4 }, custom, 'en');
+    expect(customGroups.map((group) => [group.level, group.defaultExpanded])).toEqual([
+      [1, false],
+      [2, false],
+      [3, false],
+      [6, true],
+    ]);
+    expect(customGroups.at(-1)?.skills.map((skill) => skill.id)).toEqual([first.id]);
+    expect(
+      lessonContextSkillGroups({ ...progress(), level: 4 }, config, 'en').find(
+        (group) => group.defaultExpanded
+      )?.name
+    ).toBe('Performance');
+  });
+
   it('mounts recommendation history beside the separate current recommendations', async () => {
     mocks.feedback.mockResolvedValueOnce({
       participantId: context.participantId,
@@ -196,19 +230,66 @@ describe('instructor lesson learning context', () => {
   });
 
   it('reads exact Participant, shows official level, zero versus missing scores, and performs no writes', async () => {
+    const user = userEvent.setup();
     render(dialog());
-    await ready();
+    const skills = await ready();
     expect(mocks.progress).toHaveBeenCalledWith([context.participantId]);
-    expect(screen.getByRole('heading', { name: /Carve/ })).toBeInTheDocument();
-    expect(screen.getByText('0 / 5 · 0%')).toBeInTheDocument();
-    expect(screen.getByText('3 / 5 · 60%')).toBeInTheDocument();
-    expect(screen.getByText('Not evaluated / 5')).toBeInTheDocument();
-    expect(screen.getByRole('progressbar', { name: /Maintain basic stance/ })).toHaveValue(0);
     expect(
-      screen.queryByRole('progressbar', { name: /Controlled snowplow/ })
-    ).not.toBeInTheDocument();
+      within(screen.getByRole('region', { name: t('lessonContextProgress') })).getByRole(
+        'heading',
+        { name: /Carve/ }
+      )
+    ).toBeVisible();
+    expect(within(skills).getByText('0 / 5 · 0%')).toBeVisible();
+    expect(within(skills).getByText('Not evaluated / 5')).toBeVisible();
+    await user.click(within(skills).getByRole('button', { name: 'Beginner 1' }));
+    await user.click(within(skills).getByRole('button', { name: 'Performance 1' }));
+    expect(within(skills).getByText('3 / 5 · 60%')).toBeVisible();
+    expect(within(skills).getByText('5 / 5 · 100%')).toBeVisible();
+    expect(skills.querySelector('progress')).toBeNull();
+    expect(screen.getAllByRole('progressbar')).toHaveLength(1);
     expect(mocks.command).not.toHaveBeenCalled();
     expect(mocks.feedback).not.toHaveBeenCalled();
+  });
+  it('toggles groups independently by keyboard without reading again and resets for each context', async () => {
+    const user = userEvent.setup();
+    const view = render(dialog());
+    const skills = within(await ready());
+    const beginner = skills.getByRole('button', { name: 'Beginner 1' });
+    const carve = skills.getByRole('button', { name: 'Carve 2' });
+    const performance = skills.getByRole('button', { name: 'Performance 1' });
+    expect(beginner).toHaveAttribute('aria-expanded', 'false');
+    expect(carve).toHaveAttribute('aria-expanded', 'true');
+    expect(performance).toHaveAttribute('aria-expanded', 'false');
+    beginner.focus();
+    await user.keyboard('{Enter}');
+    expect(beginner).toHaveAttribute('aria-expanded', 'true');
+    expect(carve).toHaveAttribute('aria-expanded', 'true');
+    expect(document.getElementById(beginner.getAttribute('aria-controls')!)).toBeVisible();
+    await user.tab();
+    expect(carve).toHaveFocus();
+    await user.keyboard(' ');
+    expect(carve).toHaveAttribute('aria-expanded', 'false');
+    expect(beginner).toHaveAttribute('aria-expanded', 'true');
+    expect(mocks.progress).toHaveBeenCalledOnce();
+    expect(mocks.history).not.toHaveBeenCalled();
+    expect(mocks.recommendationHistory).not.toHaveBeenCalled();
+
+    const next = { ...context, participantId: 'participant_context_b', studentName: 'Bob' };
+    view.rerender(dialog(next));
+    const nextSkills = within(await ready());
+    expect(nextSkills.getByRole('button', { name: 'Beginner 1' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
+    const nextCarve = nextSkills.getByRole('button', { name: 'Carve 2' });
+    expect(nextCarve).toHaveAttribute('aria-expanded', 'true');
+    await user.click(nextCarve);
+    view.rerender(dialog({ ...next, bookingId: 'booking_context_b' }));
+    expect(within(await ready()).getByRole('button', { name: 'Carve 2' })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    );
   });
   it('shows confirmed authors and date, unknown authors and retired skill text without inference', async () => {
     render(dialog());
@@ -381,7 +462,10 @@ describe('instructor lesson learning context', () => {
       expect(screen.getByRole('dialog')).toHaveClass('admin-modal');
       expect(
         screen.getByText(language === 'ru' ? 'Нет оценки / 5' : 'Not evaluated / 5')
-      ).toBeInTheDocument();
+      ).toBeVisible();
+      expect(
+        screen.getByText(language === 'ru' ? third.title : 'Controlled snowplow braking')
+      ).toBeVisible();
     }
   );
 });

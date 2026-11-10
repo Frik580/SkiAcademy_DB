@@ -20,7 +20,7 @@ export function getStudentHomeworkSources(
   for (const entry of accountSessions) {
     if (entry.kind === 'lesson') {
       const lesson = entry.session;
-      if (!lesson.participantIds.includes(participantId)) continue;
+      if (!(lesson.participantIds ?? []).includes(participantId)) continue;
       if (lesson.status === 'cancelled') continue;
       add(lesson.id, lesson.instructorName || lesson.date);
       continue;

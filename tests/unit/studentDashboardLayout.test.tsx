@@ -135,10 +135,10 @@ describe('fixed dashboard order', () => {
       [...container.querySelectorAll(`[data-dashboard-column="${column}"] > [data-dashboard-item]`)]
         .map((element) => element.getAttribute('data-dashboard-item'));
     expect(keys('left')).toEqual([
-      'currentSessions', 'nextStep', 'skillRadar', 'instructorRecommendations', 'coachSkillComments',
+      'currentSessions', 'nextStep', 'skillRadar', 'instructorRecommendations', 'homework',
     ]);
     expect(keys('right')).toEqual([
-      'todayTasks', 'nextSession', 'needsAttention', 'homework', 'weather',
+      'todayTasks', 'nextSession', 'needsAttention', 'coachSkillComments', 'weather',
     ]);
     expect(container.querySelectorAll('[data-testid="student-dashboard-grid"] > [data-dashboard-item]'))
       .toHaveLength(0);

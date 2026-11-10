@@ -35,7 +35,7 @@ describe('dashboard settings persistence', () => {
     const written = vi.mocked(setDoc).mock.calls[0][1];
     expect(written.order).not.toContain('masteryPath');
     expect(written).not.toHaveProperty('tiles');
-    expect(written.order).toHaveLength(10);
+    expect(written.order).toHaveLength(11);
   });
   it('writes order and audit fields to existing settings collection', async () => {
     const layout = normalizeStudentDashboardLayout({

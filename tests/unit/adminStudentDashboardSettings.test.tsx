@@ -50,7 +50,7 @@ describe('admin student dashboard settings', () => {
     ]);
     expect(
       keys(container.querySelector('[data-preview-column="right"]')!, 'data-preview-tile')
-    ).toEqual(['todayTasks', 'nextSession', 'todayAchievements', 'instructorRecommendations', 'coachSkillComments']);
+    ).toEqual(['todayTasks', 'nextSession', 'todayAchievements', 'instructorRecommendations', 'coachSkillComments', 'homework']);
     expect(
       screen.getByRole('button', { name: 'Переместить «Задачи на сегодня» выше' })
     ).toBeDisabled();
@@ -67,7 +67,7 @@ describe('admin student dashboard settings', () => {
     ).toBe('weather');
     expect(
       keys(container.querySelector('[data-preview-column="right"]')!, 'data-preview-tile')
-    ).toEqual(['todayTasks', 'todayAchievements', 'nextSession', 'instructorRecommendations', 'coachSkillComments']);
+    ).toEqual(['todayTasks', 'todayAchievements', 'nextSession', 'instructorRecommendations', 'coachSkillComments', 'homework']);
     await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
     expect(save).toHaveBeenCalledTimes(1);
     expect(Object.keys(save.mock.calls[0][0]).sort()).toEqual(['order', 'version']);
@@ -95,7 +95,7 @@ describe('admin student dashboard settings', () => {
     fireEvent.drop(container.querySelector('[data-layout-setting="currentSessions"]')!);
     expect(
       keys(container.querySelector('[data-preview-column="right"]')!, 'data-preview-tile')
-    ).toEqual(['todayTasks', 'nextSession', 'todayAchievements', 'instructorRecommendations', 'coachSkillComments']);
+    ).toEqual(['todayTasks', 'nextSession', 'todayAchievements', 'instructorRecommendations', 'coachSkillComments', 'homework']);
   });
   it('allows recommendation order changes within the right group', async () => {
     const { container } = render(<AdminStudentDashboardSettings />);
@@ -104,7 +104,7 @@ describe('admin student dashboard settings', () => {
     );
     expect(
       keys(container.querySelector('[data-preview-column="right"]')!, 'data-preview-tile')
-    ).toEqual(['todayTasks', 'nextSession', 'instructorRecommendations', 'todayAchievements', 'coachSkillComments']);
+    ).toEqual(['todayTasks', 'nextSession', 'instructorRecommendations', 'todayAchievements', 'coachSkillComments', 'homework']);
   });
   it('preserves failed draft and supports cancel/reset', async () => {
     useSettingsStore.getState().setStudentDashboardLayout({ version: 1, order: ['weather'] });

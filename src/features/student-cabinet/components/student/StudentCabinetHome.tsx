@@ -35,6 +35,7 @@ import {
   type StudentDashboardTileKey,
 } from '../../../settings/studentDashboardLayout';
 import { LazySkillRadarChart } from './LazySkillRadarChart';
+import { StudentCoachSkillCommentsSection } from './StudentCoachSkillCommentsSection';
 import {
   StudentCabinetWeatherSection,
   StudentCoachRecommendationsSection,
@@ -416,6 +417,21 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
           instructorNames={instructorNames}
           lessonContext={feedback.contextByLessonId}
           onOpenLesson={openLessonById}
+        />
+      </StudentDashboardTile>
+    ),
+    coachSkillComments: (
+      <StudentDashboardTile
+        tileKey={STUDENT_DASHBOARD_TILES.coachSkillComments.key}
+        size={STUDENT_DASHBOARD_TILES.coachSkillComments.defaultSize}
+      >
+        <StudentCoachSkillCommentsSection
+          key={JSON.stringify([userProfile.uid, recommendationsParticipantId])}
+          participantId={recommendationsParticipantId}
+          progress={props.participantProgress}
+          scopeParticipant={scopeParticipant}
+          skillConfig={skillConfig}
+          instructors={instructors}
         />
       </StudentDashboardTile>
     ),

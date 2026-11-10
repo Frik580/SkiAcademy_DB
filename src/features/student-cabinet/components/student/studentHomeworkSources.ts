@@ -1,13 +1,16 @@
 import type { CabinetSessionItem } from '../../../course-enrollments';
+import type { LessonBookingCabinetItem } from '../../../lesson-bookings/lessonBookingContracts';
 import type { InstructorHomeworkSourceInput } from '../../../instructor-workspace/instructorLessonContextContracts';
 
 /**
  * The student counterpart of InstructorHomeworkSection's confirmed-membership source list.
- * Never derive accessible chats from the account's legacy Booking display entries alone.
+ * Include historical canonical lessons: account_hot alone misses completed lessons
+ * whose homework remains visible in Coach → Homework.
  */
 export function getStudentHomeworkSources(
   accountSessions: readonly CabinetSessionItem[],
-  participantId: string | undefined
+  participantId: string | undefined,
+  historicalLessons: readonly LessonBookingCabinetItem[] = []
 ): InstructorHomeworkSourceInput[] {
   if (!participantId) return [];
   const sources = new Map<string, InstructorHomeworkSourceInput>();
@@ -17,12 +20,15 @@ export function getStudentHomeworkSources(
     }
   };
 
+  const addLesson = (lesson: LessonBookingCabinetItem) => {
+    if (!(lesson.participantIds ?? []).includes(participantId)) return;
+    if (lesson.status === 'cancelled') return;
+    add(lesson.bookingId || lesson.id, lesson.instructorName || lesson.date);
+  };
+
   for (const entry of accountSessions) {
     if (entry.kind === 'lesson') {
-      const lesson = entry.session;
-      if (!(lesson.participantIds ?? []).includes(participantId)) continue;
-      if (lesson.status === 'cancelled') continue;
-      add(lesson.id, lesson.instructorName || lesson.date);
+      addLesson(entry.session);
       continue;
     }
     if (entry.participantId !== participantId || entry.lifecycleStatus === 'cancelled') continue;
@@ -31,5 +37,6 @@ export function getStudentHomeworkSources(
     add(entry.courseId, entry.courseTitle);
     add(entry.enrollmentId, entry.courseTitle);
   }
+  for (const lesson of historicalLessons) addLesson(lesson);
   return [...sources.values()];
 }

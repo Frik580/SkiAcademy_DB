@@ -57,7 +57,8 @@ export function StudentHomeworkDashboardSection({
   );
   const hasPrevious = pageIndex > 0;
   const hasNext =
-    history.items.length > (pageIndex + 1) * STUDENT_HOMEWORK_TILE_PAGE_SIZE || history.hasMore;
+    history.items.length > (pageIndex + 1) * STUDENT_HOMEWORK_TILE_PAGE_SIZE ||
+    (visibleItems.length > 0 && history.hasMore);
 
   // A page from the shared source history can contain assignments for other
   // participants. Scan the next bounded source batch instead of exposing empty pages.

@@ -1,3 +1,4 @@
+import type { ParticipantLessonFeedbackReadModel } from '@ski-academy/shared-domain';
 import type { Booking, Instructor } from '../../types';
 import type { LessonBookingCabinetItem } from '../lesson-bookings/lessonBookingContracts';
 import { cabinetItemToLegacyPresentation } from '../lesson-bookings/mergeCabinetBookings';
@@ -14,6 +15,8 @@ export function resolveLessonDetailsBookingForModal(input: {
   readonly accountUserId: string;
   readonly cabinetBookings: readonly LessonBookingCabinetItem[];
   readonly instructors?: readonly Instructor[];
+  readonly exactFeedback?: ParticipantLessonFeedbackReadModel;
+  readonly feedbackParticipantId?: string | null;
 }): Booking | null {
   const cabinetItem = input.cabinetBookings.find(
     (item) => item.id === input.lessonBookingId || item.bookingId === input.lessonBookingId
@@ -23,17 +26,17 @@ export function resolveLessonDetailsBookingForModal(input: {
   }
 
   const state = useParticipantLessonFeedbackStore.getState();
-  const participantId = state.presentationParticipantId;
-  if (!participantId) {
-    return null;
-  }
-
+  const participantId =
+    input.feedbackParticipantId === undefined
+      ? state.presentationParticipantId
+      : input.feedbackParticipantId;
+  if (!participantId) return null;
   const bucket = state.byParticipantId[participantId];
-  if (!bucket || bucket.participantId !== participantId) {
-    return null;
-  }
-
-  const exactItems = selectExactParticipantFeedback(bucket.items, participantId);
+  const items = [
+    ...(bucket?.participantId === participantId ? bucket.items : []),
+    ...(input.exactFeedback ? [input.exactFeedback] : []),
+  ];
+  const exactItems = selectExactParticipantFeedback(items, participantId);
   const feedback = selectFeedbackForLesson(exactItems, participantId, input.lessonBookingId);
   if (!feedback || feedback.items.length === 0) {
     return null;

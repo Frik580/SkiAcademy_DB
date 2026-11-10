@@ -334,7 +334,9 @@ export const queryParticipantLessonFeedbackReadModels = onCall(
   'queryParticipantLessonFeedbackReadModels',
   CANONICAL_CALLABLE_OPTIONS,
   async (request) =>
-    createQueryParticipantLessonFeedbackReadModelsHandler(getAdminFirestore())(request)
+    createQueryParticipantLessonFeedbackReadModelsHandler(getAdminFirestore(), () =>
+      guestActionTokenSecret.value()
+    )(request)
 );
 
 export const queryTestSessionReadModels = onCall(

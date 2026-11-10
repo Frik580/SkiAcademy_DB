@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Booking, Course, Instructor, Review, UserProfile } from '../../../types';
 import type { LessonBookingCabinetItem } from '../../../features/lesson-bookings/lessonBookingContracts';
 import { useLanguage } from '../../../app/providers/LanguageContext';
@@ -7,6 +7,16 @@ import { LazyLoad } from '../../../ui/LazyLoad';
 import { ReviewFlow } from '../../../features/profile';
 import { LessonDetailsModal } from './LessonDetailsModal';
 import { resolveLessonDetailsBookingForModal } from '../resolveLessonDetailsBooking';
+import type { ParticipantLessonFeedbackReadModel } from '@ski-academy/shared-domain';
+import { queryManagedParticipantLessonFeedback } from '../../participant-lesson-feedback/participantLessonFeedbackService';
+import { useParticipantLessonFeedbackStore } from '../../participant-lesson-feedback/participantLessonFeedbackStore';
+import { useCabinetProgressParticipantSelectionStore } from '../cabinetProgressParticipantSelectionStore';
+import { useManagedParticipantsStore } from '../../lesson-bookings/managedParticipantsStore';
+import {
+  selectFeedbackForLesson,
+  toLessonFeedbackView,
+} from '../studentLessonFeedbackPresentation';
+import { toggleManagedParticipantLessonFeedbackItem } from '../useSelectedParticipantLessonFeedback';
 import { ConfirmActionModal } from './ConfirmActionModal';
 import { LevelUpModal } from './LevelUpModal';
 
@@ -54,6 +64,108 @@ interface PersonalCabinetModalsProps {
   onCloseLevelUp: () => void;
 }
 
+function CabinetLessonDetails({
+  accountId,
+  participantId,
+  lessonDetailsId,
+  rawBookings,
+  instructors,
+  courses,
+  reviews,
+  onCloseLessonDetails,
+  onWriteReviewFromLesson,
+  onToggleRecommendation,
+}: Pick<
+  PersonalCabinetModalsProps,
+  | 'rawBookings'
+  | 'instructors'
+  | 'courses'
+  | 'reviews'
+  | 'onCloseLessonDetails'
+  | 'onWriteReviewFromLesson'
+  | 'onToggleRecommendation'
+> & { accountId: string; participantId?: string; lessonDetailsId: string }) {
+  const feedbackItems = useParticipantLessonFeedbackStore((state) =>
+    participantId ? state.byParticipantId[participantId]?.items : undefined
+  );
+  const capability = useParticipantLessonFeedbackStore((state) =>
+    participantId ? state.completionCapabilityByParticipantId[participantId] : undefined
+  );
+  const cachedFeedback = participantId
+    ? selectFeedbackForLesson(feedbackItems ?? [], participantId, lessonDetailsId)
+    : null;
+  const [exact, setExact] = useState<ParticipantLessonFeedbackReadModel | null>(null);
+  const [retry, setRetry] = useState(0);
+  const [pendingExactItemId, setPendingExactItemId] = useState<string>();
+
+  useEffect(() => {
+    if (!participantId || cachedFeedback) return;
+    let current = true;
+    void queryManagedParticipantLessonFeedback({
+      participantId,
+      lessonBookingId: lessonDetailsId,
+    }).then(
+      (items) => {
+        if (!current) return;
+        setExact(selectFeedbackForLesson(items, participantId, lessonDetailsId));
+        setPendingExactItemId(undefined);
+      },
+      () => {
+        if (!current) return;
+        setExact(null);
+        setPendingExactItemId(undefined);
+      }
+    );
+    return () => {
+      current = false;
+    };
+  }, [participantId, lessonDetailsId, cachedFeedback, feedbackItems, retry]);
+
+  const exactFeedback = cachedFeedback ? undefined : (exact ?? undefined);
+  const lessonDetailsBooking = resolveLessonDetailsBookingForModal({
+    lessonBookingId: lessonDetailsId,
+    accountUserId: accountId,
+    cabinetBookings: rawBookings,
+    instructors,
+    exactFeedback,
+    feedbackParticipantId: participantId ?? null,
+  });
+  const toggleExactRecommendation =
+    exactFeedback && capability && onToggleRecommendation
+      ? (lessonBookingId: string, itemId: string, completed: boolean) => {
+          if (pendingExactItemId) return;
+          setPendingExactItemId(itemId);
+          void toggleManagedParticipantLessonFeedbackItem({
+            accountId,
+            participantId: exactFeedback.participantId,
+            lessonBookingId,
+            itemId,
+            completed,
+            expectedRevision: exactFeedback.revision,
+            exercisedCapability: capability,
+          })
+            .catch(() => undefined)
+            .finally(() => setRetry((attempt) => attempt + 1));
+        }
+      : undefined;
+
+  return (
+    <LessonDetailsModal
+      booking={lessonDetailsBooking}
+      exactFeedback={exactFeedback ? toLessonFeedbackView(exactFeedback) : undefined}
+      feedbackParticipantId={participantId ?? null}
+      courses={courses}
+      onClose={onCloseLessonDetails}
+      onWriteReview={onWriteReviewFromLesson}
+      onToggleRecommendation={exactFeedback ? toggleExactRecommendation : onToggleRecommendation}
+      pendingExactItemId={pendingExactItemId}
+      hasReview={
+        lessonDetailsBooking ? reviews.some((r) => r.bookingId === lessonDetailsBooking.id) : false
+      }
+    />
+  );
+}
+
 export const PersonalCabinetModals: React.FC<PersonalCabinetModalsProps> = ({
   userProfile,
   rawBookings,
@@ -86,33 +198,33 @@ export const PersonalCabinetModals: React.FC<PersonalCabinetModalsProps> = ({
   const { t } = useLanguage();
   const { theme } = useTheme();
 
-  const lessonDetailsBooking = useMemo(
-    () =>
-      lessonDetailsId
-        ? resolveLessonDetailsBookingForModal({
-            lessonBookingId: lessonDetailsId,
-            accountUserId: userProfile.uid,
-            cabinetBookings: rawBookings,
-            instructors,
-          })
-        : null,
-    [instructors, lessonDetailsId, rawBookings, userProfile.uid]
+  const participantId = useCabinetProgressParticipantSelectionStore((state) =>
+    state.accountId === userProfile.uid ? state.selectedParticipantId : undefined
   );
+  const canReadParticipant = useManagedParticipantsStore(
+    (state) =>
+      state.accountId === userProfile.uid &&
+      state.participants.some((participant) => participant.participantId === participantId)
+  );
+  const managedParticipantId = canReadParticipant ? participantId : undefined;
 
   return (
     <>
-      <LessonDetailsModal
-        booking={lessonDetailsBooking}
-        courses={courses}
-        onClose={onCloseLessonDetails}
-        onWriteReview={onWriteReviewFromLesson}
-        onToggleRecommendation={onToggleRecommendation}
-        hasReview={
-          lessonDetailsBooking
-            ? reviews.some((r) => r.bookingId === lessonDetailsBooking.id)
-            : false
-        }
-      />
+      {lessonDetailsId && (!participantId || canReadParticipant) && (
+        <CabinetLessonDetails
+          key={JSON.stringify([userProfile.uid, managedParticipantId, lessonDetailsId])}
+          accountId={userProfile.uid}
+          participantId={managedParticipantId}
+          lessonDetailsId={lessonDetailsId}
+          rawBookings={rawBookings}
+          instructors={instructors}
+          courses={courses}
+          reviews={reviews}
+          onCloseLessonDetails={onCloseLessonDetails}
+          onWriteReviewFromLesson={onWriteReviewFromLesson}
+          onToggleRecommendation={onToggleRecommendation}
+        />
+      )}
 
       <ReviewFlow
         reviewBooking={reviewBooking}

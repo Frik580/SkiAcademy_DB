@@ -89,7 +89,7 @@ describe('admin student dashboard settings', () => {
     ).toBe('weather');
 
     fireEvent.dragStart(
-      screen.getByRole('button', { name: 'Перетащить «Последняя рекомендация тренера»' }),
+      screen.getByRole('button', { name: 'Перетащить «Рекомендации тренеров»' }),
       { dataTransfer: { setData: vi.fn() } }
     );
     fireEvent.drop(container.querySelector('[data-layout-setting="currentSessions"]')!);
@@ -100,7 +100,7 @@ describe('admin student dashboard settings', () => {
   it('allows recommendation order changes within the right group', async () => {
     const { container } = render(<AdminStudentDashboardSettings />);
     await userEvent.click(
-      screen.getByRole('button', { name: 'Переместить «Последняя рекомендация тренера» выше' })
+      screen.getByRole('button', { name: 'Переместить «Рекомендации тренеров» выше' })
     );
     expect(
       keys(container.querySelector('[data-preview-column="right"]')!, 'data-preview-tile')

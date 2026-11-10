@@ -358,10 +358,12 @@ export async function queryParticipantLessonFeedbackReadModels(
       ? `${input.participantId}:${input.lessonBookingId}`
       : input.scope === 'managed_latest'
         ? input.participantId
-        : [
-            [...input.participantIds].sort().join(','),
-            [...(input.lessonBookingIds ?? [])].sort().join(','),
-          ].join(':');
+        : input.scope === 'managed_recommendations'
+          ? [input.participantId, input.cursor ?? ''].join(':')
+          : [
+              [...input.participantIds].sort().join(','),
+              [...(input.lessonBookingIds ?? [])].sort().join(','),
+            ].join(':');
   const identityHash = canonicalDeterministicHash([
     'read:participant_lesson_feedback:v1',
     input.scope,

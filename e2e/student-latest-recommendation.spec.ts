@@ -18,7 +18,7 @@ const {
   timestampFromDate,
 } = requireRoot('@ski-academy/shared-domain') as typeof import('@ski-academy/shared-domain');
 
-test('Latest recommendation preserves participant scope, lesson navigation and Stitch themes', async ({
+test('Coach recommendations paginate within a lesson and preserve participant scope and navigation', async ({
   page,
 }, info) => {
   test.setTimeout(300_000);
@@ -166,6 +166,12 @@ test('Latest recommendation preserves participant scope, lesson navigation and S
                 ? 'Completed balance practice for B'
                 : 'Держи корпус спокойным и переноси вес раньше, до входа в дугу. На крутом спаде не жди упора в кант, отпускай голеностоп мягче. Повторяй движение плавно, сохраняя устойчивое положение корпуса.',
             },
+            ...(!i
+              ? Array.from({ length: 5 }, (_, index) => ({
+                  itemId: `practice_${index + 1}`,
+                  text: `Additional practice ${index + 1} for A`,
+                }))
+              : []),
           ],
           completedItemIds: i ? ['done_first', 'highlight'] : ['done_first'],
           revision: 1,
@@ -177,6 +183,34 @@ test('Latest recommendation preserves participant scope, lesson navigation and S
         lessonStartsAt: stamp,
       });
     }
+    // Make B's real recommendation older than the capped managed-participant history.
+    const gaps = db.batch();
+    for (let i = 0; i < 51; i++) {
+      const lessonBookingId = `booking_gap_${i}_${suffix}`;
+      const participantId = ids[1];
+      const feedbackId = participantLessonFeedbackIdFromLessonParticipant({
+        participantId: participantId as never,
+        lessonBookingId: lessonBookingId as never,
+      });
+      const ref = db.doc(`participant_lesson_feedback/${feedbackId}`);
+      owned.push(ref);
+      gaps.create(ref, {
+        ...ParticipantLessonFeedbackSchema.parse({
+          feedbackId,
+          participantId,
+          lessonBookingId,
+          instructorId: secondInstructorId,
+          items: [],
+          completedItemIds: [],
+          revision: 1,
+          createdAt: stamp,
+          updatedAt: end,
+          audit,
+        }),
+        lessonStartsAt: { ...stamp, seconds: stamp.seconds + i + 1 },
+      });
+    }
+    await gaps.commit();
     const healthy = watchBrowserFailures(page);
     await page.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, (route) => route.abort());
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -188,20 +222,32 @@ test('Latest recommendation preserves participant scope, lesson navigation and S
       .getByRole('banner')
       .locator('[data-testid="navbar-participant-switcher"]:visible');
     const quoteA = 'Держи корпус спокойным и переноси вес раньше, до входа в дугу.';
-    // Cold Home has canonical feedback without historical Booking context: ID navigation remains available.
+    // The cold Home opens B by ID even though its limited feedback history misses the lesson.
     await test.step('Select B on cold Home', async () => {
       const selectB = selector.locator(`[data-participant-id="${ids[1]}"]`);
       await expect(selectB).toBeVisible({ timeout: 60_000 });
       await selectB.click({ timeout: 15_000 });
     });
     await expect(tile).toContainText('Completed balance practice for B');
-    await expect(tile.locator('.sc-latest-recommendation-name')).toHaveCount(0);
-    await expect(tile.locator('.sc-latest-recommendation-date')).toHaveCount(0);
-    await expect(tile.getByLabel('New recommendations from instructor')).toHaveCount(0);
-    await tile.getByRole('button', { name: 'Details', exact: true }).click();
+    await expect(tile.getByText('Completed', { exact: true })).toHaveCount(2);
+    await expect(tile.getByRole('listitem')).toHaveCount(2);
+    await expect(tile.getByRole('button', { name: 'Next', exact: true })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+    await tile.getByRole('button', { name: 'Details', exact: true }).first().click();
     const coldDialog = page.getByRole('dialog');
     await expect(coldDialog).toContainText('Completed balance practice for B');
     await expect(coldDialog).not.toContainText(quoteA);
+    const olderDrill = coldDialog
+      .getByRole('listitem')
+      .filter({ hasText: 'Completed balance practice for B' });
+    await olderDrill.getByRole('button', { name: 'Mark as not done' }).press('Enter');
+    await expect(olderDrill.getByRole('button', { name: 'Mark as done' })).toBeEnabled();
+    await expect(tile.getByText('Not completed', { exact: true })).toHaveCount(1);
+    await olderDrill.getByRole('button', { name: 'Mark as done' }).press('Enter');
+    await expect(olderDrill.getByRole('button', { name: 'Mark as not done' })).toBeEnabled();
+    await expect(tile.getByText('Completed', { exact: true })).toHaveCount(2);
     await coldDialog.getByRole('button', { name: 'Close' }).click();
 
     // Existing History owns completed lessons and supplies optional instructor metadata.
@@ -230,7 +276,9 @@ test('Latest recommendation preserves participant scope, lesson navigation and S
         id
       );
       await expect(tile).toContainText(coachNames[i]);
-      await expect(tile.getByLabel('New recommendations from instructor')).toHaveCount(i ? 0 : 1);
+      await expect(tile.getByText('Page 1', { exact: true })).toBeVisible();
+      await expect(tile.getByText('Not completed', { exact: true })).toHaveCount(i ? 0 : 4);
+      await expect(tile.getByRole('listitem')).toHaveCount(i ? 2 : 5);
       await expect(journey).toBeVisible();
       await expect(attention).toBeVisible();
       // Issue #82: both account review prompts survive A/B switching.
@@ -240,14 +288,27 @@ test('Latest recommendation preserves participant scope, lesson navigation and S
             .locator(`[data-attention-lesson="${lesson}"]`)
             .getByRole('button', { name: 'Write Review', exact: true })
         ).toBeVisible();
-      await tile.getByRole('button', { name: 'Details', exact: true }).click();
+      await tile.getByRole('button', { name: 'Details', exact: true }).first().click();
       const dialog = page.getByRole('dialog');
       await expect(dialog).toContainText(i ? 'Completed balance practice for B' : quoteA);
       await expect(dialog).not.toContainText(i ? quoteA : 'Completed balance practice for B');
       await expect(dialog).toContainText(coachNames[i]);
       await dialog.getByRole('button', { name: 'Close' }).click();
       await expect(weather).toHaveCount(0);
+      if (!i) {
+        await tile.getByRole('button', { name: 'Next', exact: true }).press('Enter');
+        await expect(tile.getByText('Page 2', { exact: true })).toBeVisible();
+        await expect(tile.getByRole('listitem')).toHaveCount(2);
+        await expect(tile).toContainText('Additional practice 5 for A');
+        await expect(tile).not.toContainText(quoteA);
+        await expect(tile.getByRole('button', { name: 'Next', exact: true })).toHaveAttribute(
+          'aria-disabled',
+          'true'
+        );
+      }
     }
+    await tile.getByRole('button', { name: 'Back', exact: true }).press('Space');
+    await expect(tile).toContainText(quoteA);
     await attention
       .locator(`[data-attention-lesson="${lessons[0]}"]`)
       .getByRole('button', { name: 'Open recommendations' })
@@ -269,9 +330,9 @@ test('Latest recommendation preserves participant scope, lesson navigation and S
       .click();
     for (const [name, width, dark] of [
       ['desktop-light', 1440, false],
-      ['mobile-light', 390, false],
+      ['mobile-light', 375, false],
       ['desktop-dark', 1440, true],
-      ['mobile-dark', 390, true],
+      ['mobile-dark', 375, true],
       ['narrow-light', 320, false],
       ['narrow-dark', 320, true],
       ['reference-desktop-light', 1334, false],
@@ -290,7 +351,7 @@ test('Latest recommendation preserves participant scope, lesson navigation and S
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
       ).toBe(true);
-      const action = tile.getByRole('button', { name: 'Подробнее', exact: true });
+      const action = tile.getByRole('button', { name: 'Подробнее', exact: true }).first();
       expect(
         await action.evaluate(
           (el) => el.scrollWidth <= el.clientWidth && el.getBoundingClientRect().height >= 44
@@ -314,7 +375,7 @@ test('Latest recommendation preserves participant scope, lesson navigation and S
       }
       await tile.screenshot({ path: info.outputPath(`${name}.png`) });
     }
-    await tile.getByRole('button', { name: 'Подробнее', exact: true }).press('Enter');
+    await tile.getByRole('button', { name: 'Подробнее', exact: true }).first().press('Enter');
     await expect(page.getByRole('dialog')).toContainText(quoteA);
     await page.getByRole('dialog').getByRole('button', { name: 'Закрыть' }).click();
     // Empty state is deterministic after removing only this test's feedback fixture.
@@ -324,8 +385,8 @@ test('Latest recommendation preserves participant scope, lesson navigation and S
       )
       .delete();
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await expect(tile).toContainText('Пока нет рекомендаций от тренера');
-    await expect(tile.getByRole('button')).toHaveCount(0);
+    await expect(tile).toContainText('Пока нет рекомендаций от тренеров');
+    await expect(tile.getByRole('button', { name: 'Подробнее', exact: true })).toHaveCount(0);
     await expect(tile).not.toContainText(quoteA);
     healthy();
   } finally {

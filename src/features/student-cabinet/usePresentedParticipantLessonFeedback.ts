@@ -9,8 +9,6 @@ import {
   selectFeedbackForLesson,
   selectIncompleteLessonFeedback,
   selectInstructorParticipantLessonFeedback,
-  selectLatestFeedbackHighlight,
-  selectLatestParticipantLessonFeedback,
   toLessonFeedbackView,
   type LessonFeedbackContext,
 } from './studentLessonFeedbackPresentation';
@@ -47,16 +45,15 @@ export function usePresentedParticipantLessonFeedback(
   const showingPreviousParticipant = Boolean(
     presentationParticipantId && bucket && bucket.participantId !== presentationParticipantId
   );
-  const presentedItems = showingPreviousParticipant ? [] : (bucket?.items ?? []);
   const presentedLoadState = showingPreviousParticipant ? 'loading' : (bucket?.loadState ?? 'idle');
   const contextByLessonId = useMemo(() => lessonFeedbackContextFromBookings(bookings), [bookings]);
 
   const exactItems = useMemo(
     () =>
-      presentationParticipantId
-        ? selectExactParticipantFeedback(presentedItems, presentationParticipantId)
+      presentationParticipantId && !showingPreviousParticipant
+        ? selectExactParticipantFeedback(bucket?.items ?? [], presentationParticipantId)
         : [],
-    [presentedItems, presentationParticipantId]
+    [bucket?.items, presentationParticipantId, showingPreviousParticipant]
   );
 
   const flagsByLessonId = useMemo(
@@ -64,14 +61,6 @@ export function usePresentedParticipantLessonFeedback(
       presentationParticipantId
         ? lessonFeedbackFlagsByLessonId(exactItems, presentationParticipantId)
         : new Map(),
-    [exactItems, presentationParticipantId]
-  );
-
-  const latest = useMemo(
-    () =>
-      presentationParticipantId
-        ? selectLatestParticipantLessonFeedback(exactItems, presentationParticipantId)
-        : null,
     [exactItems, presentationParticipantId]
   );
 
@@ -84,11 +73,6 @@ export function usePresentedParticipantLessonFeedback(
       exactItems.length === 0,
     items: exactItems,
     flagsByLessonId,
-    latest,
-    latestHighlight: latest ? selectLatestFeedbackHighlight(latest) : null,
-    latestView: latest
-      ? toLessonFeedbackView(latest, contextByLessonId.get(latest.lessonBookingId))
-      : null,
     incomplete: presentationParticipantId
       ? selectIncompleteLessonFeedback(exactItems, presentationParticipantId)
       : [],

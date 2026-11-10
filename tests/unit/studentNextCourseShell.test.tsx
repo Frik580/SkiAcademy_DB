@@ -76,6 +76,7 @@ vi.mock('../../src/features/student-cabinet/components/student/LazySkillRadarCha
 vi.mock('../../src/features/student-cabinet/components/student/StudentHomeBottomSections', () => ({
   StudentCabinetWeatherSection: () => <output data-testid="weather-widget" />,
   StudentLatestRecommendationSection: () => null,
+  StudentCoachRecommendationsSection: () => null,
 }));
 vi.mock('../../src/features/student-cabinet/components/student/StudentTodayTasksBlock', () => ({
   TodayTasksBlock: () => null,

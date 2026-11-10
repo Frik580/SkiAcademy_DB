@@ -14,6 +14,8 @@ import {
 } from '../participantLessonFeedback';
 import { AggregateRevisionSchema, CanonicalTimestampSchema } from '../primitives';
 
+export const PARTICIPANT_RECOMMENDATIONS_PAGE_SIZE = 5;
+
 export const PARTICIPANT_LESSON_FEEDBACK_READ_MODEL_IDS_MAX = 32;
 export const PARTICIPANT_LESSON_FEEDBACK_READ_MODEL_LESSON_IDS_MAX = 50;
 
@@ -37,7 +39,10 @@ export const ParticipantLessonFeedbackReadModelSchema = z
     instructorId: InstructorIdSchema.optional(),
     items: z.array(ParticipantLessonFeedbackReadModelItemSchema),
     revision: AggregateRevisionSchema,
-    lessonDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    lessonDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
     lessonStartsAt: CanonicalTimestampSchema.optional(),
     updatedAt: CanonicalTimestampSchema.optional(),
     updatedBy: ParticipantLessonFeedbackUpdatedBySchema.optional(),
@@ -119,6 +124,14 @@ export const QueryParticipantLessonFeedbackReadModelsInputSchema = z.discriminat
     .strict(),
   z
     .object({
+      scope: z.literal('managed_recommendations'),
+      participantId: ParticipantIdSchema,
+      cursor: z.string().max(2048).optional(),
+      idempotencyKey: IdempotencyKeySchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
       scope: z.literal('managed_latest'),
       participantId: ParticipantIdSchema,
       idempotencyKey: IdempotencyKeySchema.optional(),
@@ -130,7 +143,25 @@ export type QueryParticipantLessonFeedbackReadModelsInput = Readonly<
   z.output<typeof QueryParticipantLessonFeedbackReadModelsInputSchema>
 >;
 
+const ManagedRecommendationSchema = ParticipantLessonFeedbackReadModelItemSchema.extend({
+  lessonBookingId: BookingIdSchema,
+  instructorId: InstructorIdSchema.optional(),
+  lessonDate: z.string().optional(),
+  lessonAvailable: z.boolean(),
+});
+
+export type ManagedRecommendation = Readonly<z.output<typeof ManagedRecommendationSchema>>;
+
 export const QueryParticipantLessonFeedbackReadModelsResultSchema = z.discriminatedUnion('scope', [
+  z
+    .object({
+      scope: z.literal('managed_recommendations'),
+      items: z.array(ManagedRecommendationSchema).max(PARTICIPANT_RECOMMENDATIONS_PAGE_SIZE),
+      nextCursor: z.string().nullable(),
+      // Internal continuation to finish this page after reaching the server scan budget.
+      scanCursor: z.string().optional(),
+    })
+    .strict(),
   z
     .object({
       scope: z.literal('instructor_lesson'),

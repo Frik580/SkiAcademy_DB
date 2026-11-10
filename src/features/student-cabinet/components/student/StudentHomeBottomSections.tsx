@@ -1,14 +1,15 @@
 import { StudentDashboardTileHeader, StudentDashboardTileBody } from './StudentDashboardTile';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import type { ResortConditionsPresentation } from '../../../resort-conditions';
 import { useResortConditionsTranslations } from '../../../resort-conditions/hooks/useResortConditionsTranslations';
 import {
   formatLessonFeedbackDateLabel,
-  type LessonFeedbackView,
+  type LessonFeedbackContext,
 } from '../../studentLessonFeedbackPresentation';
 import { ScTextButton } from './StudentCabinetUI';
 import { AnimatedNumber } from '../../../../ui/AnimatedNumber';
-import { RecommendationIndicator } from '../RecommendationIndicator';
+import { queryManagedRecommendationsPage } from '../../../participant-lesson-feedback/participantLessonFeedbackService';
+import { useParticipantLessonFeedbackStore } from '../../../participant-lesson-feedback/participantLessonFeedbackStore';
 import { ParticipantScopeIndicator } from './ParticipantScopeIndicator';
 import type { SessionParticipantInput } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
@@ -37,35 +38,63 @@ const WEATHER_CONDITION_ICONS: Partial<Record<string, LucideIcon>> = {
 
 export type StudentCabinetResortSnapshot = ResortConditionsPresentation;
 
-interface StudentLatestRecommendationSectionProps {
+interface StudentCoachRecommendationsSectionProps {
+  participantId?: string;
   scopeParticipant?: SessionParticipantInput;
-  latest: LessonFeedbackView | null;
-  highlightPending: boolean;
-  highlightText: string | null;
-  loading?: boolean;
+  instructorNames: ReadonlyMap<string, string>;
+  lessonContext: ReadonlyMap<string, LessonFeedbackContext>;
   onOpenLesson: (lessonBookingId: string) => void;
 }
 
-export const StudentLatestRecommendationSection: React.FC<
-  StudentLatestRecommendationSectionProps
-> = ({
-  latest,
-  highlightPending,
-  highlightText,
-  loading = false,
-  onOpenLesson,
-  scopeParticipant,
-}) => {
-  const { lang, t } = useStudentCabinetTranslations();
-  const dateLabel = latest
-    ? formatLessonFeedbackDateLabel(latest.lessonDate, lang) || latest.lessonDate
-    : '';
-  const instructorLabel = latest?.instructorName;
+type RecommendationPage = Awaited<ReturnType<typeof queryManagedRecommendationsPage>>;
 
+export const StudentCoachRecommendationsSection: React.FC<
+  StudentCoachRecommendationsSectionProps
+> = ({ participantId, scopeParticipant, instructorNames, lessonContext, onOpenLesson }) => {
+  const { lang, t } = useStudentCabinetTranslations();
+  const feedbackItems = useParticipantLessonFeedbackStore((state) =>
+    participantId ? state.byParticipantId[participantId]?.items : undefined
+  );
+  const [cursors, setCursors] = useState<readonly (string | undefined)[]>([undefined]);
+  const [attempt, setAttempt] = useState(0);
+  const cursor = cursors.at(-1);
+  const [response, setResponse] = useState<{
+    cursor: typeof cursor;
+    attempt: number;
+    feedbackItems: typeof feedbackItems;
+    page: RecommendationPage | null;
+  }>();
+
+  useEffect(() => {
+    if (!participantId) return;
+    const controller = new AbortController();
+    void queryManagedRecommendationsPage(participantId, cursor, controller.signal).then(
+      (page) => {
+        if (!controller.signal.aborted) setResponse({ cursor, attempt, feedbackItems, page });
+      },
+      () => {
+        if (!controller.signal.aborted) setResponse({ cursor, attempt, feedbackItems, page: null });
+      }
+    );
+    return () => {
+      controller.abort();
+    };
+  }, [participantId, cursor, attempt, feedbackItems]);
+
+  const page = !participantId
+    ? { items: [], nextCursor: null }
+    : response &&
+        response.cursor === cursor &&
+        response.attempt === attempt &&
+        response.feedbackItems === feedbackItems
+      ? response.page
+      : undefined;
+  const loading = page === undefined;
+  const nextCursor = page?.nextCursor;
   return (
-    <section className="sc-latest-recommendation">
+    <section className="sc-latest-recommendation" aria-label={t('scCoachRecommendations')}>
       <StudentDashboardTileHeader
-        title={t('scLatestCoachRecommendation')}
+        title={t('scCoachRecommendations')}
         actions={
           <ParticipantScopeIndicator
             participant={scopeParticipant}
@@ -78,35 +107,97 @@ export const StudentLatestRecommendationSection: React.FC<
           <p className="sc-latest-recommendation-state" role="status">
             {t('loading')}
           </p>
-        ) : !latest || !highlightText ? (
-          <p className="sc-latest-recommendation-state">{t('scNoLatestRecommendation')}</p>
-        ) : (
-          <div className="sc-latest-recommendation-content">
-            {(dateLabel || highlightPending) && (
-              <div className="sc-latest-recommendation-meta">
-                {dateLabel && <p className="sc-latest-recommendation-date">{dateLabel}</p>}
-                {highlightPending && <RecommendationIndicator pending />}
-              </div>
-            )}
-            <blockquote className="sc-latest-recommendation-quote">{highlightText}</blockquote>
-            <div className="sc-latest-recommendation-footer">
-              {instructorLabel && (
-                <div className="sc-latest-recommendation-coach">
-                  <span className="sc-latest-recommendation-avatar" aria-hidden="true">
-                    <ParticipantAvatarFace name={instructorLabel} />
-                  </span>
-                  <p className="sc-latest-recommendation-name">{instructorLabel}</p>
-                </div>
-              )}
-              <ScTextButton
-                className="sc-latest-recommendation-action"
-                onClick={() => onOpenLesson(latest.lessonBookingId)}
-              >
-                {t('scMoreDetails')}
-              </ScTextButton>
-            </div>
+        ) : page === null ? (
+          <div>
+            <p className="sc-latest-recommendation-state" role="alert">
+              {t('scCoachRecommendationsError')}
+            </p>
+            <ScTextButton
+              className="sc-latest-recommendation-action"
+              onClick={() => setAttempt(attempt + 1)}
+            >
+              {t('retry')}
+            </ScTextButton>
           </div>
+        ) : page.items.length === 0 ? (
+          <p className="sc-latest-recommendation-state">{t('scNoCoachRecommendations')}</p>
+        ) : (
+          <ul className="sc-latest-recommendation-list">
+            {page.items.map((item) => {
+              const context = lessonContext.get(item.lessonBookingId);
+              const instructorName = item.instructorId
+                ? (instructorNames.get(item.instructorId) ??
+                  (context?.instructorId === item.instructorId
+                    ? context?.instructorName
+                    : undefined))
+                : undefined;
+              const date = formatLessonFeedbackDateLabel(
+                item.lessonDate ?? context?.date,
+                lang,
+                true
+              );
+              return (
+                <li
+                  key={JSON.stringify([item.lessonBookingId, item.itemId])}
+                  className="sc-latest-recommendation-content"
+                >
+                  <div className="sc-latest-recommendation-meta">
+                    {date && <p className="sc-latest-recommendation-date">{date}</p>}
+                    <p className="sc-latest-recommendation-state">
+                      {t(
+                        item.completed ? 'scRecommendationCompleted' : 'scRecommendationIncomplete'
+                      )}
+                    </p>
+                  </div>
+                  <blockquote className="sc-latest-recommendation-quote">{item.text}</blockquote>
+                  {(instructorName || item.lessonAvailable) && (
+                    <div className="sc-latest-recommendation-footer">
+                      {instructorName && (
+                        <div className="sc-latest-recommendation-coach">
+                          <span className="sc-latest-recommendation-avatar" aria-hidden="true">
+                            <ParticipantAvatarFace name={instructorName} />
+                          </span>
+                          <p className="sc-latest-recommendation-name">{instructorName}</p>
+                        </div>
+                      )}
+                      {item.lessonAvailable && (
+                        <ScTextButton
+                          className="sc-latest-recommendation-action"
+                          onClick={() => onOpenLesson(item.lessonBookingId)}
+                        >
+                          {t('scMoreDetails')}
+                        </ScTextButton>
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
         )}
+        <div className="sc-latest-recommendation-pagination">
+          <ScTextButton
+            className="sc-latest-recommendation-action"
+            aria-disabled={loading || cursors.length === 1}
+            onClick={() => {
+              if (!loading && cursors.length > 1) setCursors(cursors.slice(0, -1));
+            }}
+          >
+            {t('scRecommendationPrevious')}
+          </ScTextButton>
+          <span className="type-compact" aria-live="polite">
+            {t('scRecommendationPage').replace('{page}', String(cursors.length))}
+          </span>
+          <ScTextButton
+            className="sc-latest-recommendation-action"
+            aria-disabled={!nextCursor}
+            onClick={() => {
+              if (nextCursor) setCursors([...cursors, nextCursor]);
+            }}
+          >
+            {t('scRecommendationNext')}
+          </ScTextButton>
+        </div>
       </StudentDashboardTileBody>
     </section>
   );

@@ -188,12 +188,9 @@ export const StudentCoachRecommendationsSection: React.FC<
                 {t('scRecommendationPrevious')}
               </ScTextButton>
             )}
-            <span className="type-compact" aria-live="polite">
-              {t('scRecommendationPage').replace('{page}', String(cursors.length))}
-            </span>
             {nextCursor && (
               <ScTextButton
-                className="sc-latest-recommendation-action"
+                className="sc-latest-recommendation-action sc-latest-recommendation-next"
                 onClick={() => setCursors([...cursors, nextCursor])}
               >
                 {t('scRecommendationNext')}

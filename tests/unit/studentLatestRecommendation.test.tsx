@@ -64,12 +64,13 @@ beforeEach(() => {
 });
 
 describe('Coach recommendations', () => {
-  it('shows the empty state and both page controls are unavailable', async () => {
+  it('hides pagination entirely when there are no recommendations', async () => {
     load.mockResolvedValue(page([]));
     render(tile());
     expect(await screen.findByText('No coach recommendations yet')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Back' })).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByRole('button', { name: 'Next' })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
+    expect(screen.queryByText('Page 1')).toBeNull();
   });
 
   it.each([1, 5, 6, 11])('shows %i recommendations in individual pages', async (count) => {
@@ -80,17 +81,24 @@ describe('Coach recommendations', () => {
     });
     render(tile());
     const user = userEvent.setup();
-    const next = screen.getByRole('button', { name: 'Next' });
     for (let offset = 0; offset < count; offset += 5) {
       expect(await screen.findByText(`Drill ${offset}`, { exact: true })).toBeVisible();
       expect(screen.getAllByRole('listitem')).toHaveLength(Math.min(count - offset, 5));
-      expect(screen.getByText(`Page ${1 + offset / 5}`)).toBeVisible();
-      if (offset + 5 < count) {
-        next.focus();
+      const hasPrevious = offset > 0;
+      const hasNext = offset + 5 < count;
+      expect(Boolean(screen.queryByRole('button', { name: 'Back' }))).toBe(hasPrevious);
+      expect(Boolean(screen.queryByRole('button', { name: 'Next' }))).toBe(hasNext);
+      if (hasPrevious || hasNext) {
+        expect(screen.getByText(`Page ${1 + offset / 5}`)).toBeVisible();
+      } else {
+        expect(screen.queryByText(`Page ${1 + offset / 5}`)).toBeNull();
+      }
+      if (hasNext) {
+        screen.getByRole('button', { name: 'Next' }).focus();
         await user.keyboard('{Enter}');
       }
     }
-    expect(next).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
     if (count > 5) {
       const back = screen.getByRole('button', { name: 'Back' });
       back.focus();
@@ -170,8 +178,10 @@ describe('Coach recommendations', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(screen.getByText('Page 2')).toBeVisible();
     view.rerender(tile(account, participant));
-    expect(screen.getByText('Page 1')).toBeVisible();
     expect(await screen.findByText('Drill 8')).toBeVisible();
+    expect(screen.queryByText('Page 1')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
     await act(async () => finishOld(page([item(1)])));
     expect(screen.queryByText('Drill 1')).toBeNull();
     expect(load).toHaveBeenLastCalledWith(participant, undefined, expect.any(AbortSignal));

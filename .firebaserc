@@ -4,6 +4,21 @@
     "staging": "ski-school-staging",
     "prod": "ski-school-8f3ca"
   },
-  "targets": {},
+  "targets": {
+    "ski-school-staging": {
+      "hosting": {
+        "primary": [
+          "ski-school-staging"
+        ]
+      }
+    },
+    "ski-school-8f3ca": {
+      "hosting": {
+        "primary": [
+          "ski-school-8f3ca"
+        ]
+      }
+    }
+  },
   "etags": {}
 }

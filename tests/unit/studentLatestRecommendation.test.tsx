@@ -237,7 +237,7 @@ describe('Coach exercise comments tile', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(5);
     expect(screen.getByText('Coach note 6')).toBeVisible();
     expect(screen.queryByText('Coach note 0')).toBeNull();
-    expect(screen.getAllByText('Coach A')).toHaveLength(5);
+    expect(screen.getAllByText(/^Coach A(?:\s*·|$)/)).toHaveLength(5);
     expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
     expect(screen.queryByText(/^Page \d+$/)).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Next' }));
@@ -252,7 +252,7 @@ describe('Coach exercise comments tile', () => {
     const value = progress('student_a', 1);
     render(commentsTile({ ...value, skillCommentAttribution: undefined }));
     expect(screen.getByText('Author unknown')).toBeVisible();
-    expect(screen.queryByText('Coach A')).toBeNull();
+    expect(screen.queryByText(/^Coach A(?:\s*·|$)/)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
   });
 

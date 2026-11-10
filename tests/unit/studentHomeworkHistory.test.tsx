@@ -3,6 +3,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Booking, Instructor, UserProfile } from '../../src/types';
 import { translations } from '../../src/lib/i18n/translations';
 import { StudentCoachPanel } from '../../src/features/student-cabinet/components/student/StudentCoachPanel';
+import { StudentHomeworkDashboardSection } from '../../src/features/student-cabinet/components/student/StudentHomeworkDashboardSection';
+import { getStudentHomeworkSources } from '../../src/features/student-cabinet/components/student/studentHomeworkSources';
+import type { CabinetSessionItem } from '../../src/features/course-enrollments';
 
 const fixture = vi.hoisted(() => ({
   language: 'en' as 'en' | 'ru',
@@ -14,6 +17,14 @@ const fixture = vi.hoisted(() => ({
     loadMore: vi.fn(),
   },
   chat: vi.fn((_ids: string[]) => ({ messages: [], loading: false })),
+  dashboardHistory: {
+    items: [] as unknown[],
+    loading: false,
+    error: false,
+    hasMore: false,
+    signedIn: true,
+    loadMore: vi.fn(),
+  },
 }));
 vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({
@@ -22,6 +33,10 @@ vi.mock('../../src/app/providers/LanguageContext', () => ({
   }),
   translateInstructor: (instructor: Instructor) => instructor,
 }));
+vi.mock(
+  '../../src/features/instructor-workspace/useLessonHomeworkHistory',
+  () => ({ useLessonHomeworkHistory: () => fixture.dashboardHistory })
+);
 vi.mock(
   '../../src/features/student-cabinet/components/student/useInstructorHomeworkHistory',
   () => ({ useInstructorHomeworkHistory: () => fixture.history })
@@ -69,6 +84,12 @@ afterEach(() => {
   fixture.history.error = false;
   fixture.history.hasMore = true;
   fixture.history.loadMore.mockClear();
+  fixture.dashboardHistory.items = [];
+  fixture.dashboardHistory.hasMore = false;
+  fixture.dashboardHistory.loading = false;
+  fixture.dashboardHistory.error = false;
+  fixture.dashboardHistory.signedIn = true;
+  fixture.dashboardHistory.loadMore.mockClear();
 });
 
 describe('student homework history UI', () => {
@@ -145,5 +166,95 @@ describe('student homework history UI', () => {
       screen.getByText('New homework').compareDocumentPosition(screen.getByText('Old homework')) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
+  });
+});
+
+describe('student homework dashboard tile', () => {
+  const item = (id: number) => ({
+    id: String(id),
+    threadId: 'lesson',
+    bookingId: 'lesson',
+    senderId: 'coach-user',
+    senderName: 'Coach',
+    senderAvatar: '',
+    text: `Assignment ${id}`,
+    timestamp: `2026-11-07T${String(id).padStart(2, '0')}:00:00.000Z`,
+    isHomework: true,
+  });
+  const source = [{ threadId: 'lesson', participantIds: ['child'], label: 'Training' }];
+  const tile = (participantId = 'child') => (
+    <StudentHomeworkDashboardSection
+      key={participantId}
+      accountId="account"
+      participantId={participantId}
+      sources={participantId === 'child' ? source : []}
+    />
+  );
+
+  it('does not expose paging controls when empty or up to five assignments', () => {
+    const view = render(tile());
+    expect(screen.getByText(translations.en.scCoachNoHomework)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
+    fixture.dashboardHistory.items = Array.from({ length: 5 }, (_, i) => item(i));
+    view.rerender(tile());
+    expect(screen.getAllByRole('listitem')).toHaveLength(5);
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
+    expect(screen.queryByText(/^Page \\d+$/)).toBeNull();
+  });
+
+  it('navigates five at a time without page labels and preserves sender and source', () => {
+    fixture.dashboardHistory.items = Array.from({ length: 11 }, (_, i) => item(10 - i));
+    render(tile());
+    expect(screen.getAllByRole('listitem')).toHaveLength(5);
+    expect(screen.getByText('Assignment 10')).toBeVisible();
+    expect(screen.getAllByText('Training')).toHaveLength(5);
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText('Assignment 5')).toBeVisible();
+    expect(screen.getAllByRole('listitem')).toHaveLength(5);
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText('Assignment 0')).toBeVisible();
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByText('Assignment 5')).toBeVisible();
+    expect(screen.queryByText(/^Page \\d+$/)).toBeNull();
+  });
+
+  it('resets pagination when switching participants and does not leak old assignments', () => {
+    fixture.dashboardHistory.items = Array.from({ length: 11 }, (_, i) => item(10 - i));
+    const view = render(tile());
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fixture.dashboardHistory.items = [];
+    view.rerender(tile('other-child'));
+    expect(screen.queryByText('Assignment 5')).toBeNull();
+    expect(screen.getByText(translations.en.scCoachNoHomework)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
+  });
+
+  it('renders safe links and preserves homework text with an attachment', () => {
+    fixture.dashboardHistory.items = [
+      { ...item(1), attachmentType: 'link', attachmentUrl: 'https://example.com/homework', attachmentName: 'Worksheet' },
+      { ...item(0), attachmentType: 'link', attachmentUrl: 'javascript:alert(1)' },
+    ];
+    render(tile());
+    expect(screen.getByRole('link', { name: 'Worksheet' }).getAttribute('href')).toBe(
+      'https://example.com/homework'
+    );
+    expect(screen.getAllByRole('link')).toHaveLength(1);
+  });
+
+  it('uses only canonical membership to discover lesson and course sources', () => {
+    const sessions = [
+      { kind: 'lesson', session: { id: 'lesson', instructorName: 'Coach', participantIds: ['child'], status: 'completed' } },
+      { kind: 'lesson', session: { id: 'foreign', instructorName: 'Coach', participantIds: ['other'], status: 'completed' } },
+      { kind: 'course_day', courseId: 'course', enrollmentId: 'enrollment', courseTitle: 'Carving', participantId: 'child', lifecycleStatus: 'active' },
+      { kind: 'course_day', courseId: 'course', enrollmentId: 'enrollment', courseTitle: 'Carving', participantId: 'child', lifecycleStatus: 'active' },
+    ] as unknown as CabinetSessionItem[];
+    expect(getStudentHomeworkSources(sessions, 'child').map((source) => source.threadId)).toEqual([
+      'lesson', 'course', 'enrollment',
+    ]);
+    expect(getStudentHomeworkSources(sessions, 'other').map((source) => source.threadId)).toEqual(['foreign']);
+    expect(getStudentHomeworkSources(sessions, undefined)).toEqual([]);
   });
 });

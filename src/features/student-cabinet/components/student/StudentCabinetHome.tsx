@@ -38,6 +38,8 @@ import { LazySkillRadarChart } from './LazySkillRadarChart';
 import { StudentCoachSkillCommentsSection } from './StudentCoachSkillCommentsSection';
 import { StudentHomeworkDashboardSection } from './StudentHomeworkDashboardSection';
 import { getStudentHomeworkSources } from './studentHomeworkSources';
+import { useAccountParticipantLessonStatsStore } from '../../../lesson-bookings/accountParticipantLessonStatsStore';
+import { mapLessonBookingReadModelToCabinetItem } from '../../../lesson-bookings/lessonBookingViewModel';
 import {
   StudentCabinetWeatherSection,
   StudentCoachRecommendationsSection,
@@ -137,9 +139,26 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
   };
 
   const nextSessionItems = props.nextSessionItems ?? sessionItems;
+  const statsAccountId = useAccountParticipantLessonStatsStore((state) => state.accountId);
+  const statsHistoryLoaded = useAccountParticipantLessonStatsStore((state) => state.loaded);
+  const statsHistoryItems = useAccountParticipantLessonStatsStore((state) => state.items);
+  const historicalHomeworkLessons = useMemo(
+    () =>
+      statsHistoryLoaded && statsAccountId === userProfile.uid
+        ? statsHistoryItems
+            .filter((lesson) => lesson.participantIds.some((id) => id === recommendationsParticipantId))
+            .map(mapLessonBookingReadModelToCabinetItem)
+        : [],
+    [statsHistoryLoaded, statsAccountId, statsHistoryItems, userProfile.uid, recommendationsParticipantId]
+  );
   const homeworkSources = useMemo(
-    () => getStudentHomeworkSources(nextSessionItems, recommendationsParticipantId),
-    [nextSessionItems, recommendationsParticipantId]
+    () =>
+      getStudentHomeworkSources(
+        nextSessionItems,
+        recommendationsParticipantId,
+        historicalHomeworkLessons
+      ),
+    [nextSessionItems, recommendationsParticipantId, historicalHomeworkLessons]
   );
   const sessionNow = useCabinetSessionNow(nextSessionItems);
   const { nextSessions, participantsBySessionKey } = useMemo(

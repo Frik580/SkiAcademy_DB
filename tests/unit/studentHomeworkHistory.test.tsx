@@ -6,6 +6,7 @@ import { StudentCoachPanel } from '../../src/features/student-cabinet/components
 import { StudentHomeworkDashboardSection } from '../../src/features/student-cabinet/components/student/StudentHomeworkDashboardSection';
 import { getStudentHomeworkSources } from '../../src/features/student-cabinet/components/student/studentHomeworkSources';
 import type { CabinetSessionItem } from '../../src/features/course-enrollments';
+import type { LessonBookingCabinetItem } from '../../src/features/lesson-bookings/lessonBookingContracts';
 
 const fixture = vi.hoisted(() => ({
   language: 'en' as 'en' | 'ru',
@@ -256,5 +257,58 @@ describe('student homework dashboard tile', () => {
     ]);
     expect(getStudentHomeworkSources(sessions, 'other').map((source) => source.threadId)).toEqual(['foreign']);
     expect(getStudentHomeworkSources(sessions, undefined)).toEqual([]);
+  });
+
+  it('discovers completed homework from canonical account history even without upcoming sessions', () => {
+    const history = [
+      {
+        id: 'completed-alice',
+        bookingId: 'completed-alice',
+        status: 'completed',
+        instructorId: 'coach',
+        instructorName: 'Coach',
+        participantIds: ['child'],
+      },
+      {
+        id: 'completed-family',
+        bookingId: 'completed-family',
+        status: 'completed',
+        instructorId: 'coach',
+        instructorName: 'Coach',
+        participantIds: ['child', 'sibling'],
+      },
+      {
+        id: 'other-child',
+        bookingId: 'other-child',
+        status: 'completed',
+        instructorId: 'coach',
+        instructorName: 'Coach',
+        participantIds: ['sibling'],
+      },
+      {
+        id: 'cancelled-child',
+        bookingId: 'cancelled-child',
+        status: 'cancelled',
+        instructorId: 'coach',
+        instructorName: 'Coach',
+        participantIds: ['child'],
+      },
+    ] as LessonBookingCabinetItem[];
+    const upcoming = [
+      { kind: 'lesson', session: history[1] },
+    ] as CabinetSessionItem[];
+    const sourceIds = getStudentHomeworkSources(upcoming, 'child', history).map(
+      (source) => source.threadId
+    );
+    expect(sourceIds).toEqual(['completed-family', 'completed-alice']);
+    expect(getStudentHomeworkSources([], 'child', history).map((source) => source.threadId)).toEqual([
+      'completed-alice',
+      'completed-family',
+    ]);
+    expect(getStudentHomeworkSources([], 'sibling', history).map((source) => source.threadId)).toEqual([
+      'completed-family',
+      'other-child',
+    ]);
+    expect(getStudentHomeworkSources([], undefined, history)).toEqual([]);
   });
 });

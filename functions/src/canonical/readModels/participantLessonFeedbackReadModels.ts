@@ -1,5 +1,9 @@
+import { z } from 'zod';
+import { HttpsError } from 'firebase-functions/v2/https';
 import {
   AccountIdSchema,
+  PARTICIPANT_RECOMMENDATIONS_PAGE_SIZE,
+  type ManagedRecommendation,
   InstructorIdSchema,
   PARTICIPANT_LESSON_FEEDBACK_READ_MODEL_LESSON_IDS_MAX,
   ParticipantLessonFeedbackReadModelSchema,
@@ -27,6 +31,7 @@ import {
   parseParticipantLessonFeedbackRecord,
   participantLessonFeedbackPath,
 } from '../lessonFeedback/participantLessonFeedbackStore';
+import { parseBooking } from '../bookings/bookingStore';
 import { buildParticipantAccessTopology } from '../participantAccess/participantAccessAuthorization';
 import {
   parseAccount,
@@ -34,6 +39,8 @@ import {
   parseParticipantManagement,
 } from '../participantAccess/participantAccessStore';
 import { type ReadModelRequestContext } from './readModelRequestContext';
+import { decodeHistoryCursor, encodeHistoryCursor } from './historyCursor';
+import { parseIfVisibleInReadScope } from './readModelScope';
 
 const MANAGED_FEEDBACK_HISTORY_LIMIT = PARTICIPANT_LESSON_FEEDBACK_READ_MODEL_LESSON_IDS_MAX;
 
@@ -103,7 +110,8 @@ function emptyInstructorLessonReadModel(input: {
 async function assertManagedAccess(
   firestore: Firestore,
   accountId: AccountId,
-  participantIds: readonly ParticipantId[]
+  participantIds: readonly ParticipantId[],
+  readScope?: CanonicalReadScope
 ): Promise<void> {
   if (participantIds.length === 0) return;
   const accountSnap = await firestore.collection('users').doc(accountId).get();
@@ -119,19 +127,25 @@ async function assertManagedAccess(
   );
 
   for (let index = 0; index < participantIds.length; index += 1) {
-    const participant = parseParticipant(
-      participantSnaps[index]?.data() as Record<string, unknown> | undefined
-    );
-    if (!participant || participant.management.kind !== 'managed') {
+    const participantData = participantSnaps[index]?.data() as Record<string, unknown> | undefined;
+    const participant = readScope
+      ? parseIfVisibleInReadScope(participantData, parseParticipant, readScope, 'identity')
+      : parseParticipant(participantData);
+    if (
+      !participant ||
+      participant.participantId !== participantIds[index] ||
+      participant.management.kind !== 'managed'
+    ) {
       throw new ParticipantLessonFeedbackReadDeniedError();
     }
     const managementSnap = await firestore
       .collection('participant_management')
       .doc(participant.management.participantManagementId)
       .get();
-    const management = parseParticipantManagement(
-      managementSnap.data() as Record<string, unknown> | undefined
-    );
+    const managementData = managementSnap.data() as Record<string, unknown> | undefined;
+    const management = readScope
+      ? parseIfVisibleInReadScope(managementData, parseParticipantManagement, readScope, 'identity')
+      : parseParticipantManagement(managementData);
     if (!management || management.status !== 'active') {
       throw new ParticipantLessonFeedbackReadDeniedError();
     }
@@ -304,6 +318,160 @@ async function queryManagedLatest(
   };
 }
 
+const RecommendationCursorSchema = z.tuple([
+  z.tuple([
+    z.number().finite(),
+    z.number().finite(),
+    z
+      .string()
+      .min(1)
+      .max(1500)
+      .refine((id) => !id.includes('/')),
+    z.string().min(1).max(64).optional(),
+  ]),
+  z.number().int().min(0).max(PARTICIPANT_RECOMMENDATIONS_PAGE_SIZE),
+]);
+
+async function queryManagedRecommendations(
+  firestore: Firestore,
+  input: Extract<
+    QueryParticipantLessonFeedbackReadModelsInput,
+    { scope: 'managed_recommendations' }
+  >,
+  accountId: AccountId,
+  readScope: CanonicalReadScope,
+  cursorSecret: string | undefined
+): Promise<QueryParticipantLessonFeedbackReadModelsResult> {
+  await assertManagedAccess(firestore, accountId, [input.participantId], readScope);
+  if (!cursorSecret) {
+    throw new HttpsError('failed-precondition', 'Recommendation pagination is unavailable.');
+  }
+
+  const cursorContext = JSON.stringify([
+    'managed-recommendations:v1',
+    accountId,
+    input.participantId,
+    readScope.dataScope,
+    readScope.dataScope === 'test' ? readScope.testSessionId : null,
+    readScope.purpose,
+  ]);
+  const encodeCursor = (value: z.output<typeof RecommendationCursorSchema>) =>
+    encodeHistoryCursor(cursorContext, value, cursorSecret);
+  const [anchor, emitted] =
+    input.cursor === undefined
+      ? ([undefined, 0] as const)
+      : decodeHistoryCursor(cursorContext, input.cursor, cursorSecret, RecommendationCursorSchema);
+  const batchSize = 8;
+  const maxBatches = 4;
+  const history = participantLessonFeedbackHistoryQuery(firestore, input.participantId)
+    .where('lessonStartsAt.seconds', '>=', -Number.MAX_SAFE_INTEGER)
+    .where('lessonStartsAt.seconds', '<=', Number.MAX_SAFE_INTEGER)
+    .where('lessonStartsAt.nanoseconds', '>=', 0)
+    .where('lessonStartsAt.nanoseconds', '<=', 999_999_999)
+    .limit(batchSize);
+  let query = history;
+  if (anchor) {
+    const [seconds, nanoseconds, documentId, itemId] = anchor;
+    query =
+      itemId === undefined
+        ? history.startAfter(seconds, nanoseconds, documentId)
+        : history.startAt(seconds, nanoseconds, documentId);
+  }
+
+  const items: Omit<ManagedRecommendation, 'lessonAvailable'>[] = [];
+  async function result(
+    nextCursor: string | null,
+    scanCursor?: string
+  ): Promise<QueryParticipantLessonFeedbackReadModelsResult> {
+    const ids = [...new Set(items.map((item) => item.lessonBookingId))];
+    const bookings = ids.length
+      ? await firestore.getAll(...ids.map((id) => firestore.collection('bookings').doc(id)))
+      : [];
+    const available = new Map(
+      bookings.flatMap((snapshot) => {
+        const data = snapshot.data() as Record<string, unknown> | undefined;
+        const booking = documentMatchesReadScope(readScope, data) ? parseBooking(data) : undefined;
+        return booking &&
+          booking.bookingId === snapshot.id &&
+          !booking.archival?.isDeleted &&
+          booking.party.participantIds.includes(input.participantId)
+          ? [[booking.bookingId, booking] as const]
+          : [];
+      })
+    );
+    return {
+      scope: 'managed_recommendations',
+      items: items.map((item) => {
+        const booking = available.get(item.lessonBookingId);
+        const lessonDate =
+          item.lessonDate ?? (booking && lessonProjectionFromBooking(booking).lessonDate);
+        return {
+          ...item,
+          ...(lessonDate ? { lessonDate } : {}),
+          lessonAvailable: Boolean(booking),
+        };
+      }),
+      nextCursor,
+      ...(scanCursor ? { scanCursor } : {}),
+    };
+  }
+  let scanCursor: string | undefined;
+  // The existing index includes legacy LIVE records. Filter scope before projecting any item.
+  for (let batch = 0; batch < maxBatches; batch += 1) {
+    const snapshot = await query.get();
+    for (const doc of snapshot.docs) {
+      const model = toScopedReadModel(doc.data() as Record<string, unknown>, readScope);
+      if (
+        !model?.lessonStartsAt ||
+        model.participantId !== input.participantId ||
+        model.feedbackId !== doc.id ||
+        model.feedbackId !==
+          participantLessonFeedbackIdFromLessonParticipant({
+            participantId: input.participantId,
+            lessonBookingId: model.lessonBookingId,
+          })
+      )
+        continue;
+
+      const { seconds, nanoseconds } = model.lessonStartsAt;
+      const minimumItemId =
+        anchor?.[2] === doc.id && anchor[0] === seconds && anchor[1] === nanoseconds
+          ? anchor[3]
+          : undefined;
+      // Order by ID so editing or reordering the list does not shift the cursor.
+      const ordered = [...model.items].sort((left, right) =>
+        left.itemId < right.itemId ? -1 : left.itemId > right.itemId ? 1 : 0
+      );
+      for (const item of ordered) {
+        if (!item.text.trim() || (minimumItemId !== undefined && item.itemId < minimumItemId))
+          continue;
+        if (emitted + items.length === PARTICIPANT_RECOMMENDATIONS_PAGE_SIZE) {
+          // Point at the first item of the next page, even after a long run of empty records.
+          return result(encodeCursor([[seconds, nanoseconds, doc.id, item.itemId], 0]));
+        }
+        items.push({
+          ...item,
+          lessonBookingId: model.lessonBookingId,
+          ...(model.instructorId ? { instructorId: model.instructorId } : {}),
+          ...(model.lessonDate ? { lessonDate: model.lessonDate } : {}),
+        });
+      }
+    }
+    if (snapshot.size < batchSize) return result(null);
+    const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+    query = history.startAfter(lastDoc);
+    scanCursor = encodeCursor([
+      [
+        lastDoc.get('lessonStartsAt.seconds'),
+        lastDoc.get('lessonStartsAt.nanoseconds'),
+        lastDoc.id,
+      ],
+      emitted + items.length,
+    ]);
+  }
+  return result(null, scanCursor);
+}
+
 export async function queryParticipantLessonFeedbackReadModels(
   firestore: Firestore,
   input: QueryParticipantLessonFeedbackReadModelsInput,
@@ -312,6 +480,7 @@ export async function queryParticipantLessonFeedbackReadModels(
     instructorId?: InstructorId;
     readContext?: ReadModelRequestContext;
     readScope?: CanonicalReadScope;
+    cursorSecret?: string;
   }>
 ): Promise<QueryParticipantLessonFeedbackReadModelsResult> {
   const readScope =
@@ -324,6 +493,15 @@ export async function queryParticipantLessonFeedbackReadModels(
   }
   if (input.scope === 'managed_participant') {
     return queryManagedParticipant(firestore, input, options.accountId, readScope);
+  }
+  if (input.scope === 'managed_recommendations') {
+    return queryManagedRecommendations(
+      firestore,
+      input,
+      options.accountId,
+      readScope,
+      options.cursorSecret
+    );
   }
   return queryManagedLatest(firestore, input, options.accountId, readScope);
 }

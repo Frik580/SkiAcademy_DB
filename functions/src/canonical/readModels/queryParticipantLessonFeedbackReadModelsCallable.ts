@@ -20,7 +20,10 @@ import { parseReadModelCallableData, rethrowReadScopeHttpsError } from './readMo
 import { resolveCanonicalReadScope } from '../testSessions/canonicalReadScopeResolver';
 import { createFirestoreCanonicalExecutionScopeStore } from '../testSessions/canonicalExecutionScopeResolver';
 
-export function createQueryParticipantLessonFeedbackReadModelsHandler(firestore: Firestore) {
+export function createQueryParticipantLessonFeedbackReadModelsHandler(
+  firestore: Firestore,
+  cursorSecret?: () => string
+) {
   return async (
     request: CallableRequest<Record<string, unknown>>
   ): Promise<QueryParticipantLessonFeedbackReadModelsResult> => {
@@ -69,6 +72,7 @@ export function createQueryParticipantLessonFeedbackReadModelsHandler(firestore:
         instructorId,
         readContext,
         readScope,
+        cursorSecret: input.scope === 'managed_recommendations' ? cursorSecret?.() : undefined,
       });
     } catch (error) {
       if (error instanceof ParticipantLessonFeedbackReadDeniedError) {

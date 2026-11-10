@@ -3,12 +3,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import type { ParticipantLessonFeedbackReadModel } from '@ski-academy/shared-domain';
 import { LanguageProvider } from '../../src/app/providers/LanguageContext';
 import { translations } from '../../src/lib/i18n/translations';
-import { StudentLatestRecommendationSection } from '../../src/features/student-cabinet/components/student/StudentHomeBottomSections';
 import { StudentCoachPanel } from '../../src/features/student-cabinet/components/student/StudentCoachPanel';
 import { LessonDetailsModal } from '../../src/features/student-cabinet/components/LessonDetailsModal';
 import { resolveLessonDetailsBookingForModal } from '../../src/features/student-cabinet/resolveLessonDetailsBooking';
 import { useParticipantLessonFeedbackStore } from '../../src/features/participant-lesson-feedback/participantLessonFeedbackStore';
-import type { LessonFeedbackView } from '../../src/features/student-cabinet/studentLessonFeedbackPresentation';
 
 const t = (key: keyof (typeof translations)['en']) => translations.en[key];
 
@@ -170,32 +168,33 @@ describe('canonical participant lesson feedback detail wiring', () => {
     ).toBeNull();
   });
 
-  it('home latest recommendation opens detail by lessonBookingId', () => {
-    const onOpenLesson = vi.fn();
-    const latest: LessonFeedbackView = {
-      participantId: PARTICIPANT as never,
-      lessonBookingId: LESSON_A as never,
-      items: [{ itemId: 'item_1', text: 'Pole plant', completed: false }],
-      revision: 1,
-      lessonDate: '2026-09-10',
-      instructorId: 'instructor_01',
-      instructorName: 'Coach One',
-      hasPending: true,
-    };
-
-    render(
-      <LanguageProvider>
-        <StudentLatestRecommendationSection
-          latest={latest}
-          highlightPending={true}
-          highlightText="Pole plant"
-          onOpenLesson={onOpenLesson}
-        />
-      </LanguageProvider>
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: t('scMoreDetails') }));
-    expect(onOpenLesson).toHaveBeenCalledWith(LESSON_A);
+  it('resolves a historical lesson from an exact read without adding it to the dashboard history', () => {
+    const store = useParticipantLessonFeedbackStore.getState();
+    store.setPresentationParticipantId(PARTICIPANT);
+    const exactFeedback = feedback({
+      participantId: PARTICIPANT,
+      lessonBookingId: LESSON_A,
+      text: 'Older drill',
+    });
+    expect(
+      resolveLessonDetailsBookingForModal({
+        lessonBookingId: LESSON_A,
+        accountUserId: ACCOUNT,
+        cabinetBookings: [],
+        exactFeedback,
+      })
+    ).toMatchObject({ id: LESSON_A, date: '2026-09-01' });
+    expect(
+      resolveLessonDetailsBookingForModal({
+        lessonBookingId: LESSON_A,
+        accountUserId: ACCOUNT,
+        cabinetBookings: [],
+        exactFeedback: { ...exactFeedback, participantId: 'other' as never },
+      })
+    ).toBeNull();
+    expect(
+      useParticipantLessonFeedbackStore.getState().byParticipantId[PARTICIPANT]
+    ).toBeUndefined();
   });
 
   it('coach recommendations open detail by lessonBookingId', () => {

@@ -10,6 +10,7 @@ import {
 import { ParticipantLessonFeedbackItemIdSchema } from '@ski-academy/shared-domain/canonical/participantLessonFeedback';
 import { parseCommandResultPayload } from '@ski-academy/shared-domain/canonical/commands/commandResultPayloads';
 import {
+  type ManagedRecommendation,
   type ParticipantLessonFeedbackItem,
   type ParticipantLessonFeedbackReadModel,
 } from '@ski-academy/shared-domain';
@@ -94,16 +95,43 @@ export async function saveInstructorParticipantLessonFeedback(input: {
 
 export async function queryManagedParticipantLessonFeedback(input: {
   readonly participantId: string;
+  readonly lessonBookingId?: string;
 }): Promise<readonly ParticipantLessonFeedbackReadModel[]> {
   const participantId = ParticipantIdSchema.parse(input.participantId);
   const result = await queryParticipantLessonFeedbackReadModels({
     scope: 'managed_participant',
     participantIds: [participantId],
+    ...(input.lessonBookingId
+      ? { lessonBookingIds: [BookingIdSchema.parse(input.lessonBookingId)] }
+      : {}),
   });
   if (result.scope !== 'managed_participant') {
     throw new Error('Unexpected participant lesson feedback read scope.');
   }
   return result.items.filter((item) => item.participantId === participantId);
+}
+
+export async function queryManagedRecommendationsPage(
+  participantId: string,
+  cursor?: string,
+  signal?: AbortSignal
+) {
+  const id = ParticipantIdSchema.parse(participantId);
+  const items: ManagedRecommendation[] = [];
+  for (;;) {
+    signal?.throwIfAborted();
+    const result = await queryParticipantLessonFeedbackReadModels({
+      scope: 'managed_recommendations',
+      participantId: id,
+      ...(cursor !== undefined ? { cursor } : {}),
+    });
+    if (result.scope !== 'managed_recommendations') {
+      throw new Error('Unexpected participant lesson feedback read scope.');
+    }
+    items.push(...result.items);
+    if (!result.scanCursor) return { items, nextCursor: result.nextCursor };
+    cursor = result.scanCursor;
+  }
 }
 
 export async function setManagedParticipantLessonFeedbackItemCompletion(input: {

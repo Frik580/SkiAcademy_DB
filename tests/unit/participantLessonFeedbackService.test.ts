@@ -13,6 +13,8 @@ import {
   setManagedParticipantLessonFeedbackItemCompletion,
 } from '../../src/features/participant-lesson-feedback';
 
+import { queryManagedRecommendationsPage } from '../../src/features/participant-lesson-feedback/participantLessonFeedbackService';
+
 const executeAuthenticatedCanonicalCommand = vi.fn();
 const queryParticipantLessonFeedbackReadModels = vi.fn();
 
@@ -30,6 +32,45 @@ describe('instructor participant lesson feedback service', () => {
   beforeEach(() => {
     executeAuthenticatedCanonicalCommand.mockReset();
     queryParticipantLessonFeedbackReadModels.mockReset();
+  });
+
+  it('assembles a visible page across bounded scan calls', async () => {
+    const participantId = 'participant_lesson_feedback_a';
+    const first = { itemId: 'first', text: 'First item', completed: false };
+    const last = { itemId: 'last', text: 'Last item', completed: true };
+    queryParticipantLessonFeedbackReadModels
+      .mockResolvedValueOnce({
+        scope: 'managed_recommendations',
+        items: [first],
+        scanCursor: 'scan',
+        nextCursor: null,
+      })
+      .mockResolvedValueOnce({
+        scope: 'managed_recommendations',
+        items: [last],
+        nextCursor: 'page',
+      });
+
+    await expect(queryManagedRecommendationsPage(participantId, 'initial')).resolves.toEqual({
+      items: [first, last],
+      nextCursor: 'page',
+    });
+    expect(queryParticipantLessonFeedbackReadModels.mock.calls).toEqual([
+      [{ scope: 'managed_recommendations', participantId, cursor: 'initial' }],
+      [{ scope: 'managed_recommendations', participantId, cursor: 'scan' }],
+    ]);
+  });
+
+  it('stops the internal scan if the tile changes scope during a request', async () => {
+    const controller = new AbortController();
+    queryParticipantLessonFeedbackReadModels.mockImplementationOnce(async () => {
+      controller.abort();
+      return { scope: 'managed_recommendations', items: [], scanCursor: 'scan', nextCursor: null };
+    });
+    await expect(
+      queryManagedRecommendationsPage('participant_lesson_feedback_a', undefined, controller.signal)
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(queryParticipantLessonFeedbackReadModels).toHaveBeenCalledTimes(1);
   });
 
   it('queries instructor_lesson by participantId and lessonBookingId without spoofed actor fields', async () => {

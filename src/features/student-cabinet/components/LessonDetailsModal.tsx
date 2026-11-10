@@ -19,9 +19,13 @@ import {
   useParticipantLessonFeedbackStore,
 } from '../../participant-lesson-feedback/participantLessonFeedbackStore';
 import { usePresentedParticipantLessonFeedback } from '../usePresentedParticipantLessonFeedback';
+import type { LessonFeedbackView } from '../studentLessonFeedbackPresentation';
 
 interface LessonDetailsModalProps {
   booking: Booking | null;
+  exactFeedback?: LessonFeedbackView;
+  feedbackParticipantId?: string | null;
+  pendingExactItemId?: string;
   courses: Course[];
   onClose: () => void;
   onWriteReview?: (booking: Booking) => void;
@@ -31,6 +35,9 @@ interface LessonDetailsModalProps {
 
 export const LessonDetailsModal: React.FC<LessonDetailsModalProps> = ({
   booking,
+  exactFeedback,
+  feedbackParticipantId,
+  pendingExactItemId,
   courses,
   onClose,
   onWriteReview,
@@ -52,14 +59,22 @@ export const LessonDetailsModal: React.FC<LessonDetailsModalProps> = ({
   const shortDate = formatShortBookingDate(booking, language, courses);
   const modalTitle = t('scLessonDetails');
   const difficultyLabel = getDifficultyShort(booking.difficulty, language);
-  const lessonFeedback = feedback.feedbackForLesson(booking.id);
+  const canUsePresentedFeedback =
+    feedbackParticipantId === undefined || feedback.participantId === feedbackParticipantId;
+  const lessonFeedback =
+    (canUsePresentedFeedback ? feedback.feedbackForLesson(booking.id) : null) ?? exactFeedback;
   const pendingItemIds = new Set(
-    lessonFeedback && feedback.participantId
+    lessonFeedback
       ? lessonFeedback.items
           .filter(
             (item) =>
+              item.itemId === pendingExactItemId ||
               pendingKeys[
-                participantLessonFeedbackItemKey(feedback.participantId!, booking.id, item.itemId)
+                participantLessonFeedbackItemKey(
+                  lessonFeedback.participantId,
+                  booking.id,
+                  item.itemId
+                )
               ]
           )
           .map((item) => item.itemId)
@@ -115,7 +130,7 @@ export const LessonDetailsModal: React.FC<LessonDetailsModalProps> = ({
 
             {openChangeRequest ? <StudentOpenChangeRequestNotice /> : null}
 
-            {feedback.isLoadingPlaceholder ? (
+            {!lessonFeedback && canUsePresentedFeedback && feedback.isLoadingPlaceholder ? (
               <p className="type-compact text-[var(--ink-dim)]">{t('loading')}</p>
             ) : lessonFeedback ? (
               <ParticipantLessonFeedbackList

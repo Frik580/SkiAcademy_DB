@@ -24,9 +24,17 @@ import { useSettingsStore } from '../../src/features/settings/settingsStore';
 import { DEFAULT_STUDENT_DASHBOARD_LAYOUT } from '../../src/features/settings/studentDashboardLayout';
 import type { CabinetSessionItem } from '../../src/features/course-enrollments';
 import { canonicalTimestampToEpochMs } from '@ski-academy/shared-domain/canonical/bookingCancellationPolicy';
-import type { LessonFeedbackView } from '../../src/features/student-cabinet/studentLessonFeedbackPresentation';
+import type { ManagedRecommendation } from '@ski-academy/shared-domain';
 
-let latestFeedbackForHome: LessonFeedbackView | null = null;
+let recommendationsForHome: ManagedRecommendation[] = [];
+
+vi.mock('../../src/features/participant-lesson-feedback/participantLessonFeedbackService', () => ({
+  queryManagedRecommendationsPage: async () => ({
+    scope: 'managed_recommendations',
+    items: recommendationsForHome,
+    nextCursor: null,
+  }),
+}));
 
 function cabinetLessonInstant(date: string, time: string): Date {
   const [hour, minute, seconds = '0'] = time.split(':');
@@ -58,10 +66,6 @@ vi.mock('../../src/features/student-cabinet/usePresentedParticipantLessonFeedbac
     incomplete: [],
     contextByLessonId: new Map(),
     flagsByLessonId: new Map(),
-    latestView: latestFeedbackForHome,
-    latestHighlight: latestFeedbackForHome
-      ? { item: latestFeedbackForHome.items[0], isPending: false }
-      : null,
     isLoadingPlaceholder: false,
     feedbackForLesson: () => null,
   }),
@@ -212,7 +216,7 @@ function HeaderAndHome() {
 }
 
 beforeEach(() => {
-  latestFeedbackForHome = null;
+  recommendationsForHome = [];
   useSettingsStore.getState().setStudentDashboardLayout(undefined);
   vi.mocked(usePresentedParticipantAchievements).mockClear();
   useCabinetProgressParticipantSelectionStore.getState().reset();
@@ -793,7 +797,7 @@ afterEach(() => {
 
 describe('Student Home participant scope', () => {
   it.each([true, false])(
-    'latest recommendation preserves lesson navigation with ID callback=%s',
+    'recommendations preserve lesson navigation with ID callback=%s',
     async (idCallback) => {
       const booking: Booking = {
         id: 'canonical_feedback_lesson',
@@ -808,22 +812,15 @@ describe('Student Home participant scope', () => {
         status: 'completed',
         difficulty: 'beginner',
       };
-      latestFeedbackForHome = {
-        participantId: 'alice',
-        lessonBookingId: booking.id,
-        revision: 1,
-        hasPending: false,
-        items: [
-          {
-            participantId: 'alice',
-            lessonBookingId: booking.id,
-            itemId: 'done',
-            text: 'Actual completed recommendation',
-            completed: true,
-            revision: 1,
-          },
-        ],
-      };
+      recommendationsForHome = [
+        {
+          lessonBookingId: booking.id as ManagedRecommendation['lessonBookingId'],
+          itemId: 'done',
+          text: 'Actual completed recommendation',
+          completed: true,
+          lessonAvailable: true,
+        },
+      ];
       const onOpenLesson = vi.fn();
       const onOpenLessonByBookingId = vi.fn();
       render(
@@ -839,7 +836,7 @@ describe('Student Home participant scope', () => {
       const tile = document.querySelector(
         '[data-dashboard-tile="instructorRecommendations"]'
       ) as HTMLElement;
-      await userEvent.click(within(tile).getByRole('button', { name: 'scMoreDetails' }));
+      await userEvent.click(await within(tile).findByRole('button', { name: 'scMoreDetails' }));
       if (idCallback) {
         expect(onOpenLessonByBookingId).toHaveBeenCalledWith(booking.id);
         expect(onOpenLesson).not.toHaveBeenCalled();
@@ -849,6 +846,28 @@ describe('Student Home participant scope', () => {
       }
     }
   );
+
+  it('clears recommendations if the managed list drops the selected participant', async () => {
+    recommendationsForHome = [
+      {
+        lessonBookingId: 'lesson_old' as ManagedRecommendation['lessonBookingId'],
+        itemId: 'old',
+        text: 'Previously accessible',
+        completed: true,
+        lessonAvailable: false,
+      },
+    ];
+    const renderHome = (revoked = false) => (
+      <MemoryRouter>
+        <StudentCabinetHome {...input('alice')} {...(revoked ? { participantProfiles: [] } : {})} />
+      </MemoryRouter>
+    );
+    const view = render(renderHome());
+    expect(await screen.findByText('Previously accessible')).toBeVisible();
+    view.rerender(renderHome(true));
+    expect(screen.queryByText('Previously accessible')).toBeNull();
+    expect(screen.getByText('scNoCoachRecommendations')).toBeVisible();
+  });
 
   it('does not pass account review evidence into the participant daily achievements block', () => {
     render(
@@ -955,7 +974,7 @@ describe('Student Home participant scope', () => {
       'scQuickActions',
       'scNextStepTitle',
       'scSkillRingsTitle',
-      'scLatestCoachRecommendation',
+      'scCoachRecommendations',
       'Today’s Progress',
     ]) {
       expect(scopeIn(title)).toHaveTextContent('Bob Student');

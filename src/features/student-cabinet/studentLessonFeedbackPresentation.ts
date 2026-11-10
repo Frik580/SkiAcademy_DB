@@ -56,7 +56,8 @@ export function isLessonDateInTodayRecommendationWindow(
 
 export function formatLessonFeedbackDateLabel(
   lessonDate: string | undefined,
-  language: 'en' | 'ru'
+  language: 'en' | 'ru',
+  includeYear = false
 ): string {
   if (!lessonDate) return '';
   const date = new Date(`${lessonDate}T12:00:00`);
@@ -64,6 +65,7 @@ export function formatLessonFeedbackDateLabel(
   return date.toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US', {
     day: 'numeric',
     month: 'long',
+    ...(includeYear ? { year: 'numeric' } : {}),
   });
 }
 

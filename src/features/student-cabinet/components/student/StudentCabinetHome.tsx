@@ -37,7 +37,7 @@ import {
 import { LazySkillRadarChart } from './LazySkillRadarChart';
 import {
   StudentCabinetWeatherSection,
-  StudentLatestRecommendationSection,
+  StudentCoachRecommendationsSection,
 } from './StudentHomeBottomSections';
 import { buildNextSessionCards, buildSessionParticipants } from './studentSessionParticipants';
 import { getTodaySessionCountdownsFromSessions } from '../../../course-enrollments/sessionScheduleHelpers';
@@ -92,7 +92,13 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
   );
   const scopeParticipant =
     (props.participantProfiles?.length ?? 0) > 1 ? selectedParticipant : undefined;
+  const recommendationsParticipantId =
+    selectedParticipant || !props.participantProfiles ? selectedParticipantId : undefined;
   const feedback = usePresentedParticipantLessonFeedback(bookings);
+  const instructorNames = useMemo(
+    () => new Map(instructors.map(({ id, name }) => [id, name])),
+    [instructors]
+  );
   const progressDay = useParticipantProgressDay();
   const todayProgress = buildParticipantTodayProgress(
     selectedParticipantId,
@@ -139,7 +145,11 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
   );
   const countdown = countdowns[0] ?? null;
   const countdownParticipantsBySessionKey = useMemo(
-    () => buildSessionParticipants(countdowns.map(({ session }) => session), props.participantProfiles ?? []),
+    () =>
+      buildSessionParticipants(
+        countdowns.map(({ session }) => session),
+        props.participantProfiles ?? []
+      ),
     [countdowns, props.participantProfiles]
   );
   const currentSessions = useMemo(
@@ -399,13 +409,12 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
         tileKey={STUDENT_DASHBOARD_TILES.instructorRecommendations.key}
         size={STUDENT_DASHBOARD_TILES.instructorRecommendations.defaultSize}
       >
-        <StudentLatestRecommendationSection
-          key={`recommendation:${selectedParticipantId}`}
-          latest={feedback.latestView}
+        <StudentCoachRecommendationsSection
+          key={JSON.stringify([userProfile.uid, recommendationsParticipantId])}
+          participantId={recommendationsParticipantId}
           scopeParticipant={scopeParticipant}
-          highlightPending={feedback.latestHighlight?.isPending ?? false}
-          highlightText={feedback.latestHighlight?.item.text ?? null}
-          loading={feedback.isLoadingPlaceholder}
+          instructorNames={instructorNames}
+          lessonContext={feedback.contextByLessonId}
           onOpenLesson={openLessonById}
         />
       </StudentDashboardTile>

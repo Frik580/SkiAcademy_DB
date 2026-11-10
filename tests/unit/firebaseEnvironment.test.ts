@@ -391,7 +391,7 @@ describe('vite firebase env resolution', () => {
     }
     const playwrightConfig = readFileSync(resolve(repoRoot, 'playwright.config.ts'), 'utf8');
     expect(playwrightConfig).toMatch(
-      /npm exec vite -- --mode e2e --config e2e\/vite\.live\.config\.ts --host 127\.0\.0\.1 --port 5174 --strictPort/
+      /npm exec vite -- --mode e2e --config e2e\/vite\.live\.config\.ts --host 127\.0\.0\.1 --port \$\{E2E_LIVE_APP_PORT\} --strictPort/
     );
     expect(playwrightConfig).toMatch(
       /npm exec vite -- preview --mode e2e --outDir \.scratch\/e2e-app --host 127\.0\.0\.1/

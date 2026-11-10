@@ -175,29 +175,29 @@ export const StudentCoachRecommendationsSection: React.FC<
             })}
           </ul>
         )}
-        <div className="sc-latest-recommendation-pagination">
-          <ScTextButton
-            className="sc-latest-recommendation-action"
-            aria-disabled={loading || cursors.length === 1}
-            onClick={() => {
-              if (!loading && cursors.length > 1) setCursors(cursors.slice(0, -1));
-            }}
-          >
-            {t('scRecommendationPrevious')}
-          </ScTextButton>
-          <span className="type-compact" aria-live="polite">
-            {t('scRecommendationPage').replace('{page}', String(cursors.length))}
-          </span>
-          <ScTextButton
-            className="sc-latest-recommendation-action"
-            aria-disabled={!nextCursor}
-            onClick={() => {
-              if (nextCursor) setCursors([...cursors, nextCursor]);
-            }}
-          >
-            {t('scRecommendationNext')}
-          </ScTextButton>
-        </div>
+        {(cursors.length > 1 || Boolean(nextCursor)) && (
+          <div className="sc-latest-recommendation-pagination">
+            {cursors.length > 1 && (
+              <ScTextButton
+                className="sc-latest-recommendation-action"
+                aria-disabled={loading}
+                onClick={() => {
+                  if (!loading) setCursors(cursors.slice(0, -1));
+                }}
+              >
+                {t('scRecommendationPrevious')}
+              </ScTextButton>
+            )}
+            {nextCursor && (
+              <ScTextButton
+                className="sc-latest-recommendation-action sc-latest-recommendation-next"
+                onClick={() => setCursors([...cursors, nextCursor])}
+              >
+                {t('scRecommendationNext')}
+              </ScTextButton>
+            )}
+          </div>
+        )}
       </StudentDashboardTileBody>
     </section>
   );

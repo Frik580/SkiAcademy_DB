@@ -70,7 +70,7 @@ describe('Coach recommendations', () => {
     expect(await screen.findByText('No coach recommendations yet')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
-    expect(screen.queryByText('Page 1')).toBeNull();
+    expect(screen.queryByText(/^Page \d+$/)).toBeNull();
   });
 
   it.each([1, 5, 6, 11])('shows %i recommendations in individual pages', async (count) => {
@@ -88,11 +88,7 @@ describe('Coach recommendations', () => {
       const hasNext = offset + 5 < count;
       expect(Boolean(screen.queryByRole('button', { name: 'Back' }))).toBe(hasPrevious);
       expect(Boolean(screen.queryByRole('button', { name: 'Next' }))).toBe(hasNext);
-      if (hasPrevious || hasNext) {
-        expect(screen.getByText(`Page ${1 + offset / 5}`)).toBeVisible();
-      } else {
-        expect(screen.queryByText(`Page ${1 + offset / 5}`)).toBeNull();
-      }
+      expect(screen.queryByText(/^Page \d+$/)).toBeNull();
       if (hasNext) {
         screen.getByRole('button', { name: 'Next' }).focus();
         await user.keyboard('{Enter}');
@@ -176,10 +172,10 @@ describe('Coach recommendations', () => {
     const view = render(tile());
     await screen.findByText('Drill 0');
     await userEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.getByText('Page 2')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Back' })).toBeVisible();
     view.rerender(tile(account, participant));
     expect(await screen.findByText('Drill 8')).toBeVisible();
-    expect(screen.queryByText('Page 1')).toBeNull();
+    expect(screen.queryByText(/^Page \d+$/)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
     await act(async () => finishOld(page([item(1)])));

@@ -25,6 +25,18 @@ import { DEFAULT_STUDENT_DASHBOARD_LAYOUT } from '../../src/features/settings/st
 import type { CabinetSessionItem } from '../../src/features/course-enrollments';
 import { canonicalTimestampToEpochMs } from '@ski-academy/shared-domain/canonical/bookingCancellationPolicy';
 import type { ManagedRecommendation } from '@ski-academy/shared-domain';
+import type { LessonBookingReadModel } from '@ski-academy/shared-domain';
+import { useAccountParticipantLessonStatsStore } from '../../src/features/lesson-bookings/accountParticipantLessonStatsStore';
+
+const homeworkHistoryCalls = vi.hoisted(() => ({
+  sources: [] as string[],
+}));
+vi.mock('../../src/features/instructor-workspace/useLessonHomeworkHistory', () => ({
+  useLessonHomeworkHistory: (threadIds: string[]) => {
+    homeworkHistoryCalls.sources = threadIds;
+    return { items: [], denied: [], hasMore: false, loading: false, error: false, signedIn: true, loadMore: vi.fn() };
+  },
+}));
 
 let recommendationsForHome: ManagedRecommendation[] = [];
 
@@ -217,6 +229,8 @@ function HeaderAndHome() {
 
 beforeEach(() => {
   recommendationsForHome = [];
+  homeworkHistoryCalls.sources = [];
+  useAccountParticipantLessonStatsStore.getState().reset();
   useSettingsStore.getState().setStudentDashboardLayout(undefined);
   vi.mocked(usePresentedParticipantAchievements).mockClear();
   useCabinetProgressParticipantSelectionStore.getState().reset();
@@ -236,6 +250,55 @@ beforeEach(() => {
       disconnect() {}
     }
   );
+});
+
+describe('Student Home dashboard historical homework sources', () => {
+  it('uses completed lessons from account history and switches scope with the selected participant', () => {
+    const start = { seconds: 1_767_000_000, nanoseconds: 0 };
+    const end = { seconds: 1_767_003_600, nanoseconds: 0 };
+    const historyRecord = {
+      bookingId: 'completed-only-homework-lesson',
+      revision: 1,
+      occurrence: { startsAt: start, endsAt: end, timeZone: 'Asia/Almaty', durationMinutes: 60 },
+      instructor: { instructorId: 'coach', displayName: 'Coach' },
+      participantIds: ['alice'],
+      participants: [{ participantId: 'alice', displayName: 'Alice Student' }],
+      partyKind: 'individual',
+      lifecycle: { status: 'completed', completedAt: end },
+      bookingOrigin: 'account',
+      authorizedActions: {
+        canRequestCancellation: false,
+        canWithdrawCancellation: false,
+        canReschedule: false,
+        canCreateChangeRequest: false,
+      },
+    } as unknown as LessonBookingReadModel;
+    useAccountParticipantLessonStatsStore.setState({
+      accountId: accountProfile.uid,
+      loaded: true,
+      items: [historyRecord],
+      loading: false,
+    });
+    const view = render(
+      <MemoryRouter>
+        <StudentCabinetHome {...input('alice')} nextSessionItems={[]} />
+      </MemoryRouter>
+    );
+    expect(homeworkHistoryCalls.sources).toContain('completed-only-homework-lesson');
+    view.rerender(
+      <MemoryRouter>
+        <StudentCabinetHome {...input('bob')} nextSessionItems={[]} />
+      </MemoryRouter>
+    );
+    expect(homeworkHistoryCalls.sources).not.toContain('completed-only-homework-lesson');
+    useAccountParticipantLessonStatsStore.setState({ accountId: 'different-account' });
+    view.rerender(
+      <MemoryRouter>
+        <StudentCabinetHome {...input('alice')} nextSessionItems={[]} />
+      </MemoryRouter>
+    );
+    expect(homeworkHistoryCalls.sources).not.toContain('completed-only-homework-lesson');
+  });
 });
 
 describe('Student Home dashboard grid', () => {

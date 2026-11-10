@@ -10,11 +10,12 @@ import { useInstructorLessonContext } from '../useInstructorLessonContext';
 import { useInstructorLessonContextTranslations } from '../useInstructorLessonContextTranslations';
 import {
   lessonContextComments,
-  lessonContextSkills,
+  lessonContextSkillGroups,
   lessonContextLevelName,
 } from '../instructorLessonContextPresentation';
 import { InstructorParticipantProgressHistorySection } from './InstructorParticipantProgressHistorySection';
 import { InstructorRecommendationHistorySection } from './InstructorRecommendationHistorySection';
+import { InstructorLessonSkillGroup } from './InstructorLessonSkillGroup';
 import './instructorLessonContext.css';
 
 export function InstructorLessonContextDialog({
@@ -28,8 +29,10 @@ export function InstructorLessonContextDialog({
 }: InstructorLessonContextDialogProps) {
   const { t, language } = useInstructorLessonContextTranslations();
   const { progress, feedback, retry } = useInstructorLessonContext(context);
-  const skills =
-    progress.status === 'ready' ? lessonContextSkills(progress.value, skillConfig, language) : [];
+  const skillGroups =
+    progress.status === 'ready'
+      ? lessonContextSkillGroups(progress.value, skillConfig, language)
+      : [];
   const comments =
     progress.status === 'ready'
       ? lessonContextComments(progress.value, skillConfig, language, authors)
@@ -130,21 +133,14 @@ export function InstructorLessonContextDialog({
               </p>
             )}
           </section>
-          <section aria-label={t('lessonContextSkills')} className="space-y-3">
+          <section
+            key={JSON.stringify([context.participantId, context.bookingId])}
+            aria-label={t('lessonContextSkills')}
+            className="min-w-0 space-y-2"
+          >
             <h3 className="type-card-title">{t('lessonContextSkills')}</h3>
-            {skills.map((skill) => (
-              <div key={skill.id} className="space-y-1 border-b border-[var(--border)] pb-3">
-                <p className="type-body">{skill.title}</p>
-                <p className="type-caption text-[var(--ink-dim)]">{skill.scoreLabel}</p>
-                {skill.hasScore && (
-                  <progress
-                    aria-label={skill.title}
-                    value={skill.earned}
-                    max={skill.maximum || 1}
-                    className="w-full accent-[var(--accent)]"
-                  />
-                )}
-              </div>
+            {skillGroups.map((group) => (
+              <InstructorLessonSkillGroup key={group.level} {...group} />
             ))}
           </section>
           <section aria-label={t('lessonContextComments')} className="space-y-3">

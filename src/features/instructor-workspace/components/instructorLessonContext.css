@@ -3,6 +3,22 @@
   white-space: normal;
 }
 
+.lesson-skill-toggle {
+  min-height: 44px;
+}
+
+.lesson-skill-toggle[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+
+.lesson-skill-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 639px) {
   [data-testid='instructor-lesson-context'].admin-modal.ui-modal {
     max-height: 100%;
@@ -10,6 +26,9 @@
   }
   [data-testid='instructor-lesson-context'] .admin-modal-footer > button {
     flex: 1 1 100%;
+  }
+  .lesson-skill-row {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

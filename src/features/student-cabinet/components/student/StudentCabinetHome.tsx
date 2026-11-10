@@ -146,7 +146,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     () =>
       statsHistoryLoaded && statsAccountId === userProfile.uid
         ? statsHistoryItems
-            .filter((lesson) => lesson.participantIds.includes(recommendationsParticipantId ?? ''))
+            .filter((lesson) => lesson.participantIds.some((id) => id === recommendationsParticipantId))
             .map(mapLessonBookingReadModelToCabinetItem)
         : [],
     [statsHistoryLoaded, statsAccountId, statsHistoryItems, userProfile.uid, recommendationsParticipantId]

@@ -10,7 +10,7 @@ import {
   captureBrowserFailure,
   watchBrowserFailures,
 } from './fixtures';
-import { E2E_PROJECT_ID, FIRESTORE_EMULATOR_HOST } from './emulator-config';
+import { E2E_LIVE_APP_URL, E2E_PROJECT_ID, FIRESTORE_EMULATOR_HOST } from './emulator-config';
 
 const domain = createRequire(`${process.cwd()}/package.json`)(
   '@ski-academy/shared-domain'
@@ -147,9 +147,7 @@ test('two instructors cannot overwrite an open assessment after a background ref
     })
   );
   const contexts = await Promise.all(
-    [0, 1].map(() =>
-      browser.newContext({ baseURL: info.project.use.baseURL, timezoneId: 'Asia/Almaty' })
-    )
+    [0, 1].map(() => browser.newContext({ baseURL: E2E_LIVE_APP_URL, timezoneId: 'Asia/Almaty' }))
   );
   const [a, b] = await Promise.all(contexts.map((context) => context.newPage()));
   const remote: string[] = [];

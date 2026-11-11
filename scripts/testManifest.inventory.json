@@ -5,6 +5,7 @@
   "e2e/booking-chat-media.spec.ts": "playwright",
   "e2e/booking-flow.spec.ts": "playwright",
   "e2e/booking-invariants.spec.ts": "playwright",
+  "e2e/booking-reschedule-timezone.spec.ts": "playwright",
   "e2e/course-enrollment-smoke.spec.ts": "playwright",
   "e2e/guest-lesson-booking.spec.ts": "playwright",
   "e2e/hero-cta-layout.spec.ts": "playwright",

@@ -322,9 +322,15 @@ function rescheduleBookingHandler(
         timestampFromDate(environment.clock.decidedAt())
       );
 
+      if (envelope.context.timezone !== booking.occurrence.timeZone) {
+        throw new CanonicalCommandError('validation', {
+          correlationId: envelope.context.correlationId,
+        });
+      }
+
       const schedule = resolveBookingScheduleFromCalendarInput(
         envelope.context.calendarInput!,
-        envelope.context.timezone!
+        booking.occurrence.timeZone
       );
       targetInterval = schedule.interval;
       targetInstructorId = booking.occurrence.instructorId;

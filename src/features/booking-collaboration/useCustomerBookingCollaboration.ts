@@ -91,6 +91,7 @@ export function useCustomerBookingCollaboration(input: {
       try {
         await commands.rescheduleBooking({
           bookingId: rescheduleTarget.bookingId,
+          timeZone: rescheduleTarget.timeZone,
           expectedRevision: rescheduleTarget.revision,
           localDate: payload.localDate,
           localTime: payload.localTime,

@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Calendar, Clock } from 'lucide-react';
 import type { LessonBookingCabinetItem } from '../../lesson-bookings/lessonBookingContracts';
-import { toLocalDateStr } from '../../../domain/availability';
+import { IanaTimeZoneSchema } from '@ski-academy/shared-domain';
+import { canonicalTimestampToLocalParts } from '../../lesson-bookings/mapCalendarInput';
 import { resolveLessonStartTimeSelection } from '../../bookings/instructorOccupancyForBookingModal';
 import { BookingAppleDatePicker } from '../../bookings/components/booking_modal/BookingAppleDatePicker';
 import { BookingAppleWheelPicker } from '../../bookings/components/booking_modal/BookingAppleWheelPicker';
@@ -32,7 +33,11 @@ export const RescheduleBookingModal: React.FC<RescheduleBookingModalProps> = ({
   const [localTime, setLocalTime] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const minBookingDateStr = useMemo(() => toLocalDateStr(), []);
+  const timezoneResult = IanaTimeZoneSchema.safeParse(booking?.timeZone);
+  const timeZone = timezoneResult.success ? timezoneResult.data : undefined;
+  const minBookingDateStr = timeZone
+    ? canonicalTimestampToLocalParts(Date.now() / 1000, 0, timeZone).date
+    : '';
   const locale = language === 'ru' ? 'ru-RU' : 'en-US';
   const labelStyle = 'mb-1.5 flex items-center gap-1.5 type-caption text-[var(--ink-dim)]';
 
@@ -44,6 +49,7 @@ export const RescheduleBookingModal: React.FC<RescheduleBookingModalProps> = ({
 
   const { availableSlots, isLoadingBookings, occupancyLoadFailed } =
     useRescheduleBookingAvailability({
+      timeZone,
       isOpen: booking !== null,
       instructorId: booking?.instructorId ?? '',
       localDate,
@@ -72,6 +78,7 @@ export const RescheduleBookingModal: React.FC<RescheduleBookingModalProps> = ({
   if (!booking) return null;
 
   const canSubmit =
+    !!timeZone &&
     !submitting &&
     !!localDate &&
     !!localTime &&

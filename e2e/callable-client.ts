@@ -180,3 +180,37 @@ export async function attemptAuthenticatedCourseEnrollmentCancellation(input: {
 }
 
 export { E2E_PROJECT_ID };
+
+export async function attemptAuthenticatedReschedule(input: {
+  email: string;
+  password: string;
+  bookingId: string;
+  expectedRevision: number;
+  localDate: string;
+  localTime: string;
+  timezone: string;
+  durationMinutes: number;
+}): Promise<CallableAttemptResult> {
+  const idToken = await signInForIdToken(input.email, input.password);
+  const response = await fetch(functionsCallableUrl('executeCanonicalCommand'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+    body: JSON.stringify({
+      data: {
+        kind: 'reschedule_booking',
+        intent: { bookingId: input.bookingId },
+        expectedRevision: input.expectedRevision,
+        exercisedCapability: 'account_owner',
+        idempotencyKey: `e2e-reschedule:${input.bookingId}:${input.timezone}`,
+        correlationId: `e2e-reschedule:${input.bookingId}`,
+        calendarInput: {
+          localDate: input.localDate,
+          localTime: input.localTime,
+          durationMinutes: input.durationMinutes,
+        },
+        timezone: input.timezone,
+      },
+    }),
+  });
+  return parseCallableResponse(response.status, (await response.json()) as CallablePayload);
+}

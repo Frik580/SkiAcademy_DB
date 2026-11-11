@@ -47,7 +47,7 @@ export const STUDENT_DASHBOARD_TILES = {
   skillRadar: {
     key: 'skillRadar',
     desktopColumn: 'left',
-    label: { ru: 'Радар навыков', en: 'Skill radar' },
+    label: { ru: 'Кольца навыков', en: 'Skill rings' },
     defaultSize: 'medium',
     defaultOrder: 7,
   },

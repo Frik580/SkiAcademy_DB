@@ -230,3 +230,40 @@
     --sc-body-gap: 1.25rem;
   }
 }
+
+/* Skill Rings deliberately uses the opposite surface palette from the app theme. */
+.sc-dashboard [data-dashboard-tile='skillRadar'] {
+  --sc-card-bg: #141414;
+  --sc-card-border: rgba(243, 243, 241, 0.08);
+  --sc-card-shadow: 0 8px 40px rgba(0, 0, 0, 0.35);
+  --ink: #f3f3f1;
+  --ink-dim: rgba(243, 243, 241, 0.52);
+  --border-subtle: rgba(243, 243, 241, 0.08);
+  --card-bg: #141414;
+  --accent: #5ec8e8;
+  --accent-hover: #8dd8ef;
+  --sc-muted: #a0a3a8;
+  --sc-surface: #1a1a1a;
+}
+
+:root.dark .sc-dashboard [data-dashboard-tile='skillRadar'] {
+  --sc-card-bg: #ffffff;
+  --sc-card-border: rgba(17, 17, 17, 0.07);
+  --sc-card-shadow: 0 8px 40px rgba(17, 17, 17, 0.07);
+  --ink: #111111;
+  --ink-dim: rgba(17, 17, 17, 0.5);
+  --border-subtle: rgba(17, 17, 17, 0.08);
+  --card-bg: #ffffff;
+  --accent: #1a6578;
+  --accent-hover: #134e5e;
+  --sc-muted: #5b6676;
+  --sc-surface: #f3f6f8;
+}
+
+.sc-dashboard [data-dashboard-tile='skillRadar'] .student-radar-skill[aria-pressed='true'] {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+:root.dark .sc-dashboard [data-dashboard-tile='skillRadar'] .student-radar-skill[aria-pressed='true'] {
+  background-color: rgba(0, 0, 0, 0.05);
+}

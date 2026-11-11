@@ -226,9 +226,10 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     [courses, onViewCourseDetails]
   );
 
+  // The next step is driven only by the participant's skill scores, not coach recommendations.
   const nextStepAction = useMemo(
-    () => getNextStepAction(userProfile, recommendationTodayTasks[0], skillConfig, lang),
-    [userProfile, recommendationTodayTasks, skillConfig, lang]
+    () => getNextStepAction(userProfile, undefined, skillConfig, lang),
+    [userProfile, skillConfig, lang]
   );
   const nextStepExercise =
     nextStepAction?.kind === 'exercise'
@@ -238,15 +239,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
       : undefined;
   const nextStepContext = nextStepExercise
     ? getSkillItemSection(nextStepExercise, lang)
-    : nextStepAction?.kind === 'recommendation'
-      ? [recommendationTodayTasks[0]?.title, recommendationTodayTasks[0]?.dateLabel]
-          .filter(Boolean)
-          .join(' · ')
-      : undefined;
-  const nextStepLoading = Boolean(
-    feedback.isLoadingPlaceholder ||
-    (feedback.participantId && feedback.participantId !== selectedParticipantId)
-  );
+    : undefined;
   const showCountdown = Boolean(
     countdown &&
     countdown.startsAt.getTime() > Date.now() &&
@@ -325,8 +318,6 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
               key={`next-step:${selectedParticipantId}`}
               action={nextStepAction}
               contextLabel={nextStepContext}
-              loading={nextStepLoading}
-              loadError={feedback.loadState === 'error'}
               onStartExercise={
                 onToggleSkillToday
                   ? (exerciseId) => {
@@ -336,13 +327,6 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
                   : undefined
               }
               onOpenRecommendation={openLessonById}
-              recommendationAvailable={
-                nextStepAction.kind !== 'recommendation' ||
-                Boolean(
-                  onOpenLessonByBookingId ||
-                  bookings.some((item) => item.id === nextStepAction.bookingId)
-                )
-              }
               onContinueDevelopment={onContinueDevelopment}
             />
           </StudentDashboardTileBody>

@@ -1,3 +1,8 @@
+import {
+  participantInstructorAccessKey,
+  participantInstructorAccessQueryKey,
+} from '../../src/features/booking-collaboration/deriveCollaborationIdempotencyKeys';
+import { useBookingCollaborationStore } from '../../src/features/booking-collaboration/bookingCollaborationStore';
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -22,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   queryParticipantOccupancy: vi.fn(),
   mapInstructorOccupancy: vi.fn(),
   queryLessonPricingSettings: vi.fn(),
+  queryParticipantAccess: vi.fn(),
 }));
 
 vi.mock('canvas-confetti', () => ({ default: mocks.confetti }));
@@ -45,6 +51,8 @@ vi.mock('../../src/features/auth', () => ({
   Auth: () => React.createElement('div', null, 'Existing auth flow'),
 }));
 vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
+  queryParticipantInstructorAccessReadModels: (...args: unknown[]) =>
+    mocks.queryParticipantAccess(...args),
   queryInstructorOccupancyReadModels: (...args: unknown[]) =>
     mocks.queryInstructorOccupancy(...args),
   queryParticipantOccupancyReadModels: (...args: unknown[]) =>
@@ -266,6 +274,8 @@ describe('booking modal submit success UX', () => {
     expect(screen.getByText('30000')).toBeInTheDocument();
   });
   beforeEach(() => {
+    useBookingCollaborationStore.getState().reset();
+    mocks.queryParticipantAccess.mockReset().mockResolvedValue({ item: undefined });
     // jsdom lacks element scrolling used by the real booking wheel controls.
     HTMLElement.prototype.scrollTo = vi.fn();
     useWalletStore.getState().resetCanonicalWallet();
@@ -1101,6 +1111,189 @@ describe('booking modal submit success UX', () => {
     );
     expect(result.current.isSubmitting).toBe(false);
     expect(mocks.createAuthenticatedBooking).not.toHaveBeenCalled();
+  });
+
+  it.each(['loading', 'error', 'blocked'] as const)(
+    'guards direct submit and programmatic selection when access is %s',
+    async (status) => {
+      const uid = 'account_access_guard';
+      mocks.managedParticipants.push({
+        participantId: 'participant_fixture_01',
+        authority: 'self',
+      });
+      if (status === 'loading')
+        mocks.queryParticipantAccess.mockImplementation(() => new Promise(() => {}));
+      if (status === 'error') mocks.queryParticipantAccess.mockRejectedValue(new Error('offline'));
+      const { result } = renderHook(() =>
+        useBookingModal(createProps({ userProfile: { uid } as UserProfile }))
+      );
+      await waitForAvailableSlot(result);
+      const key = participantInstructorAccessQueryKey(
+        'account_manager',
+        'participant_fixture_01',
+        instructor.id
+      );
+      if (status === 'blocked') {
+        act(() => {
+          useBookingCollaborationStore.getState().mergeParticipantAccess(
+            new Map([
+              [
+                participantInstructorAccessKey('participant_fixture_01', instructor.id),
+                {
+                  participantId: 'participant_fixture_01',
+                  instructorId: instructor.id,
+                  participantDisplayName: 'Person',
+                  instructorDisplayName: 'Coach',
+                  managerBlockStatus: 'active',
+                  authorizedActions: { canBlock: false, canUnblock: false },
+                },
+              ],
+            ])
+          );
+          useBookingCollaborationStore
+            .getState()
+            .setParticipantAccessQuery(key, { status: 'loaded' });
+        });
+      }
+      act(() => result.current.toggleParticipant('participant_fixture_01'));
+      expect(result.current.selectedParticipantIds).toEqual([]);
+      expect(result.current.participantAccessPreventingSubmit).toBe(true);
+      await act(async () => {
+        await result.current.handleSubmit({
+          preventDefault: vi.fn(),
+        } as unknown as React.FormEvent);
+      });
+      expect(mocks.createAuthenticatedBooking).not.toHaveBeenCalled();
+      expect(mocks.addNotification).toHaveBeenCalledWith(
+        'warning',
+        'bookingError',
+        status === 'blocked'
+          ? 'bookingParticipantInstructorBlocked'
+          : status === 'error'
+            ? 'bookingParticipantAccessError'
+            : 'bookingParticipantAccessLoading'
+      );
+    }
+  );
+
+  it('rechecks access during delayed group submit and permits the same group after unblock', async () => {
+    const uid = 'account_group_access';
+    useAuthStore.setState({
+      firebaseUser: { uid } as NonNullable<
+        ReturnType<typeof useAuthStore.getState>['firebaseUser']
+      >,
+    });
+    useWalletStore.getState().syncCanonicalWalletFromSnapshot({
+      accountId: uid,
+      exists: true,
+      trusted: true,
+      balanceKzt: 100000,
+    });
+    const ids = ['participant_fixture_01', 'participant_fixture_02'];
+    mocks.managedParticipants.push(
+      ...ids.map((participantId) => ({ participantId, authority: 'self' }))
+    );
+    const { result } = renderHook(() =>
+      useBookingModal(createProps({ userProfile: { uid } as UserProfile }))
+    );
+    await waitForAvailableSlot(result);
+    await waitFor(() => expect(result.current.unavailableParticipantReasons).toEqual({}));
+    act(() => {
+      ids.forEach((id) => result.current.toggleParticipant(id));
+      result.current.setGuestDiscipline('ski');
+    });
+    expect(result.current.selectedParticipantIds).toEqual(ids);
+    act(() => {
+      void result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
+    });
+    expect(result.current.isSubmitting).toBe(true);
+    act(() =>
+      useBookingCollaborationStore
+        .getState()
+        .setParticipantAccessQuery(
+          participantInstructorAccessQueryKey('account_manager', ids[1], instructor.id),
+          { status: 'error', message: 'offline' }
+        )
+    );
+    await waitFor(() => expect(result.current.isSubmitting).toBe(false));
+    expect(mocks.createAuthenticatedBooking).not.toHaveBeenCalled();
+    act(() =>
+      useBookingCollaborationStore
+        .getState()
+        .setParticipantAccessQuery(
+          participantInstructorAccessQueryKey('account_manager', ids[1], instructor.id),
+          { status: 'loaded' }
+        )
+    );
+    await act(async () => {
+      await result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
+    });
+    await waitFor(() => expect(mocks.createAuthenticatedBooking).toHaveBeenCalledOnce());
+    expect(mocks.createAuthenticatedBooking).toHaveBeenCalledWith(
+      expect.objectContaining({ participantIds: ids })
+    );
+  });
+
+  it('removes a newly blocked participant and books the remaining available group', async () => {
+    const uid = 'account_group_remove_blocked';
+    useAuthStore.setState({
+      firebaseUser: { uid } as NonNullable<
+        ReturnType<typeof useAuthStore.getState>['firebaseUser']
+      >,
+    });
+    useWalletStore.getState().syncCanonicalWalletFromSnapshot({
+      accountId: uid,
+      exists: true,
+      trusted: true,
+      balanceKzt: 100000,
+    });
+    const ids = ['participant_fixture_01', 'participant_fixture_02', 'participant_fixture_03'];
+    mocks.managedParticipants.push(
+      ...ids.map((participantId) => ({ participantId, authority: 'self' }))
+    );
+    const { result } = renderHook(() =>
+      useBookingModal(createProps({ userProfile: { uid } as UserProfile }))
+    );
+    await waitForAvailableSlot(result);
+    await waitFor(() => expect(result.current.unavailableParticipantReasons).toEqual({}));
+    act(() => {
+      result.current.toggleParticipant(ids[0]);
+      result.current.toggleParticipant(ids[1]);
+      result.current.setGuestDiscipline('ski');
+    });
+    act(() => {
+      useBookingCollaborationStore.getState().mergeParticipantAccess(
+        new Map([
+          [
+            participantInstructorAccessKey(ids[1], instructor.id),
+            {
+              participantId: ids[1],
+              instructorId: instructor.id,
+              participantDisplayName: 'Person',
+              instructorDisplayName: 'Coach',
+              instructorBlockStatus: 'active',
+              authorizedActions: { canBlock: false, canUnblock: false },
+            },
+          ],
+        ])
+      );
+    });
+    expect(result.current.participantAccessPreventingSubmit).toBe(true);
+    act(() => {
+      void result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
+    });
+    expect(mocks.createAuthenticatedBooking).not.toHaveBeenCalled();
+    act(() => result.current.removeUnavailableParticipants());
+    act(() => result.current.toggleParticipant(ids[2]));
+    expect(result.current.selectedParticipantIds).toEqual([ids[0], ids[2]]);
+    expect(result.current.participantAccessPreventingSubmit).toBe(false);
+    act(() => {
+      void result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
+    });
+    await waitFor(() => expect(mocks.createAuthenticatedBooking).toHaveBeenCalledOnce());
+    expect(mocks.createAuthenticatedBooking).toHaveBeenCalledWith(
+      expect.objectContaining({ participantIds: [ids[0], ids[2]] })
+    );
   });
 
   it('recalculates affordability for duration, party surcharge, price, realtime balance and account changes', async () => {

@@ -52,6 +52,11 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
     pricingSettingsLoading,
     lessonSettingsUnavailable,
     participantSelectionExceedsMax,
+    participantAccessPreventingSubmit,
+    unavailableParticipantReasons,
+    retryParticipantAccess,
+    removeUnavailableParticipants,
+    participantAccessHasError,
     managedParticipants,
     managedParticipantsLoading,
     managedParticipantsError,
@@ -74,11 +79,13 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
     managedParticipants,
     selectedParticipantIds
   );
-  const showParticipantPicker = shouldShowParticipantPicker({
-    participants: managedParticipants,
-    loading: managedParticipantsLoading,
-    error: managedParticipantsError,
-  });
+  const showParticipantPicker =
+    Boolean(unavailableParticipantReasons && Object.keys(unavailableParticipantReasons).length) ||
+    shouldShowParticipantPicker({
+      participants: managedParticipants,
+      loading: managedParticipantsLoading,
+      error: managedParticipantsError,
+    });
   const isSubmitDisabled =
     isAuthenticatedBookingSubmitDisabled({
       isSubmitting,
@@ -92,6 +99,7 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
     pricingSettingsLoading ||
     lessonSettingsUnavailable ||
     participantSelectionExceedsMax ||
+    participantAccessPreventingSubmit ||
     (lessonDiscipline !== 'ski' && lessonDiscipline !== 'snowboard');
 
   return (
@@ -161,6 +169,8 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
 
         {showParticipantPicker && (
           <ParticipantPicker
+            unavailableParticipantReasons={unavailableParticipantReasons}
+            onRemoveUnavailableParticipants={removeUnavailableParticipants}
             hideDependentLabel
             participants={managedParticipants}
             selectedParticipantIds={selectedParticipantIds}
@@ -173,6 +183,18 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
           />
         )}
 
+        {participantAccessHasError && (
+          <div role="alert" className="type-caption text-[var(--ink-dim)]">
+            <p>{t('bookingParticipantAccessError')}</p>
+            <button
+              type="button"
+              onClick={retryParticipantAccess}
+              className="type-button text-[var(--accent)] hover:underline"
+            >
+              {t('retry')}
+            </button>
+          </div>
+        )}
         <div className="space-y-1">
           <label className="flex items-center gap-1.5 type-caption text-[var(--ink-dim)]">
             {t('personalGoalsNotes')}
@@ -198,8 +220,8 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
         {lessonSettingsUnavailable && (
           <p className="px-4 pt-2 type-caption text-rose-600 dark:text-rose-400">
             {language === 'ru'
-              ? 'Канонические настройки урока не заданы; отправка недоступна.'
-              : 'Canonical lesson settings are not configured; submission is unavailable.'}
+              ? 'Настройки урока не заданы; отправка недоступна.'
+              : 'Lesson settings are not configured; submission is unavailable.'}
           </p>
         )}
 

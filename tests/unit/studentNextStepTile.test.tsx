@@ -217,7 +217,7 @@ const homeProps = (participantId: string): StudentCabinetHomeContext => ({
   onToggleSkillToday: vi.fn(),
 });
 
-it('uses exact participant feedback on A → B → A, guards mismatched presentation and uses supported booking-ID navigation', async () => {
+it('keeps Next step exercise-only on A → B → A while coach advice remains in Today tasks', () => {
   const store = useParticipantLessonFeedbackStore.getState();
   for (const participantId of ['a', 'b']) {
     store.replaceParticipantItems(participantId, [
@@ -234,7 +234,14 @@ it('uses exact participant feedback on A → B → A, guards mismatched presenta
   }
   store.setPresentationParticipantId('a');
   const a = homeProps('a');
-  a.onOpenLessonByBookingId = vi.fn();
+  const b = homeProps('b');
+  const expectedA = getNextStepAction(a.userProfile, undefined, DEFAULT_SKILL_CONFIG, 'en');
+  const expectedB = getNextStepAction(b.userProfile, undefined, DEFAULT_SKILL_CONFIG, 'en');
+  expect(expectedA?.kind).toBe('exercise');
+  expect(expectedB?.kind).toBe('exercise');
+  if (expectedA?.kind !== 'exercise' || expectedB?.kind !== 'exercise') return;
+  expect(expectedA.exerciseId).not.toBe(expectedB.exerciseId);
+
   const draw = (p: StudentCabinetHomeContext) => (
     <MemoryRouter>
       <LanguageProvider>
@@ -243,20 +250,32 @@ it('uses exact participant feedback on A → B → A, guards mismatched presenta
     </MemoryRouter>
   );
   const view = render(draw(a));
-  const tile = () =>
+  const nextStep = () =>
     within(view.container.querySelector('[data-dashboard-tile="nextStep"]') as HTMLElement);
-  expect(tile().getByRole('heading', { level: 3 })).toHaveTextContent('a actual advice');
-  await userEvent.click(tile().getByRole('button', { name: 'Open lesson' }));
-  expect(a.onOpenLessonByBookingId).toHaveBeenCalledTimes(1);
-  expect(a.onOpenLessonByBookingId).toHaveBeenCalledWith('lesson_a');
-  view.rerender(draw(homeProps('b')));
-  expect(tile().getByRole('status')).toBeVisible();
-  expect(tile().queryByText('a actual advice')).not.toBeInTheDocument();
+  const todayTasks = () =>
+    view.container.querySelector('[data-dashboard-tile="todayTasks"]') as HTMLElement;
+  const expectExercise = (title: string) => {
+    expect(nextStep().getByRole('heading', { level: 3 })).toHaveTextContent(title);
+    expect(nextStep().queryByRole('button', { name: 'Open lesson' })).not.toBeInTheDocument();
+    expect(nextStep().queryByRole('status')).not.toBeInTheDocument();
+    expect(nextStep().queryByText(/actual advice/)).not.toBeInTheDocument();
+  };
+
+  expectExercise(expectedA.exerciseTitle);
+  expect(todayTasks()).toHaveTextContent('a actual advice');
+
+  // Feedback is still presented for A while the selected participant is B.
+  // The exercise tile must follow B immediately instead of showing A or loading.
+  view.rerender(draw(b));
+  expectExercise(expectedB.exerciseTitle);
   act(() => store.setPresentationParticipantId('b'));
-  expect(tile().getByRole('heading', { level: 3 })).toHaveTextContent('b actual advice');
+  expectExercise(expectedB.exerciseTitle);
+  expect(todayTasks()).toHaveTextContent('b actual advice');
+
   act(() => store.setPresentationParticipantId('a'));
   view.rerender(draw(a));
-  expect(tile().getByRole('heading', { level: 3 })).toHaveTextContent('a actual advice');
+  expectExercise(expectedA.exerciseTitle);
+  expect(todayTasks()).toHaveTextContent('a actual advice');
 });
 
 it('keeps real priority selection, Today synchronization and profile scores unchanged by pinning', async () => {

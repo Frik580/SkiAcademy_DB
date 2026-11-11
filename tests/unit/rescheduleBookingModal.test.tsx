@@ -5,6 +5,10 @@ import { CreateProposalModal } from '../../src/features/booking-collaboration/co
 import { RescheduleBookingModal } from '../../src/features/booking-collaboration/components/RescheduleBookingModal';
 import type { LessonBookingCabinetItem } from '../../src/features/lesson-bookings/lessonBookingContracts';
 
+vi.mock('../../src/features/settings/schoolTimeZone', () => ({
+  useSchoolTimeZone: () => ({ timeZone: 'Asia/Almaty', ready: true }),
+}));
+
 vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({
     t: (key: string) => key,

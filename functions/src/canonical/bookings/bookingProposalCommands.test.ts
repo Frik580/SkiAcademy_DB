@@ -1377,3 +1377,29 @@ function resultErrorCode(
 ) {
   return result.status === 'error' ? result.error.code : undefined;
 }
+
+describe('school timezone proposal contract', () => {
+  it('rejects creation using a stale school timezone', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      baseFixture({ 'resort_data/config': { timeZone: 'UTC' } })
+    );
+    const result = await proposalCommands(executor).execute(createProposalEnvelope());
+    expect(result.status).toBe('error');
+    expect(executor.snapshot().docs.has(`booking_proposals/${proposalId}`)).toBe(false);
+  });
+  it('preserves the agreed proposal instant and timezone when accepted after school timezone changes', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    await createOpenProposal(executor);
+    const docs = Object.fromEntries(
+      [...executor.snapshot().docs].map(([path, doc]) => [path, doc.data])
+    );
+    docs['resort_data/config'] = { timeZone: 'Europe/Moscow' };
+    const changed = createInMemoryCanonicalTransactionExecutor(docs);
+    const result = await proposalCommands(changed).execute(acceptProposalEnvelope());
+    expect(result.status).toBe('success');
+    const booking = changed.snapshot().docs.get(`bookings/${bookingId}`)?.data;
+    const proposed = docs[`booking_proposals/${proposalId}`].proposedService;
+    expect(booking.occurrence.timeZone).toBe(proposed.timeZone);
+    expect(booking.occurrence.interval).toEqual(proposed.interval);
+  });
+});

@@ -1,5 +1,6 @@
 import { test } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
+import { resolveSchoolTimeZone, SCHOOL_TIME_ZONE_CONFIG_PATH } from '../packages/shared-domain/src/schoolTimeZone';
 import { attemptAuthenticatedBooking, attemptAuthenticatedCancellation } from './callable-client';
 import {
   expect,
@@ -19,6 +20,7 @@ import {
   listResourceClaimsForBooking,
   hasBookingAttendanceTriggerWork,
   getBookingById,
+  ensureFirestore,
 } from './firestore-admin';
 
 test.describe('booking flow', () => {
@@ -108,6 +110,8 @@ test.describe('booking flow', () => {
   test('canonical booking delivers real Attendance trigger work', async ({}, testInfo) => {
     const config = loadRuntimeConfig();
     const bookingId = `booking_e2e_trigger_${randomUUID().replaceAll('-', '')}`;
+    const schoolConfig = await ensureFirestore().doc(SCHOOL_TIME_ZONE_CONFIG_PATH).get();
+    const timezone = resolveSchoolTimeZone(schoolConfig.exists ? schoolConfig.data() : undefined);
     const date = new Date();
     date.setDate(date.getDate() + uniqueDayOffset(20, testInfo));
     const localDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -122,9 +126,9 @@ test.describe('booking flow', () => {
       exercisedCapability: 'account_owner',
       localDate,
       localTime: uniqueTimeSlot(testInfo),
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      timezone,
     });
-    expect(created).toMatchObject({ ok: true });
+    expect(created, JSON.stringify(created)).toMatchObject({ ok: true });
     try {
       // Creation commands do not write this projection; only the actual trigger does.
       await expect

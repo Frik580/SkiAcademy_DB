@@ -3994,3 +3994,37 @@ describe('Kaspi configuration server-only access', () => {
     }
   });
 });
+
+describe('school time zone settings authorization', () => {
+  it('allows only admins to merge timezone and preserves unrelated resort fields', async () => {
+    await seedData(async (context) => {
+      await setDoc(
+        doc(context.firestore(), 'users', ADMIN_ID),
+        userProfile(ADMIN_ID, 'admin@example.com', 'admin')
+      );
+      await setDoc(doc(context.firestore(), 'resort_data/config'), {
+        nameEn: 'Preserved',
+        timeZone: 'Asia/Almaty',
+        slides: ['preserved'],
+      });
+    });
+    for (const uid of [USER_ID, INSTRUCTOR_USER_ID, null]) {
+      const db = (
+        uid ? testEnv.authenticatedContext(uid) : testEnv.unauthenticatedContext()
+      ).firestore();
+      await assertSucceeds(getDoc(doc(db, 'resort_data/config')));
+      await assertFails(
+        setDoc(doc(db, 'resort_data/config'), { timeZone: 'UTC' }, { merge: true })
+      );
+    }
+    const db = testEnv.authenticatedContext(ADMIN_ID).firestore();
+    await assertSucceeds(
+      setDoc(doc(db, 'resort_data/config'), { timeZone: 'Europe/Paris' }, { merge: true })
+    );
+    expect((await getDoc(doc(db, 'resort_data/config'))).data()).toEqual({
+      nameEn: 'Preserved',
+      timeZone: 'Europe/Paris',
+      slides: ['preserved'],
+    });
+  });
+});

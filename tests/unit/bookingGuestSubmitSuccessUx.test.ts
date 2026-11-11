@@ -1,3 +1,6 @@
+vi.mock('../../src/features/settings/schoolTimeZone', () => ({
+  useSchoolTimeZone: () => ({ timeZone: 'Asia/Almaty', ready: true }),
+}));
 import {
   participantInstructorAccessKey,
   participantInstructorAccessQueryKey,
@@ -274,6 +277,7 @@ describe('booking modal submit success UX', () => {
     expect(screen.getByText('30000')).toBeInTheDocument();
   });
   beforeEach(() => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-06-15T04:00:00Z'));
     useBookingCollaborationStore.getState().reset();
     mocks.queryParticipantAccess.mockReset().mockResolvedValue({ item: undefined });
     // jsdom lacks element scrolling used by the real booking wheel controls.

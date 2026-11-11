@@ -99,6 +99,7 @@ export function useInstructorBookingCollaboration(input: {
       localDate: string;
       localTime: string;
       durationMinutes: number;
+      timezone: string;
     }) => {
       if (!createProposalParty) return;
       setSubmittingId(payload.participantIds.join(','));
@@ -108,6 +109,7 @@ export function useInstructorBookingCollaboration(input: {
           localDate: payload.localDate,
           localTime: payload.localTime,
           durationMinutes: payload.durationMinutes,
+          timezone: payload.timezone,
         });
         input.onNotify('success', input.t('collabCreateProposal'), input.t('scheduleUpdatedDesc'));
         setCreateProposalParty(null);

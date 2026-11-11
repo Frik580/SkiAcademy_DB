@@ -18,7 +18,6 @@ import {
 } from '../../lib/canonical/canonicalCommandClient';
 import { mapCanonicalCommandResultError } from '../../lib/canonical/mapCanonicalCommandError';
 import { mapLessonBookingCalendarInput } from '../lesson-bookings/mapCalendarInput';
-import { resolveLessonBookingTimezone } from '../lesson-bookings/useLessonBookingReadSync';
 import {
   createLogicalBookingChangeRequestId,
   createLogicalBookingProposalId,
@@ -170,10 +169,11 @@ export function useBookingCollaborationCommands(input: {
       readonly localDate: string;
       readonly localTime: string;
       readonly durationMinutes: number;
+      readonly timezone: string;
     }): Promise<string> => {
       if (!accountId || !instructorId) throw new Error('Instructor context is required.');
       const proposalId = createLogicalBookingProposalId();
-      const timezone = resolveLessonBookingTimezone();
+      const timezone = IanaTimeZoneSchema.parse(params.timezone);
       const calendarInput = mapLessonBookingCalendarInput({
         localDate: params.localDate,
         localTime: params.localTime,

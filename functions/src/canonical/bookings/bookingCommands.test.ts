@@ -1001,3 +1001,43 @@ describe('lesson catalog admission', () => {
     expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.difficulty).toBe('race');
   });
 });
+
+describe('school timezone authority for confirmed bookings', () => {
+  it.each([
+    ['UTC', '2026-01-15T09:00:00Z'],
+    ['America/New_York', '2026-01-15T14:00:00Z'],
+    ['Europe/Paris', '2026-01-15T08:00:00Z'],
+    ['Asia/Almaty', '2026-01-15T04:00:00Z'],
+  ])('creates in configured %s with resource claims', async (timezone, utc) => {
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      baseFixture({ 'resort_data/config': { timeZone: timezone } })
+    );
+    const envelope = createEnvelope();
+    const result = await runCommand(executor, {
+      ...envelope,
+      context: { ...envelope.context, timezone },
+    });
+    expect(result.status).toBe('success');
+    const snapshot = executor.snapshot();
+    const occurrence = snapshot.docs.get(`bookings/${bookingId}`)?.data.occurrence;
+    expect(occurrence.timeZone).toBe(timezone);
+    expect(occurrence.interval.startsAt.seconds).toBe(Date.parse(utc) / 1000);
+    expect(
+      [...snapshot.docs.keys()].filter((path) => path.startsWith('resource_claims/'))
+    ).toHaveLength(2);
+  });
+  it.each(['Europe/Moscow', 'bad/zone'])(
+    'rejects stale/invalid school config %s without a booking or debit',
+    async (timeZone) => {
+      const executor = createInMemoryCanonicalTransactionExecutor(
+        baseFixture({ 'resort_data/config': { timeZone } })
+      );
+      const result = await runCommand(executor, createEnvelope());
+      expect(result.status).toBe('error');
+      expect(executor.snapshot().docs.has(`bookings/${bookingId}`)).toBe(false);
+      expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(
+        50_000
+      );
+    }
+  );
+});

@@ -43,6 +43,8 @@ export function useRescheduleBookingAvailability(input: {
   const occupancyFetchVersionRef = useRef(0);
   const parsedTimezone = IanaTimeZoneSchema.safeParse(input.timeZone);
   const timezone = parsedTimezone.success ? parsedTimezone.data : undefined;
+  const requestKey = `${input.instructorId}:${input.localDate}:${timezone}:${input.excludeBookingId}`;
+  const [loadedKey, setLoadedKey] = useState('');
 
   useEffect(() => {
     const fetchVersion = ++occupancyFetchVersionRef.current;
@@ -75,6 +77,7 @@ export function useRescheduleBookingAvailability(input: {
           }),
         ]);
         if (fetchVersion !== occupancyFetchVersionRef.current) return;
+        setLoadedKey(requestKey);
 
         const occupancy = filterOccupancyExcludingBooking(
           [...selectedDay.item.occupancy, ...nextDay.item.occupancy],
@@ -105,10 +108,17 @@ export function useRescheduleBookingAvailability(input: {
     };
 
     void fetchOccupancy();
-  }, [input.excludeBookingId, input.instructorId, input.isOpen, input.localDate, timezone]);
+  }, [
+    input.excludeBookingId,
+    input.instructorId,
+    input.isOpen,
+    input.localDate,
+    timezone,
+    requestKey,
+  ]);
 
   const availableSlots = useMemo((): string[] => {
-    if (!timezone) return [];
+    if (!timezone || loadedKey !== requestKey || !input.isOpen) return [];
     return getAvailableLessonStartTimes({
       candidateStarts: DEFAULT_LESSON_TIME_SLOTS,
       durationHours: input.durationHours,
@@ -127,6 +137,9 @@ export function useRescheduleBookingAvailability(input: {
     occupancyCourses,
     occupancyItems,
     timezone,
+    loadedKey,
+    requestKey,
+    input.isOpen,
   ]);
 
   return {

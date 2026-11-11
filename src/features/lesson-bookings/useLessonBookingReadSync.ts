@@ -11,8 +11,6 @@ import {
   syncAccountHotLessonBookingsFromServer,
 } from './syncAccountLessonBookings';
 
-const DEFAULT_TIMEZONE = 'Asia/Almaty';
-
 /**
  * Account lesson read sync.
  *
@@ -175,10 +173,4 @@ export async function loadGuestSingleLessonBooking(bookingId: string) {
   return result.items[0];
 }
 
-export function resolveLessonBookingTimezone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_TIMEZONE;
-  } catch {
-    return DEFAULT_TIMEZONE;
-  }
-}
+export { requireSchoolTimeZone as resolveLessonBookingTimezone } from '../settings/schoolTimeZone';

@@ -3,7 +3,7 @@ import type { AdminPlannerReadModel } from '@ski-academy/shared-domain';
 import { queryAdminPlannerReadModels } from '../../../lib/canonical/canonicalReadModelClient';
 import { toFunctionsClientError } from '../../../lib/functions/functionsClient';
 import { registerAdminPlannerRevisionListener } from './adminPlannerRevisionCoordinator';
-import { resolveAdminTimeZone } from './adminTimeZone';
+import { useSchoolTimeZone } from '../../settings/schoolTimeZone';
 import type { ScheduleViewMode } from '../components/schedule/ScheduleToolbar';
 
 export type AdminPlannerReadError = 'permission-denied' | 'read-failed';
@@ -14,14 +14,19 @@ export function useAdminPlannerReadModels(input: {
   readonly view: ScheduleViewMode;
   readonly windowDays?: number;
 }) {
+  const school = useSchoolTimeZone();
   const [item, setItem] = useState<AdminPlannerReadModel | undefined>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<AdminPlannerReadError | undefined>();
   const requestIdRef = useRef(0);
 
   const refresh = useCallback(async () => {
-    if (!input.enabled) return;
     const requestId = ++requestIdRef.current;
+    if (!input.enabled || !school.ready) {
+      setItem(undefined);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(undefined);
     try {
@@ -29,7 +34,7 @@ export function useAdminPlannerReadModels(input: {
         scope: 'admin_planner',
         localDate: input.localDate,
         view: input.view,
-        timeZone: resolveAdminTimeZone(),
+        timeZone: school.timeZone,
         ...(input.windowDays === undefined ? {} : { windowDays: input.windowDays }),
       });
       if (requestId !== requestIdRef.current) return;
@@ -47,7 +52,7 @@ export function useAdminPlannerReadModels(input: {
         setLoading(false);
       }
     }
-  }, [input.enabled, input.localDate, input.view, input.windowDays]);
+  }, [input.enabled, input.localDate, input.view, input.windowDays, school.timeZone, school.ready]);
 
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;

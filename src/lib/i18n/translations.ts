@@ -16,6 +16,13 @@ export function resolveUiLanguage(saved?: string | null): Language {
 
 export const translations = {
   en: {
+    schoolTimeZoneLabel: 'School time zone',
+    schoolTimeZoneCustom: 'Other IANA time zone',
+    schoolTimeZoneHelp:
+      "New lessons use the school's time zone regardless of the student's location. Changing this setting does not affect existing bookings.",
+    schoolTimeZoneError: 'School time zone is unavailable. Refresh before booking.',
+    schoolLessonTime: 'Lesson times',
+
     kaspiSettingsTitle: 'Kaspi QR — payment acceptance',
     kaspiMerchantSettings: 'Kaspi QR settings',
     kaspiMerchantName: 'Recipient name',
@@ -2679,6 +2686,13 @@ export const translations = {
     priceKztLabel: 'Price (₸ KZT)',
   },
   ru: {
+    schoolTimeZoneLabel: 'Часовой пояс школы',
+    schoolTimeZoneCustom: 'Другой часовой пояс IANA',
+    schoolTimeZoneHelp:
+      'Время всех новых занятий определяется по часовому поясу школы, независимо от местоположения ученика. Изменение настройки не влияет на существующие бронирования',
+    schoolTimeZoneError: 'Часовой пояс школы недоступен. Обновите данные перед бронированием.',
+    schoolLessonTime: 'Время занятий',
+
     kaspiSettingsTitle: 'Kaspi QR — приём платежей',
     kaspiMerchantSettings: 'Настройки Kaspi QR',
     kaspiMerchantName: 'Название получателя',

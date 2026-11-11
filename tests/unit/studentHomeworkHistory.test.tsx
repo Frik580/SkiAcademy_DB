@@ -222,6 +222,14 @@ describe('student homework dashboard tile', () => {
     expect(screen.queryByText(/^Page \\d+$/)).toBeNull();
   });
 
+  it('shows the source label but not a second sender name below homework text', () => {
+    fixture.dashboardHistory.items = [{ ...item(1), senderName: 'Coach' }];
+    render(tile());
+    expect(screen.getByText('Training')).toBeVisible();
+    expect(screen.getByText('Assignment 1')).toBeVisible();
+    expect(screen.queryByText('Coach')).toBeNull();
+  });
+
   it('resets pagination when switching participants and does not leak old assignments', () => {
     fixture.dashboardHistory.items = Array.from({ length: 11 }, (_, i) => item(10 - i));
     const view = render(tile());

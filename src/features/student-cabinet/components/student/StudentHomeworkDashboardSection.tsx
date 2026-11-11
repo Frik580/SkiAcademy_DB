@@ -141,9 +141,6 @@ export function StudentHomeworkDashboardSection({
                   <blockquote className="sc-latest-recommendation-quote whitespace-pre-wrap">
                     {item.text}
                   </blockquote>
-                  <p className="sc-latest-recommendation-state">
-                    {item.senderName?.trim() || t('historyAuthorUnknown')}
-                  </p>
                   {item.attachmentUrl && (item.attachmentType === 'image' || item.attachmentType === 'video') && (
                     <ChatMedia
                       value={item.attachmentUrl}

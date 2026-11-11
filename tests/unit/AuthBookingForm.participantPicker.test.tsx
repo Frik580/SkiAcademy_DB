@@ -8,6 +8,11 @@ import { translations } from '../../src/lib/i18n/translations';
 import { ParticipantPicker } from '../../src/features/participants/components/ParticipantPicker';
 import type { useBookingModal } from '../../src/features/bookings/components/booking_modal/useBookingModal';
 
+// This suite renders the form in isolation; the app supplies LanguageProvider in production.
+vi.mock('../../src/features/settings/useSchoolTimeZoneTranslations', () => ({
+  useSchoolTimeZoneTranslations: () => ({ language: 'en', t: (key: string) => key }),
+}));
+
 vi.mock('../../src/app/providers/CurrencyContext', () => ({
   useCurrency: () => ({ formatPrice: (price: number) => `${price}` }),
 }));
@@ -62,6 +67,8 @@ function createWorkspace(
   return {
     t: (key: string) => key,
     language: 'en',
+    timezone: 'Asia/Almaty',
+    schoolTimeZoneReady: true,
     getDifficultyLabel: (difficulty: string) => difficulty,
     date: '2026-03-01',
     setDate: vi.fn(),
@@ -127,6 +134,7 @@ describe('AuthBookingForm participant picker', () => {
       },
     });
     const view = render(<AuthBookingForm workspace={workspace} />);
+    expect(screen.getByText(/schoolLessonTime: Asia\/Almaty/)).toBeInTheDocument();
     const select = screen.getByRole('combobox', { name: 'participantsDisciplineLabel' });
     expect(screen.getByRole('button', { name: /payConfirmLesson/ })).toBeDisabled();
     fireEvent.change(select, { target: { value: 'snowboard' } });

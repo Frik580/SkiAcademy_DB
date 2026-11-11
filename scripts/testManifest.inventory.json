@@ -324,6 +324,7 @@
   "tests/unit/BannerMedia.test.tsx": "app-unit",
   "tests/unit/BookingAppleWheelColumn.test.tsx": "app-unit",
   "tests/unit/BookingModalHeader.kzt.test.tsx": "app-unit",
+  "tests/unit/BookingParticipantAccess.test.tsx": "app-unit",
   "tests/unit/BookingsLog.navigation.test.tsx": "app-unit",
   "tests/unit/CanonicalCoursesManager.structuredEdit.test.tsx": "app-unit",
   "tests/unit/CanonicalFinancePanel.test.tsx": "app-unit",

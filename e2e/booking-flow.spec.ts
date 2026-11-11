@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
-import { resolveSchoolTimeZone, SCHOOL_TIME_ZONE_CONFIG_PATH } from '@ski-academy/shared-domain';
+import { resolveSchoolTimeZone, SCHOOL_TIME_ZONE_CONFIG_PATH } from '../packages/shared-domain/src/schoolTimeZone';
 import { attemptAuthenticatedBooking, attemptAuthenticatedCancellation } from './callable-client';
 import {
   expect,

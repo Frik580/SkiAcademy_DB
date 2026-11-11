@@ -1,3 +1,4 @@
+import { resolveLessonBookingTimezone } from '../../lesson-bookings/useLessonBookingReadSync';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Calendar, Clock } from 'lucide-react';
 import { calculateIndividualBookingPriceKzt } from '@ski-academy/shared-domain/canonical/bookingCreation';
@@ -98,6 +99,7 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
 
   const { availableSlots, isLoadingBookings, occupancyLoadFailed } =
     useRescheduleBookingAvailability({
+      timeZone: resolveLessonBookingTimezone(),
       isOpen: open,
       instructorId,
       localDate,

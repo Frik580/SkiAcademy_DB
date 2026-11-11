@@ -1,4 +1,6 @@
 import {
+  resolveBookingScheduleFromCalendarInput,
+  IanaTimeZoneSchema,
   AccountIdSchema,
   AdministrativeAvailabilityBlockIdSchema,
   AggregateRevisionSchema,
@@ -268,14 +270,28 @@ export async function reschedulePlannerOccupancy(input: {
   if (!item.bookingId) throw new Error('Lesson occupancy is missing a booking id');
   const booking = await loadPlannerLessonDetail(item.bookingId);
   if (!booking) throw new Error('Lesson detail is required to reschedule');
+  const bookingTimeZone = IanaTimeZoneSchema.parse(booking.occurrence.timeZone);
+  const selectedSchedule = resolveBookingScheduleFromCalendarInput(
+    {
+      localDate: input.localDate,
+      localTime: input.localTime,
+      durationMinutes: booking.occurrence.durationMinutes,
+    },
+    timezone
+  );
+  const bookingLocal = plannerLocalDateTime(
+    selectedSchedule.interval.startsAt.seconds,
+    bookingTimeZone
+  );
+
   await executePlannerLessonAttempt(input.adminAccountId, {
     kind: 'reschedule_booking',
     idempotencyKey: plannerIdempotency('reschedule_lesson'),
     target: { bookingId: item.bookingId, revision: booking.revision },
-    localDate: input.localDate,
-    localTime: input.localTime,
+    localDate: bookingLocal.date,
+    localTime: bookingLocal.time,
     durationMinutes: booking.occurrence.durationMinutes,
-    timezone,
+    timezone: bookingTimeZone,
     reasonExplanation: 'Admin planner reschedule lesson',
   });
 }

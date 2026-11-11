@@ -11,7 +11,7 @@ import {
   mapInstructorOccupancyReadModelForBookingModal,
   normalizeBookingLocalDate,
 } from '../bookings/instructorOccupancyForBookingModal';
-import { resolveLessonBookingTimezone } from '../lesson-bookings/useLessonBookingReadSync';
+import { IanaTimeZoneSchema } from '@ski-academy/shared-domain';
 
 export function filterOccupancyExcludingBooking(
   occupancy: readonly AdminPlannerOccupancyItem[],
@@ -29,6 +29,7 @@ export function filterAvailabilitySlotsExcludingBooking(
 
 export function useRescheduleBookingAvailability(input: {
   readonly isOpen: boolean;
+  readonly timeZone?: string;
   readonly instructorId: string;
   readonly localDate: string;
   readonly durationHours: number;
@@ -40,19 +41,19 @@ export function useRescheduleBookingAvailability(input: {
   const [isLoadingBookings, setIsLoadingBookings] = useState(true);
   const [occupancyLoadFailed, setOccupancyLoadFailed] = useState(false);
   const occupancyFetchVersionRef = useRef(0);
-  const timezone = resolveLessonBookingTimezone();
+  const parsedTimezone = IanaTimeZoneSchema.safeParse(input.timeZone);
+  const timezone = parsedTimezone.success ? parsedTimezone.data : undefined;
 
   useEffect(() => {
-    if (!input.isOpen || !input.instructorId || !input.localDate) {
+    const fetchVersion = ++occupancyFetchVersionRef.current;
+    if (!input.isOpen || !input.instructorId || !input.localDate || !timezone) {
       setIsLoadingBookings(false);
-      setOccupancyLoadFailed(false);
+      setOccupancyLoadFailed(input.isOpen && !timezone);
       setInstructorBookings([]);
       setOccupancyCourses([]);
       setOccupancyItems([]);
       return;
     }
-
-    const fetchVersion = ++occupancyFetchVersionRef.current;
 
     const fetchOccupancy = async () => {
       setIsLoadingBookings(true);
@@ -107,6 +108,7 @@ export function useRescheduleBookingAvailability(input: {
   }, [input.excludeBookingId, input.instructorId, input.isOpen, input.localDate, timezone]);
 
   const availableSlots = useMemo((): string[] => {
+    if (!timezone) return [];
     return getAvailableLessonStartTimes({
       candidateStarts: DEFAULT_LESSON_TIME_SLOTS,
       durationHours: input.durationHours,

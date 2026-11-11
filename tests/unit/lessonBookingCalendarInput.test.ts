@@ -22,7 +22,6 @@ describe('mapCalendarInput', () => {
   it('converts canonical timestamps to local parts in the booking timezone', () => {
     const startsAt = Math.floor(new Date('2026-06-15T04:00:00.000Z').getTime() / 1000);
     const parts = canonicalTimestampToLocalParts(startsAt, 0, 'Asia/Almaty');
-    expect(parts.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(parts.time).toMatch(/^\d{2}:\d{2}$/);
+    expect(parts).toEqual({ date: '2026-06-15', time: '09:00' });
   });
 });

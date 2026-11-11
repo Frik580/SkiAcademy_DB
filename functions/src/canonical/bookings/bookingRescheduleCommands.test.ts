@@ -417,6 +417,43 @@ async function createConfirmedBookingForParticipants(
 }
 
 describe('booking reschedule commands', () => {
+  it('rejects a timezone substitution without changing the booking', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(executor);
+    const before = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data;
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-10T00:00:00.000Z'),
+      executor
+    );
+    const envelope = rescheduleEnvelope('timezone-substitution');
+    const result = await commands.execute({
+      ...envelope,
+      context: { ...envelope.context, timezone: 'UTC' },
+    });
+    expect(resultErrorCode(result)).toBe('validation');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data).toEqual(before);
+  });
+
+  it('persists 09:00 Almaty as 04:00Z and replays idempotently', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(executor);
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-10T00:00:00.000Z'),
+      executor
+    );
+    const envelope = rescheduleEnvelope('timezone-consistency', 'account_owner', 1, {
+      localDate: '2026-11-03',
+      localTime: '09:00',
+      durationMinutes: 60,
+    });
+    expect((await commands.execute(envelope)).status).toBe('success');
+    const booking = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data;
+    expect(isoFromTimestamp(booking.occurrence.interval.startsAt)).toBe('2026-11-03T04:00:00.000Z');
+    expect(booking.occurrence.timeZone).toBe('Asia/Almaty');
+    expect((await commands.execute(envelope)).status).toBe('success');
+    expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data).toEqual(booking);
+  });
+
   it('keeps instructor occupancy after a same-day reschedule and rejects another canonical booking', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);

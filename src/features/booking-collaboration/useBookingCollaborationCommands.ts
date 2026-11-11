@@ -1,3 +1,4 @@
+import { IanaTimeZoneSchema } from '@ski-academy/shared-domain';
 import { useCallback } from 'react';
 import { AggregateRevisionSchema } from '@ski-academy/shared-domain/canonical/primitives';
 import {
@@ -77,6 +78,7 @@ export function useBookingCollaborationCommands(input: {
     async (params: {
       readonly bookingId: string;
       readonly expectedRevision: number;
+      readonly timeZone: string | undefined;
       readonly localDate: string;
       readonly localTime: string;
       readonly durationMinutes: number;
@@ -84,7 +86,7 @@ export function useBookingCollaborationCommands(input: {
       readonly reasonExplanation?: string;
     }): Promise<void> => {
       if (!accountId) throw new Error('Authentication is required.');
-      const timezone = resolveLessonBookingTimezone();
+      const timezone = IanaTimeZoneSchema.parse(params.timeZone);
       const calendarInput = mapLessonBookingCalendarInput({
         localDate: params.localDate,
         localTime: params.localTime,

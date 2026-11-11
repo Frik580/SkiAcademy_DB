@@ -167,7 +167,13 @@ describe('Admin Planner sequential revision flow', () => {
   it('interprets edited planner times in the displayed timezone', async () => {
     queryLessonDetail.mockResolvedValue({
       scope: 'admin_detail',
-      items: [{ bookingId, revision: 1, occurrence: { durationMinutes: 60 } }],
+      items: [
+        {
+          bookingId,
+          revision: 1,
+          occurrence: { durationMinutes: 60, timeZone: 'Europe/Istanbul' },
+        },
+      ],
     });
     await reschedulePlannerOccupancy({
       adminAccountId,
@@ -181,8 +187,8 @@ describe('Admin Planner sequential revision flow', () => {
       adminAccountId,
       expect.objectContaining({
         kind: 'reschedule_booking',
-        localTime: '10:00',
-        timezone: 'Asia/Qyzylorda',
+        localTime: '08:00',
+        timezone: 'Europe/Istanbul',
       })
     );
   });
@@ -209,11 +215,23 @@ describe('Admin Planner sequential revision flow', () => {
     queryLessonDetail
       .mockResolvedValueOnce({
         scope: 'admin_detail',
-        items: [{ bookingId, revision: 1, occurrence: { durationMinutes: 60 } }],
+        items: [
+          {
+            bookingId,
+            revision: 1,
+            occurrence: { durationMinutes: 60, timeZone: 'Europe/Istanbul' },
+          },
+        ],
       })
       .mockResolvedValueOnce({
         scope: 'admin_detail',
-        items: [{ bookingId, revision: 2, occurrence: { durationMinutes: 60 } }],
+        items: [
+          {
+            bookingId,
+            revision: 2,
+            occurrence: { durationMinutes: 60, timeZone: 'Europe/Istanbul' },
+          },
+        ],
       });
 
     await reassignPlannerOccupancy({
@@ -253,7 +271,9 @@ describe('Admin Planner sequential revision flow', () => {
   it('reschedules a lesson using the duration from fresh detail, not a stale occupancy snapshot', async () => {
     queryLessonDetail.mockResolvedValue({
       scope: 'admin_detail',
-      items: [{ bookingId, revision: 4, occurrence: { durationMinutes: 120 } }],
+      items: [
+        { bookingId, revision: 4, occurrence: { durationMinutes: 120, timeZone: 'Asia/Almaty' } },
+      ],
     });
 
     await reschedulePlannerOccupancy({
@@ -328,7 +348,7 @@ describe('Admin Planner sequential revision flow', () => {
         {
           bookingId,
           revision: 7,
-          occurrence: { durationMinutes: 60 },
+          occurrence: { durationMinutes: 60, timeZone: 'Europe/Istanbul' },
         },
       ],
     });
@@ -358,7 +378,13 @@ describe('Admin Planner sequential revision flow', () => {
     queryLessonDetail
       .mockResolvedValueOnce({
         scope: 'admin_detail',
-        items: [{ bookingId, revision: 1, occurrence: { durationMinutes: 60 } }],
+        items: [
+          {
+            bookingId,
+            revision: 1,
+            occurrence: { durationMinutes: 60, timeZone: 'Europe/Istanbul' },
+          },
+        ],
       })
       .mockResolvedValueOnce({
         scope: 'admin_detail',
@@ -366,7 +392,13 @@ describe('Admin Planner sequential revision flow', () => {
       })
       .mockResolvedValueOnce({
         scope: 'admin_detail',
-        items: [{ bookingId, revision: 3, occurrence: { durationMinutes: 60 } }],
+        items: [
+          {
+            bookingId,
+            revision: 3,
+            occurrence: { durationMinutes: 60, timeZone: 'Europe/Istanbul' },
+          },
+        ],
       });
 
     await reassignPlannerOccupancy({

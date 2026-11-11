@@ -151,28 +151,61 @@ describe('booking collaboration integration', () => {
     expect(queryLessonBookingReadModelsMock).toHaveBeenCalledWith({ scope: 'account_hot' });
   });
 
-  it('reschedules via canonical command and refetches on success', async () => {
-    executeAuthenticatedMock.mockResolvedValueOnce({ status: 'success', payload: {} });
-    const { result } = renderHook(() =>
-      useBookingCollaborationCommands({ accountId: 'account_fixture_01' })
-    );
-    await result.current.rescheduleBooking({
-      bookingId: 'booking_reschedule_01',
-      expectedRevision: 3,
-      localDate: '2026-06-16',
-      localTime: '10:00',
-      durationMinutes: 120,
-      exercisedCapability: 'account_owner',
-    });
-    expect(executeAuthenticatedMock).toHaveBeenCalledWith(
-      'account_fixture_01',
-      expect.objectContaining({
-        kind: 'reschedule_booking',
-        expectedRevision: 3,
-        calendarInput: expect.objectContaining({ localDate: '2026-06-16', localTime: '10:00' }),
-      })
-    );
-  });
+  it.each(['UTC', 'America/New_York', 'Asia/Almaty'])(
+    'reschedules in booking timezone with browser %s',
+    async (browserTimezone) => {
+      const originalTimezone = process.env.TZ;
+      process.env.TZ = browserTimezone;
+      try {
+        executeAuthenticatedMock.mockResolvedValueOnce({ status: 'success', payload: {} });
+        const { result } = renderHook(() =>
+          useBookingCollaborationCommands({ accountId: 'account_fixture_01' })
+        );
+        await result.current.rescheduleBooking({
+          bookingId: 'booking_reschedule_01',
+          timeZone: 'Asia/Almaty',
+          expectedRevision: 3,
+          localDate: '2026-06-16',
+          localTime: '10:00',
+          durationMinutes: 120,
+          exercisedCapability: 'account_owner',
+        });
+        expect(executeAuthenticatedMock).toHaveBeenCalledWith(
+          'account_fixture_01',
+          expect.objectContaining({
+            kind: 'reschedule_booking',
+            expectedRevision: 3,
+            timezone: 'Asia/Almaty',
+            calendarInput: expect.objectContaining({ localDate: '2026-06-16', localTime: '10:00' }),
+          })
+        );
+      } finally {
+        if (originalTimezone === undefined) delete process.env.TZ;
+        else process.env.TZ = originalTimezone;
+      }
+    }
+  );
+
+  it.each([undefined, '', 'Invalid/Zone'])(
+    'rejects invalid reschedule timezone %s before sending',
+    async (timeZone) => {
+      const { result } = renderHook(() =>
+        useBookingCollaborationCommands({ accountId: 'account_fixture_01' })
+      );
+      await expect(
+        result.current.rescheduleBooking({
+          bookingId: 'booking_reschedule_01',
+          expectedRevision: 1,
+          localDate: '2026-11-03',
+          localTime: '09:00',
+          durationMinutes: 60,
+          timeZone,
+          exercisedCapability: 'account_owner',
+        })
+      ).rejects.toThrow();
+      expect(executeAuthenticatedMock).not.toHaveBeenCalled();
+    }
+  );
 
   it('surfaces insufficient_funds on proposal accept without local patch', async () => {
     executeAuthenticatedMock.mockResolvedValueOnce({
@@ -485,6 +518,7 @@ describe('booking collaboration integration', () => {
     const booking = {
       id: 'booking_reschedule_parent_01',
       bookingId: 'booking_reschedule_parent_01',
+      timeZone: 'Asia/Almaty',
       revision: 2,
       status: 'confirmed' as const,
       date: '2026-06-15',

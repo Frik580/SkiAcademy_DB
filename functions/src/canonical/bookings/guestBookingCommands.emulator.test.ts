@@ -48,6 +48,7 @@ const runsOnFirestoreEmulator = Boolean(
 );
 
 const COLLECTIONS_TO_CLEAR = [
+  'resort_data',
   'instructors',
   'participants',
   'guest_contacts',
@@ -196,6 +197,26 @@ describe.skipIf(!runsOnFirestoreEmulator)('guest booking commands (firestore emu
     await clearCollections([...COLLECTIONS_TO_CLEAR]);
     await seedFixture();
   }, 30_000);
+
+  it('enforces school timezone for guest creation', async () => {
+    await firestore.doc('resort_data/config').set({ timeZone: 'UTC' });
+    const envelope = guestCreateEnvelope({
+      bookingId: 'booking_guest_school_timezone',
+      idempotencyKey: 'guest-school-zone',
+    });
+    const commands = createCommands('2026-01-01T10:00:00.000Z');
+    expect((await commands.execute(envelope)).status).toBe('error');
+    const result = await commands.execute({
+      ...envelope,
+      context: { ...envelope.context, timezone: 'UTC' },
+    });
+    expect(result.status).toBe('success');
+    const booking = (await firestore.doc(`bookings/${envelope.intent.bookingId}`).get()).data()!;
+    expect(booking.occurrence.timeZone).toBe('UTC');
+    expect(booking.occurrence.interval.startsAt.seconds).toBe(
+      Date.parse('2026-01-15T09:00:00Z') / 1000
+    );
+  });
 
   it('admits three active lesson holds per network source and rejects the fourth', async () => {
     const commands = createCommands('2026-01-01T10:00:00.000Z', {

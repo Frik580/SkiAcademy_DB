@@ -2255,3 +2255,29 @@ describe('lesson catalog admission', () => {
     expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.difficulty).toBe('race');
   });
 });
+
+describe('school timezone authority for guests', () => {
+  it('rejects a spoofed timezone and creates no booking', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      fixtureWithoutParticipant({ 'resort_data/config': { timeZone: 'UTC' } })
+    );
+    const envelope = guestCreateEnvelope();
+    const result = await runCommands(executor).execute(envelope);
+    expect(result.status).toBe('error');
+    expect(executor.snapshot().docs.has(`bookings/${bookingId}`)).toBe(false);
+  });
+  it('creates a guest booking using the configured school timezone', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      fixtureWithoutParticipant({ 'resort_data/config': { timeZone: 'Europe/Paris' } })
+    );
+    const envelope = guestCreateEnvelope();
+    const result = await runCommands(executor).execute({
+      ...envelope,
+      context: { ...envelope.context, timezone: 'Europe/Paris' },
+    });
+    expect(result.status).toBe('success');
+    const occurrence = executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence;
+    expect(occurrence.timeZone).toBe('Europe/Paris');
+    expect(occurrence.interval.startsAt.seconds).toBe(Date.parse('2026-01-15T08:00:00Z') / 1000);
+  });
+});

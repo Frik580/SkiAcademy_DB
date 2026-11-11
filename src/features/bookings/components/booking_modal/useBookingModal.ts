@@ -1,3 +1,5 @@
+import { canonicalTimestampToLocalParts } from '../../../lesson-bookings/mapCalendarInput';
+import { useSchoolTimeZone } from '../../../settings/schoolTimeZone';
 import {
   getBookingParticipantAccess,
   useBookingParticipantAccess,
@@ -31,7 +33,7 @@ import {
   getDifficultyLabel,
 } from '../../../../app/providers/LanguageContext';
 import { logger } from '../../../../shared';
-import { DEFAULT_LESSON_TIME_SLOTS, toLocalDateStr } from '../../../../domain/availability';
+import { DEFAULT_LESSON_TIME_SLOTS } from '../../../../domain/availability';
 
 import {
   queryInstructorOccupancyReadModels,
@@ -54,7 +56,6 @@ import {
   deriveGuestParticipantIdForBooking,
   deriveExercisedCapabilityFromParticipants,
   presentCanonicalCommandErrorWithContext,
-  resolveLessonBookingTimezone,
   loadGuestSingleLessonBooking,
   useLessonBookingCommands,
   useManagedParticipants,
@@ -260,26 +261,29 @@ export const useBookingModal = ({
     return `${y}-${m}-${day}`;
   };
 
-  const minBookingDateStr = useMemo(() => toLocalDateStr(), []);
-  const timezone = resolveLessonBookingTimezone();
+  const { timeZone: timezone, ready: schoolTimeZoneReady } = useSchoolTimeZone();
+  const minBookingDateStr = canonicalTimestampToLocalParts(Date.now() / 1000, 0, timezone).date;
+  const [loadedOccupancyKey, setLoadedOccupancyKey] = useState('');
+  const occupancyKey = `${targetInstructor?.id}:${date}:${timezone}`;
+  useEffect(() => {
+    setTime('');
+  }, [timezone]);
 
   useEffect(() => {
     if (isOpen) {
-      setDate(toLocalDateStr());
+      setDate(minBookingDateStr);
       setTime('08:00');
     }
-  }, [isOpen]);
+  }, [isOpen, minBookingDateStr]);
 
   useEffect(() => {
-    if (!isOpen || !targetInstructor || !date) return;
-
     const fetchVersion = ++occupancyFetchVersionRef.current;
+    if (!isOpen || !targetInstructor || !date || !schoolTimeZoneReady) return;
 
     const fetchOccupancy = async () => {
       setIsLoadingBookings(true);
       setOccupancyLoadFailed(false);
       try {
-        const timezone = resolveLessonBookingTimezone();
         const selectedDate = normalizeDateStr(date);
         const [selectedDay, nextDay] = await Promise.all([
           queryInstructorOccupancyReadModels({
@@ -301,6 +305,7 @@ export const useBookingModal = ({
           ...selectedDay.item,
           occupancy,
         });
+        setLoadedOccupancyKey(occupancyKey);
         setOccupancyItems(occupancy);
         setInstructorBookings(mapped.slots);
         setOccupancyCourses(mapped.courses);
@@ -320,7 +325,15 @@ export const useBookingModal = ({
     };
 
     void fetchOccupancy();
-  }, [isOpen, targetInstructor?.id, date, occupancyRefreshNonce]);
+  }, [
+    isOpen,
+    targetInstructor?.id,
+    date,
+    occupancyRefreshNonce,
+    timezone,
+    schoolTimeZoneReady,
+    occupancyKey,
+  ]);
 
   const effectiveParticipantIds = resolveEffectiveParticipantIds(
     managedParticipants,
@@ -362,12 +375,18 @@ export const useBookingModal = ({
   const participantOccupancyKey = effectiveParticipantIds.slice().sort().join(',');
 
   useEffect(() => {
-    if (!isOpen || !date || !userProfile?.uid || effectiveParticipantIds.length === 0) {
+    const fetchVersion = ++participantOccupancyFetchVersionRef.current;
+    if (
+      !schoolTimeZoneReady ||
+      !isOpen ||
+      !date ||
+      !userProfile?.uid ||
+      effectiveParticipantIds.length === 0
+    ) {
       setParticipantOccupancyItems([]);
       return;
     }
 
-    const fetchVersion = ++participantOccupancyFetchVersionRef.current;
     const selectedDate = normalizeDateStr(date);
     const participantIds = [
       ...resolveEffectiveParticipantIds(managedParticipants, selectedParticipantIds),
@@ -405,6 +424,7 @@ export const useBookingModal = ({
     date,
     userProfile?.uid,
     participantOccupancyKey,
+    schoolTimeZoneReady,
     occupancyRefreshNonce,
     timezone,
     managedParticipants,
@@ -495,6 +515,8 @@ export const useBookingModal = ({
   const overlappingBooking = getOverlappingBooking();
   const overlappingCourse = getOverlappingCourse();
   const isTimeSlotOccupied =
+    !schoolTimeZoneReady ||
+    loadedOccupancyKey !== occupancyKey ||
     isLoadingBookings ||
     occupancyLoadFailed ||
     !date ||
@@ -552,7 +574,7 @@ export const useBookingModal = ({
 
   const handleSubmitGuest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmittingRef.current || isSubmitting) return;
+    if (isSubmittingRef.current || isSubmitting || !schoolTimeZoneReady) return;
     if (!targetInstructor) return;
     if (!guestName.trim()) {
       addNotification('warning', t('missingDetails'), t('guestNameLabel'));
@@ -830,7 +852,7 @@ export const useBookingModal = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmittingRef.current || isSubmitting) return;
+    if (isSubmittingRef.current || isSubmitting || !schoolTimeZoneReady) return;
     if (!userProfile) {
       addNotification('error', t('signInRequired'), t('bookingSignInDesc'));
       return;
@@ -998,6 +1020,8 @@ export const useBookingModal = ({
   };
 
   return {
+    timezone,
+    schoolTimeZoneReady,
     t,
     language,
     isOpen,

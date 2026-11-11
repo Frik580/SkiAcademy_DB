@@ -1,3 +1,4 @@
+import { assertSchoolTimeZone } from './schoolTimeZone';
 import { assertActiveLessonLevel } from '../pricing/lessonLevelsStore';
 import {
   AggregateRevisionSchema,
@@ -203,6 +204,7 @@ function createGuestBookingRequestHandler(
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'create_guest_booking_request'> = {
     read: async (session) => {
+      await assertSchoolTimeZone(session, envelope);
       await assertActiveLessonLevel(session, envelope, envelope.intent.difficulty);
       admissionPlan = undefined;
       if (!environment.guestActionTokenSecret) {

@@ -1,3 +1,4 @@
+import { requireSchoolTimeZone } from '../../settings/schoolTimeZone';
 import {
   resolveBookingScheduleFromCalendarInput,
   IanaTimeZoneSchema,
@@ -159,7 +160,7 @@ export async function createPlannerOccupancyFromLegacyBookingShape(input: {
   readonly displayTimeZone?: string;
   readonly booking: Booking & { readonly participantId?: string };
 }): Promise<void> {
-  const timezone = input.displayTimeZone ?? resolveAdminTimeZone();
+  const timezone = input.displayTimeZone ?? requireSchoolTimeZone();
   const durationMinutes = Math.max(1, Math.round(input.booking.durationHours * 60));
   if (
     input.booking.userId === 'system_block_break' ||

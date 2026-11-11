@@ -1,3 +1,6 @@
+vi.mock('../../src/features/settings/schoolTimeZone', () => ({
+  requireSchoolTimeZone: () => 'Asia/Almaty',
+}));
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AccountIdSchema,

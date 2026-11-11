@@ -63,6 +63,7 @@ export interface CustomHeroSlide {
 }
 
 export interface ResortConfig {
+  timeZone?: string;
   nameEn: string;
   nameRu: string;
   subNameEn: string;

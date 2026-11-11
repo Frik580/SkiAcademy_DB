@@ -20,7 +20,8 @@ import {
   mapPlannerOccupancyToBookings,
 } from './adminPlannerMapping';
 import { filterOccupancyForLocalDate, plannerFetchWindow } from './adminPlannerDayWindow';
-import { resolveAdminTimeZone } from './adminTimeZone';
+import { useSchoolTimeZone } from '../../settings/schoolTimeZone';
+import { SchoolTimeZoneNotice } from '../../settings/SchoolTimeZoneNotice';
 import {
   changePlannerOccupancyDuration,
   completePlannerLesson,
@@ -64,6 +65,7 @@ export function AdminPlannerBoard({
   usersList,
   fallbackInstructors,
 }: AdminPlannerBoardProps) {
+  const school = useSchoolTimeZone();
   const [searchParams, setSearchParams] = useSearchParams();
   const plannerDateParam = searchParams.get(ADMIN_PLANNER_DATE_QUERY_KEY);
   const focusBookingId = searchParams.get(ADMIN_PLANNER_FOCUS_QUERY_KEY) ?? undefined;
@@ -84,7 +86,7 @@ export function AdminPlannerBoard({
     return () => registerPlannerRefresh(null);
   }, [planner.refresh, registerPlannerRefresh]);
   const occupancy = planner.item?.occupancy ?? EMPTY_PLANNER_OCCUPANCY;
-  const plannerTimeZone = planner.item?.timeZone ?? resolveAdminTimeZone();
+  const plannerTimeZone = planner.item?.timeZone ?? school.timeZone;
   const { t } = useScheduleTranslations();
 
   useEffect(() => {
@@ -280,6 +282,7 @@ export function AdminPlannerBoard({
 
   return (
     <div className="space-y-3">
+      <SchoolTimeZoneNotice timeZone={plannerTimeZone} localDate={localDate} ready={school.ready} />
       {planner.error ? <p className="type-caption text-rose-600">{planner.error}</p> : null}
       {planner.loading ? (
         <p className="type-caption text-[var(--ink-dim)]">Loading planner…</p>
@@ -289,28 +292,31 @@ export function AdminPlannerBoard({
           {t('plannerOccupancyTruncated')}
         </p>
       ) : null}
-      <ScheduleCalendar
-        instructors={instructors}
-        bookings={bookings}
-        courses={courses}
-        usersList={usersList}
-        adminProfile={adminProfile}
-        plannerDate={localDate}
-        plannerView={view}
-        focusBookingId={focusBookingId}
-        onFocusConsumed={handleFocusConsumed}
-        onWindowChange={handleWindowChange}
-        skipLegacyBalanceGate
-        onAddBooking={handleAddBooking}
-        onRescheduleBooking={handleReschedule}
-        onReassignInstructor={handleReassign}
-        onChangeBookingDuration={handleChangeDuration}
-        onDeleteBooking={handleRelease}
-        onCancelBooking={handleRelease}
-        onCompleteBooking={handleComplete}
-        onLinkGuestBooking={handleLink}
-        onOpenLessonDetail={handleOpenLessonDetail}
-      />
+      {school.ready && planner.item?.timeZone === school.timeZone && (
+        <ScheduleCalendar
+          key={school.timeZone}
+          instructors={instructors}
+          bookings={bookings}
+          courses={courses}
+          usersList={usersList}
+          adminProfile={adminProfile}
+          plannerDate={localDate}
+          plannerView={view}
+          focusBookingId={focusBookingId}
+          onFocusConsumed={handleFocusConsumed}
+          onWindowChange={handleWindowChange}
+          skipLegacyBalanceGate
+          onAddBooking={handleAddBooking}
+          onRescheduleBooking={handleReschedule}
+          onReassignInstructor={handleReassign}
+          onChangeBookingDuration={handleChangeDuration}
+          onDeleteBooking={handleRelease}
+          onCancelBooking={handleRelease}
+          onCompleteBooking={handleComplete}
+          onLinkGuestBooking={handleLink}
+          onOpenLessonDetail={handleOpenLessonDetail}
+        />
+      )}
     </div>
   );
 }

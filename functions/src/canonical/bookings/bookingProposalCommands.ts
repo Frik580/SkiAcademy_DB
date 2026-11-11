@@ -1,3 +1,4 @@
+import { assertSchoolTimeZone } from './schoolTimeZone';
 import {
   AggregateRevisionSchema,
   BookingProposalSchema,
@@ -518,6 +519,7 @@ function createBookingProposalHandler(
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'create_booking_proposal'> = {
     read: async (session) => {
+      await assertSchoolTimeZone(session, envelope);
       const now = timestampFromDate(environment.clock.now());
       schedule = resolveBookingScheduleFromCalendarInput(
         envelope.context.calendarInput!,

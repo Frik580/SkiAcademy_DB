@@ -1,3 +1,4 @@
+import { SchoolTimeZoneNotice } from '../../../settings/SchoolTimeZoneNotice';
 import React from 'react';
 import { Sparkles, ShieldAlert } from 'lucide-react';
 import { useBookingModal } from './useBookingModal';
@@ -139,6 +140,12 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
             </>
           )}
         </div>
+        <SchoolTimeZoneNotice
+          timeZone={workspace.timezone}
+          localDate={date}
+          localTime={time}
+          ready={workspace.schoolTimeZoneReady}
+        />
         <BookingSelectors
           date={date}
           setDate={setDate}

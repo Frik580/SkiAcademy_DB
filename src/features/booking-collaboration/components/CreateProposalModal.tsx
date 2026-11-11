@@ -1,4 +1,5 @@
-import { resolveLessonBookingTimezone } from '../../lesson-bookings/useLessonBookingReadSync';
+import { useSchoolTimeZone } from '../../settings/schoolTimeZone';
+import { SchoolTimeZoneNotice } from '../../settings/SchoolTimeZoneNotice';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Calendar, Clock } from 'lucide-react';
 import { calculateIndividualBookingPriceKzt } from '@ski-academy/shared-domain/canonical/bookingCreation';
@@ -7,7 +8,7 @@ import { KztMinorUnitsSchema } from '@ski-academy/shared-domain/canonical/primit
 import type { InstructorProposalPartyCandidate } from '../bookingCollaborationContracts';
 import { useBookingCollaborationTranslations } from '../useBookingCollaborationTranslations';
 import { useRescheduleBookingAvailability } from '../useRescheduleBookingAvailability';
-import { toLocalDateStr } from '../../../domain/availability';
+import { canonicalTimestampToLocalParts } from '../../lesson-bookings/mapCalendarInput';
 import { resolveLessonStartTimeSelection } from '../../bookings/instructorOccupancyForBookingModal';
 import { BookingAppleDatePicker } from '../../bookings/components/booking_modal/BookingAppleDatePicker';
 import { BookingAppleWheelPicker } from '../../bookings/components/booking_modal/BookingAppleWheelPicker';
@@ -43,6 +44,7 @@ export interface CreateProposalModalProps {
     readonly localDate: string;
     readonly localTime: string;
     readonly durationMinutes: number;
+    readonly timezone: string;
   }) => Promise<void>;
 }
 
@@ -60,6 +62,7 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
   onClose,
   onSubmit,
 }) => {
+  const school = useSchoolTimeZone();
   const copy = useBookingCollaborationTranslations();
   const { language } = useLanguage();
   const [localDate, setLocalDate] = useState(defaultDate);
@@ -77,7 +80,15 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
     useState<string[]>(selectableDefaultIds);
   const [submitting, setSubmitting] = useState(false);
 
-  const minBookingDateStr = useMemo(() => toLocalDateStr(), []);
+  useEffect(() => {
+    setLocalTime('');
+  }, [school.timeZone]);
+
+  const minBookingDateStr = canonicalTimestampToLocalParts(
+    Date.now() / 1000,
+    0,
+    school.timeZone
+  ).date;
   const locale = language === 'ru' ? 'ru-RU' : 'en-US';
   const labelStyle = 'mb-1.5 flex items-center gap-1.5 type-caption text-[var(--ink-dim)]';
 
@@ -99,8 +110,8 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
 
   const { availableSlots, isLoadingBookings, occupancyLoadFailed } =
     useRescheduleBookingAvailability({
-      timeZone: resolveLessonBookingTimezone(),
-      isOpen: open,
+      timeZone: school.timeZone,
+      isOpen: open && school.ready,
       instructorId,
       localDate,
       durationHours,
@@ -169,6 +180,7 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
   }
 
   const canSubmit =
+    school.ready &&
     !submitting &&
     !!localDate &&
     !!localTime &&
@@ -229,6 +241,12 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
             <label className={labelStyle}>
               <Calendar className="h-3.5 w-3.5" /> {copy.t('selectDate')}
             </label>
+            <SchoolTimeZoneNotice
+              timeZone={school.timeZone}
+              localDate={localDate}
+              localTime={localTime}
+              ready={school.ready}
+            />
             <BookingAppleDatePicker
               value={localDate}
               onChange={setLocalDate}
@@ -294,6 +312,7 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
               setSubmitting(true);
               try {
                 await onSubmit({
+                  timezone: school.timeZone,
                   participantIds: selectedParticipantIds,
                   localDate,
                   localTime,

@@ -52,6 +52,7 @@ const runsOnFirestoreEmulator = Boolean(
 );
 
 const COLLECTIONS_TO_CLEAR = [
+  'resort_data',
   'users',
   'participants',
   'participant_management',
@@ -405,6 +406,37 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking commands (firestore emulator)
     await clearCollections([...COLLECTIONS_TO_CLEAR]);
     await seedSharedFixture(WALLET_TWO_BOOKINGS_KZT);
   }, 30_000);
+
+  it('uses authoritative school config and preserves existing instants and idempotent replays after a change', async () => {
+    const config = firestore.doc('resort_data/config');
+    await config.set({ timeZone: 'Europe/Paris', nameEn: 'Preserved' });
+    const envelope = bookingEnvelope({
+      bookingId: 'booking_school_timezone_emulator',
+      idempotencyKey: 'school-zone-create',
+      participantIds: [participantId],
+      instructorId,
+    });
+    const stale = await createCommands().execute(envelope);
+    expect(stale.status).toBe('error');
+    expect((await firestore.doc(`bookings/${envelope.intent.bookingId}`).get()).exists).toBe(false);
+    const confirmed = { ...envelope, context: { ...envelope.context, timezone: 'Europe/Paris' } };
+    expect((await createCommands().execute(confirmed)).status).toBe('success');
+    const ref = firestore.doc(`bookings/${envelope.intent.bookingId}`);
+    const before = (await ref.get()).data()!;
+    expect(before.occurrence.timeZone).toBe('Europe/Paris');
+    expect(before.occurrence.interval.startsAt.seconds).toBe(
+      Date.parse('2026-01-15T08:00:00Z') / 1000
+    );
+    await config.set({ timeZone: 'UTC' }, { merge: true });
+    expect((await createCommands().execute(confirmed)).status).toBe('success');
+    expect((await ref.get()).data()).toEqual(before);
+    expect((await config.get()).data()!.nameEn).toBe('Preserved');
+    const claims = await firestore
+      .collection('resource_claims')
+      .where('ownerId', '==', envelope.intent.bookingId)
+      .get();
+    expect(claims.size).toBe(2);
+  });
 
   it.each([
     [[participantId, participantIdB], 18_000],

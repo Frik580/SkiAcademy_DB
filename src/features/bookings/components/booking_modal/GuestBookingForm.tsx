@@ -1,3 +1,4 @@
+import { SchoolTimeZoneNotice } from '../../../settings/SchoolTimeZoneNotice';
 import React from 'react';
 import { User, Phone, Mail, Send } from 'lucide-react';
 import { useBookingModal } from './useBookingModal';
@@ -136,6 +137,12 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
           </label>
         )}
 
+        <SchoolTimeZoneNotice
+          timeZone={workspace.timezone}
+          localDate={date}
+          localTime={time}
+          ready={workspace.schoolTimeZoneReady}
+        />
         <BookingSelectors
           date={date}
           setDate={setDate}

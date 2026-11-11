@@ -1,3 +1,5 @@
+const school = vi.hoisted(() => ({ timeZone: 'Asia/Almaty', ready: true }));
+vi.mock('../../src/features/settings/schoolTimeZone', () => ({ useSchoolTimeZone: () => school }));
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AdminPlannerReadModel } from '@ski-academy/shared-domain';
@@ -41,6 +43,8 @@ function plannerItem(): AdminPlannerReadModel {
 
 describe('useAdminPlannerReadModels realtime invalidation', () => {
   beforeEach(() => {
+    school.timeZone = 'Asia/Almaty';
+    school.ready = true;
     queryMock.mockReset();
     registerListenerMock.mockReset();
     unregisterMock.mockReset();
@@ -82,6 +86,35 @@ describe('useAdminPlannerReadModels realtime invalidation', () => {
       localDate: '2026-09-21',
       view: 'week',
     });
+  });
+
+  it('invalidates in-flight results when school config becomes unconfirmed and reloads the new zone', async () => {
+    let resolveOld!: (value: unknown) => void;
+    queryMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveOld = resolve;
+        })
+    );
+    const view = renderHook(() =>
+      useAdminPlannerReadModels({ enabled: true, localDate: '2026-09-21', view: 'week' })
+    );
+    await waitFor(() => expect(queryMock).toHaveBeenCalledTimes(1));
+    school.ready = false;
+    view.rerender();
+    await act(async () => {
+      resolveOld({ scope: 'admin_planner', item: plannerItem() });
+    });
+    expect(view.result.current.item).toBeUndefined();
+    school.timeZone = 'Europe/Paris';
+    school.ready = true;
+    queryMock.mockResolvedValue({
+      scope: 'admin_planner',
+      item: { ...plannerItem(), timeZone: 'Europe/Paris' },
+    });
+    view.rerender();
+    await waitFor(() => expect(view.result.current.item?.timeZone).toBe('Europe/Paris'));
+    expect(queryMock.mock.calls.at(-1)?.[0].timeZone).toBe('Europe/Paris');
   });
 
   it('unsubscribes when the planner unmounts', async () => {

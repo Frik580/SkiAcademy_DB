@@ -1,4 +1,8 @@
 {
+  "e2e/school-timezone-setting.spec.ts": "playwright",
+  "tests/unit/schoolTimeZone.test.ts": "app-unit",
+  "tests/unit/schoolTimeZoneSetting.test.tsx": "app-unit",
+  "tests/unit/schoolTimeZoneStore.test.tsx": "app-unit",
   "e2e/admin-modal-workflow.spec.ts": "playwright",
   "e2e/admin-smoke.spec.ts": "playwright",
   "e2e/auth-smoke.spec.ts": "playwright",

@@ -1798,3 +1798,28 @@ it('reschedules a historical archived lesson level without changing its referenc
   expect(result.status).toBe('success');
   expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.difficulty).toBe('ADVANCED');
 });
+
+describe('school timezone changes do not alter existing booking reschedules', () => {
+  it('uses the original occurrence timezone after the school switches to Moscow', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(executor);
+    const docs = Object.fromEntries(
+      [...executor.snapshot().docs].map(([path, doc]) => [path, doc.data])
+    );
+    docs['resort_data/config'] = { timeZone: 'Europe/Moscow' };
+    const changed = createInMemoryCanonicalTransactionExecutor(docs);
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-10T00:00:00.000Z'),
+      changed
+    );
+    const envelope = rescheduleEnvelope('school-zone-b1', 'account_owner', 1, {
+      localDate: '2026-11-03',
+      localTime: '09:00',
+      durationMinutes: 60,
+    });
+    expect((await commands.execute(envelope)).status).toBe('success');
+    const occurrence = changed.snapshot().docs.get(`bookings/${bookingId}`)?.data.occurrence;
+    expect(occurrence.timeZone).toBe('Asia/Almaty');
+    expect(isoFromTimestamp(occurrence.interval.startsAt)).toBe('2026-11-03T04:00:00.000Z');
+  });
+});

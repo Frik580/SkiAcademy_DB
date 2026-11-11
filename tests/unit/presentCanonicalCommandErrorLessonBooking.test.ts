@@ -1,3 +1,4 @@
+import { translations } from '../../src/lib/i18n/translations';
 import { describe, expect, it } from 'vitest';
 import { CanonicalCommandClientError } from '../../src/lib/canonical/mapCanonicalCommandError';
 import {
@@ -47,6 +48,17 @@ describe('presentCanonicalCommandError (lesson-bookings)', () => {
       })
     );
     expect(presented.shouldRefresh).toBe(true);
+  });
+
+  it.each(['ru', 'en'] as const)('localizes blocked_relationship in %s', (language) => {
+    const presented = presentCanonicalCommandErrorWithContext(
+      new CanonicalCommandClientError('blocked_relationship', {
+        correlationId: 'correlation_blocked',
+      }),
+      { t: (key) => translations[language][key as keyof typeof translations.en] as string }
+    );
+    expect(presented.message).toBe(translations[language].bookingParticipantInstructorBlocked);
+    expect(presented.message).not.toContain('PERMISSION_DENIED');
   });
 
   it('handles canonical error codes without leaking internals', () => {

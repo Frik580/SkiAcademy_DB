@@ -79,7 +79,7 @@ export function presentCanonicalCommandErrorWithContext(
     case 'unauthorized':
       return { ...presented, message: context.t('signInRequired') };
     case 'blocked_relationship':
-      return { ...presented, message: context.t('instructorNotAccepting') };
+      return { ...presented, message: context.t('bookingParticipantInstructorBlocked') };
     case 'duplicate_active_enrollment':
       return { ...presented, message: context.t('alreadyEnrolledDesc') };
     case 'guest_reservation_limit':

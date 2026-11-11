@@ -1,3 +1,7 @@
+import {
+  getBookingParticipantAccess,
+  useBookingParticipantAccess,
+} from './useBookingParticipantAccess';
 import { activeLessonLevels, resolveLessonLevel } from '@ski-academy/shared-domain';
 import { useWalletStore } from '../../../wallet/walletStore';
 import { useAuthStore } from '../../../auth/authStore';
@@ -322,6 +326,39 @@ export const useBookingModal = ({
     managedParticipants,
     selectedParticipantIds
   );
+  const participantAccess = useBookingParticipantAccess(
+    isOpen,
+    userProfile?.uid,
+    targetInstructor?.id,
+    managedParticipants.map((participant) => participant.participantId)
+  );
+  const participantAccessMessage = (status: string) =>
+    t(
+      status === 'blocked'
+        ? 'bookingParticipantInstructorBlocked'
+        : status === 'error'
+          ? 'bookingParticipantAccessError'
+          : 'bookingParticipantAccessLoading'
+    );
+  const unavailableParticipantReasons = Object.fromEntries(
+    Object.entries(participantAccess.statuses)
+      .filter(([, status]) => status !== 'available')
+      .map(([id, status]) => [id, participantAccessMessage(status)])
+  );
+  const participantAccessPreventingSubmit =
+    managedParticipantsLoading ||
+    Boolean(managedParticipantsError) ||
+    effectiveParticipantIds.some((id) => participantAccess.statuses[id] !== 'available');
+  const validateSelectedParticipantAccess = () => {
+    const invalid = effectiveParticipantIds
+      .map((id) => getBookingParticipantAccess(id, targetInstructor?.id))
+      .find((status) => status !== 'available');
+    if (managedParticipantsLoading || managedParticipantsError || invalid) {
+      addNotification('warning', t('bookingError'), participantAccessMessage(invalid ?? 'error'));
+      return false;
+    }
+    return true;
+  };
   const participantOccupancyKey = effectiveParticipantIds.slice().sort().join(',');
 
   useEffect(() => {
@@ -501,6 +538,7 @@ export const useBookingModal = ({
     effectiveParticipantIds.length > maxParticipantsPerLesson;
 
   const toggleParticipant = (participantId: string) => {
+    if (getBookingParticipantAccess(participantId, targetInstructor?.id) !== 'available') return;
     setSelectedParticipantIds((current) => {
       if (maxParticipantsPerLesson === undefined) return current;
       return toggleParticipantSelection(
@@ -809,6 +847,7 @@ export const useBookingModal = ({
       addNotification('warning', t('missingDetails'), 'Select a participant');
       return;
     }
+    if (!validateSelectedParticipantAccess()) return;
     if (lessonSettingsUnavailable) {
       addNotification(
         'warning',
@@ -875,6 +914,11 @@ export const useBookingModal = ({
     }
 
     submitTimerRef.current = setTimeout(async () => {
+      if (!validateSelectedParticipantAccess()) {
+        isSubmittingRef.current = false;
+        setIsSubmitting(false);
+        return;
+      }
       if (
         !resolveBookingWalletState(
           useWalletStore.getState(),
@@ -1020,6 +1064,16 @@ export const useBookingModal = ({
     pricingSettingsLoading,
     lessonSettingsUnavailable,
     participantSelectionExceedsMax,
+    participantAccessPreventingSubmit,
+    unavailableParticipantReasons,
+    retryParticipantAccess: participantAccess.retry,
+    removeUnavailableParticipants: () =>
+      setSelectedParticipantIds((current) =>
+        current.filter(
+          (id) => getBookingParticipantAccess(id, targetInstructor?.id) === 'available'
+        )
+      ),
+    participantAccessHasError: Object.values(participantAccess.statuses).includes('error'),
     managedParticipants,
     managedParticipantsLoading,
     managedParticipantsError,

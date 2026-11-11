@@ -1,4 +1,5 @@
 import React from 'react';
+import { DisabledOptionTooltip } from '../../../ui/DisabledOptionTooltip';
 import type { ManagedParticipantOption } from '../../lesson-bookings/lessonBookingContracts';
 
 export interface ParticipantPickerProps {
@@ -9,6 +10,8 @@ export interface ParticipantPickerProps {
   readonly error?: string;
   readonly onRetry?: () => void;
   readonly maxParticipants?: number;
+  readonly onRemoveUnavailableParticipants?: () => void;
+  readonly unavailableParticipantReasons?: Readonly<Record<string, string>>;
   /** `single` replaces the current id (cabinet switcher). Default stays multi-select. */
   readonly selectionMode?: 'single' | 'multiple';
   readonly hideDependentLabel?: boolean;
@@ -31,6 +34,8 @@ export const ParticipantPicker: React.FC<ParticipantPickerProps> = ({
   error,
   onRetry,
   maxParticipants,
+  unavailableParticipantReasons,
+  onRemoveUnavailableParticipants,
   selectionMode = 'multiple',
   hideDependentLabel = false,
   t,
@@ -57,7 +62,7 @@ export const ParticipantPicker: React.FC<ParticipantPickerProps> = ({
     );
   }
 
-  if (participants.length < 2) {
+  if (participants.length < 2 && !unavailableParticipantReasons) {
     return null;
   }
 
@@ -80,20 +85,34 @@ export const ParticipantPicker: React.FC<ParticipantPickerProps> = ({
             selectionMode !== 'single' &&
             !selected &&
             (maxParticipants === undefined || selectedParticipantIds.length >= maxParticipants);
-          return (
+          const reason = unavailableParticipantReasons?.[participant.participantId];
+          const disabled = atLimit || Boolean(reason);
+          const button = (
             <button
               key={participant.participantId}
               type="button"
-              disabled={atLimit}
-              onClick={() => onToggleParticipant(participant.participantId)}
-              className={`rounded-lg border px-3 py-1.5 type-button transition ${
-                selected
-                  ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--ink)]'
-                  : atLimit
-                    ? 'cursor-not-allowed border-[var(--border-subtle)] text-[var(--ink-dim)]/50'
-                    : 'border-[var(--border-subtle)] text-[var(--ink-dim)]'
+              disabled={disabled}
+              aria-pressed={selected}
+              onClick={() => {
+                if (!disabled) onToggleParticipant(participant.participantId);
+              }}
+              className={`inline-flex max-w-full items-center rounded-lg border px-3 py-1.5 type-button transition ${
+                reason
+                  ? 'pointer-events-none cursor-not-allowed border-[var(--border-subtle)] text-[var(--ink)] opacity-60'
+                  : selected
+                    ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--ink)]'
+                    : atLimit
+                      ? 'cursor-not-allowed border-[var(--border-subtle)] text-[var(--ink-dim)]/50'
+                      : 'border-[var(--border-subtle)] text-[var(--ink-dim)]'
               }`}
             >
+              {participant.avatarUrl && (
+                <img
+                  src={participant.avatarUrl}
+                  alt=""
+                  className="mr-2 h-6 w-6 shrink-0 rounded-full object-cover"
+                />
+              )}
               <span>{participant.displayName}</span>
               {(!hideDependentLabel || participant.authority === 'self') && (
                 <span className="ml-1.5 type-caption uppercase opacity-70">
@@ -102,8 +121,29 @@ export const ParticipantPicker: React.FC<ParticipantPickerProps> = ({
               )}
             </button>
           );
+          return reason ? (
+            <DisabledOptionTooltip
+              key={participant.participantId}
+              message={reason}
+              label={participant.displayName}
+            >
+              {button}
+            </DisabledOptionTooltip>
+          ) : (
+            button
+          );
         })}
       </div>
+      {onRemoveUnavailableParticipants &&
+        selectedParticipantIds.some((id) => unavailableParticipantReasons?.[id]) && (
+          <button
+            type="button"
+            onClick={onRemoveUnavailableParticipants}
+            className="type-button text-[var(--accent)] hover:underline"
+          >
+            {t('bookingRemoveUnavailableParticipants')}
+          </button>
+        )}
       {selectionMode !== 'single' &&
         maxParticipants !== undefined &&
         selectedParticipantIds.length >= maxParticipants && (

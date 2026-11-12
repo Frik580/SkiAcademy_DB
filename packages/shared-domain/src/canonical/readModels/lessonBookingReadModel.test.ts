@@ -6,6 +6,7 @@ import {
   LessonBookingInstructorAttendancePresentationSchema,
   LessonBookingManagedParticipantAttendanceSchema,
   LessonBookingReadModelSchema,
+  LessonBookingReadModelOccurrenceProjectionSchema,
   QueryLessonBookingReadModelsInputSchema,
   isInstructorLessonBookingHot,
   isLessonBookingHot,
@@ -19,6 +20,28 @@ import {
 import { timestampFromDate } from '../primitives';
 
 describe('lessonBookingReadModel contracts', () => {
+  it('requires canonical endsAt in every lesson booking occurrence projection', () => {
+    const occurrence = {
+      startsAt: timestampFromDate(new Date('2026-12-15T04:00:00Z')),
+      endsAt: timestampFromDate(new Date('2026-12-15T05:00:00Z')),
+      timeZone: 'Asia/Almaty',
+      durationMinutes: 60,
+    };
+    expect(LessonBookingReadModelOccurrenceProjectionSchema.safeParse(occurrence).success).toBe(
+      true
+    );
+    const result = LessonBookingReadModelOccurrenceProjectionSchema.safeParse({
+      ...occurrence,
+      endsAt: undefined,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([expect.objectContaining({ path: ['endsAt'] })])
+      );
+    }
+  });
+
   it('merges revision-aware state without replacing newer cached revisions', () => {
     const cached = { revision: 5, bookingId: 'booking_merge_01' };
     const stale = { revision: 3, bookingId: 'booking_merge_01' };

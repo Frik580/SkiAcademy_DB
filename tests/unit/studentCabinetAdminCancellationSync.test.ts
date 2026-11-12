@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import {
   BookingIdSchema,
@@ -26,6 +26,116 @@ import {
   isActiveSessionItem,
 } from '../../src/features/course-enrollments/sessionScheduleHelpers';
 import { buildMixedCabinetSessionItems } from '../../src/features/course-enrollments/cabinetSessionItems';
+import { isLessonBookingHot } from '@ski-academy/shared-domain/canonical/readModels/lessonBookingReadModel';
+
+describe('canonical endsAt hot reconciliation (Issue 68 B3)', () => {
+  const endsAt = timestampFromDate(new Date('2026-12-15T05:00:00Z'));
+
+  function cabinetItem() {
+    const model = buildReadModel({ bookingId: 'booking_b3', revision: 5, status: 'confirmed' });
+    return mapLessonBookingReadModelToCabinetItem({
+      ...model,
+      occurrence: {
+        startsAt: timestampFromDate(new Date('2026-12-15T04:00:00Z')),
+        endsAt,
+        timeZone: 'Asia/Almaty',
+        durationMinutes: 60,
+      },
+    });
+  }
+
+  beforeEach(() => {
+    useLessonBookingStore.getState().reset();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-12-15T06:00:00Z'));
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  it('preserves ended bookings and calendar/history state regardless of browser timezone', () => {
+    // Run this suite in isolated processes with TZ=Asia/Almaty, America/New_York,
+    // Europe/London and UTC; never mutate TZ in a parallel test worker.
+    const item = cabinetItem();
+    expect(item.date).toBe('2026-12-15');
+    expect(item.time).toBe('09:00');
+    expect(item.endsAt).toBe(endsAt);
+    const store = useLessonBookingStore.getState();
+    store.mergeItems(new Map([[item.bookingId, item]]));
+    store.setCalendarScope('account_b3:Asia/Almaty');
+    store.setCalendarMonthStatus('2026-12', 'loaded');
+    store.setHistoryInitialized(true);
+    store.setHistoryCursor('history_page_2');
+    const now = timestampFromDate(new Date());
+    expect(isLessonBookingHot({ lifecycleStatus: item.status, endsAt, now })).toBe(false);
+    expect(findStaleHotLessonBookingIds(useLessonBookingStore.getState().items, [], now)).toEqual(
+      []
+    );
+    applyAccountLessonBookingReadResults({
+      hotItems: [],
+      historyItems: [],
+      reconcileHot: { hasMore: false },
+    });
+    const state = useLessonBookingStore.getState();
+    expect(selectLessonBookingItems(state)).toEqual([item]);
+    expect(state.calendarMonths.get('2026-12')).toBe('loaded');
+    expect(state.historyInitialized).toBe(true);
+    expect(state.historyCursor).toBe('history_page_2');
+    expect(
+      buildMixedCabinetSessionItems({ lessonBookings: state.itemsList, courseEnrollments: [] })
+    ).toEqual([expect.objectContaining({ kind: 'lesson' })]);
+  });
+
+  it.each([
+    [undefined, false],
+    [{ hasMore: true }, false],
+    [{ hasMore: false, cursor: 'continuation' }, false],
+    [{ hasMore: false }, true],
+  ] as const)(
+    'prunes a future booking only for a complete first page: %j',
+    (reconcileHot, removed) => {
+      vi.setSystemTime(new Date('2026-12-15T04:00:00Z'));
+      const item = cabinetItem();
+      useLessonBookingStore.getState().mergeItems(new Map([[item.bookingId, item]]));
+      expect(findStaleHotLessonBookingIds(useLessonBookingStore.getState().items, [])).toEqual([
+        item.bookingId,
+      ]);
+      applyAccountLessonBookingReadResults({ hotItems: [], historyItems: [], reconcileHot });
+      expect(useLessonBookingStore.getState().items.has(item.bookingId)).toBe(!removed);
+    }
+  );
+
+  it.each([-1, 0, 1])('preserves nanosecond boundary semantics (now offset %i)', (offset) => {
+    const item = { ...cabinetItem(), endsAt: { ...endsAt, nanoseconds: 500 } };
+    const now = { ...endsAt, nanoseconds: 500 + offset };
+    expect(findStaleHotLessonBookingIds(new Map([[item.bookingId, item]]), [], now)).toEqual(
+      offset <= 0 ? [item.bookingId] : []
+    );
+  });
+
+  it.each(['completed', 'cancelled', 'no_show'] as const)('retains terminal %s rows', (status) => {
+    vi.setSystemTime(new Date('2026-12-15T04:00:00Z'));
+    const item = { ...cabinetItem(), status };
+    useLessonBookingStore.getState().mergeItems(new Map([[item.bookingId, item]]));
+    applyAccountLessonBookingReadResults({
+      hotItems: [],
+      historyItems: [],
+      reconcileHot: { hasMore: false },
+    });
+    expect(useLessonBookingStore.getState().items.get(item.bookingId)).toBe(item);
+  });
+
+  it('retains a row with missing canonical endsAt without using display time', () => {
+    vi.setSystemTime(new Date('2026-12-15T04:00:00Z'));
+    const item = { ...cabinetItem(), endsAt: undefined };
+    useLessonBookingStore.getState().mergeItems(new Map([[item.bookingId, item]]));
+    applyAccountLessonBookingReadResults({
+      hotItems: [],
+      historyItems: [],
+      reconcileHot: { hasMore: false },
+    });
+    expect(useLessonBookingStore.getState().items.get(item.bookingId)).toBe(item);
+  });
+});
 
 const queryLessonBookingReadModelsMock = vi.fn();
 

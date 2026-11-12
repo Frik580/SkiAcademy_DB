@@ -221,6 +221,7 @@ export interface StudentCabinetHomeContext {
 
 /** Input boundary for the presentational "today" section. */
 export interface StudentTodaySectionInput {
+  schoolTimeZone?: string;
   todayProgress?: ParticipantTodayProgressInput;
   scopeParticipant?: SessionParticipantInput;
   countdown?: TodaySessionCountdown | null;

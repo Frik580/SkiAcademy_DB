@@ -1,3 +1,5 @@
+import { useSchoolTimeZone } from '../../../settings/schoolTimeZone';
+import { useCabinetSessionNow } from './useCabinetSessionNow';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -304,9 +306,15 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     () => props.bookings.filter(belongsToSelectedParticipant),
     [props.bookings, belongsToSelectedParticipant]
   );
-  const hasAnyParticipantSessionToday = hasTrainingTodayFromSessions(
-    props.accountSessionItems ?? props.sessionItems ?? []
+  const schoolTimeZone = useSchoolTimeZone();
+  const accountSessions = props.accountSessionItems ?? props.sessionItems ?? [];
+  const calendarNow = useCabinetSessionNow(
+    accountSessions,
+    schoolTimeZone.ready ? schoolTimeZone.timeZone : undefined
   );
+  const hasAnyParticipantSessionToday =
+    schoolTimeZone.ready &&
+    hasTrainingTodayFromSessions(accountSessions, calendarNow, schoolTimeZone.timeZone);
 
   const isolatedSessionItems = useMemo(
     () =>

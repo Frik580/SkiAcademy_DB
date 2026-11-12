@@ -98,13 +98,13 @@ describe('canonical Student Cabinet time baseline across browser timezones', () 
 
   it('counts down to the canonical lesson instant, thirty minutes before start', () => {
     const now = new Date('2026-06-15T03:30:00.000Z');
-    const countdown = getTodaySessionCountdownFromSessions([lesson()], now);
+    const countdown = getTodaySessionCountdownFromSessions([lesson()], now, 'Asia/Almaty');
     expect(countdown?.startsAt.toISOString()).toBe(startsAt.toISOString());
     expect(countdown && countdown.startsAt.getTime() - now.getTime()).toBe(30 * 60 * 1000);
   });
 
   it('does not show a completed time window as an upcoming lesson', () => {
-    expect(getTodaySessionCountdownFromSessions([lesson()], endsAt)).toBeNull();
+    expect(getTodaySessionCountdownFromSessions([lesson()], endsAt, 'Asia/Almaty')).toBeNull();
     expect(getCurrentSessionItems([lesson()], endsAt)).toEqual([]);
   });
 
@@ -118,8 +118,8 @@ describe('canonical Student Cabinet time baseline across browser timezones', () 
   it('includes an upcoming course on the Almaty day across the UTC midnight boundary', () => {
     const item = course({ time: '00:30', endTime: '01:30' });
     const now = new Date('2026-06-14T19:00:00.000Z'); // June 15, 00:00 in Almaty.
-    expect(getTodaySessionCountdownFromSessions([item], now)?.startsAt.toISOString()).toBe(
-      '2026-06-14T19:30:00.000Z'
-    );
+    expect(
+      getTodaySessionCountdownFromSessions([item], now, 'Asia/Almaty')?.startsAt.toISOString()
+    ).toBe('2026-06-14T19:30:00.000Z');
   });
 });

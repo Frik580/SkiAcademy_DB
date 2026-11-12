@@ -278,7 +278,7 @@ describe('account-level next course aggregation', () => {
   const now = new Date('2099-01-01T12:00:00');
   it('collapses duplicate course-day enrollments and deduplicates participant IDs', () => {
     const sessions = [course('ea', 'alice'), course('eb', 'bob'), course('eb_duplicate', 'bob')];
-    const cards = buildNextSessionCards(sessions, profiles, now);
+    const cards = buildNextSessionCards(sessions, profiles, now, 'Asia/Almaty');
     render(<NextSessionBlock {...props([])} {...cards} />);
     expect(participantLists()).toHaveLength(1);
     expect(
@@ -307,7 +307,8 @@ describe('account-level next course aggregation', () => {
         },
       ],
       profiles,
-      now
+      now,
+      'Asia/Almaty'
     );
     render(<NextSessionBlock {...props([])} {...cards} />);
     const lists = participantLists();
@@ -324,7 +325,8 @@ describe('account-level next course aggregation', () => {
     const cards = buildNextSessionCards(
       [lesson(['bob']), course('ea', 'alice'), course('eb', 'bob')],
       [],
-      now
+      now,
+      'Asia/Almaty'
     );
     render(<NextSessionBlock {...props([])} {...cards} />);
     const lists = participantLists();

@@ -103,8 +103,10 @@ export const SessionCountdownBlock = memo<SessionCountdownBlockInput>(
     const courseParticipants = new Map<string, Map<string, SessionParticipantInput>>();
     for (const { session } of sessions) {
       if (session.kind !== 'course_day') continue;
-      const byId = courseParticipants.get(session.courseId) ?? new Map<string, SessionParticipantInput>();
-      for (const participant of participantsBySessionKey?.[sessionItemKey(session)] ?? participants) {
+      const byId =
+        courseParticipants.get(session.courseId) ?? new Map<string, SessionParticipantInput>();
+      for (const participant of participantsBySessionKey?.[sessionItemKey(session)] ??
+        participants) {
         byId.set(participant.participantId, participant);
       }
       courseParticipants.set(session.courseId, byId);
@@ -113,8 +115,12 @@ export const SessionCountdownBlock = memo<SessionCountdownBlockInput>(
     const visibleSessions = sessions.filter(({ session }) => {
       if (session.kind !== 'course_day') return true;
       const key = JSON.stringify([
-        session.courseId, session.courseDayId, session.date, session.time,
-        session.endTime, session.timeZone,
+        session.courseId,
+        session.courseDayId,
+        session.date,
+        session.time,
+        session.endTime,
+        session.timeZone,
       ]);
       if (seenCourseDays.has(key)) return false;
       seenCourseDays.add(key);
@@ -399,7 +405,7 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
                           {formatCabinetSessionTimeRange(session)}
                         </p>
                         <p className="sc-next-session-day-label">
-                          {formatSessionDayLabel(dateStr, lang, t)}
+                          {formatSessionDayLabel(dateStr, lang, t, miniDays[0]?.dateStr)}
                         </p>
                       </div>
                       <h3 className="sc-next-session-title type-card-title">

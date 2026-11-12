@@ -40,7 +40,8 @@ export function buildSessionParticipants(
 export function buildNextSessionCards(
   accountSessions: readonly CabinetSessionItem[],
   profiles: readonly SessionParticipantInput[],
-  fromDate = new Date()
+  fromDate = new Date(),
+  timeZone: string
 ): {
   nextSessions: NextSessionItem[];
   participantsBySessionKey: Readonly<Record<string, readonly SessionParticipantInput[]>>;
@@ -61,22 +62,24 @@ export function buildNextSessionCards(
   }
 
   const seenCourseDays = new Set<string>();
-  const nextSessions = getNextSessionsNext7DaysFromSessions(activeSessions, fromDate).filter(
-    ({ session, dateStr }) => {
-      if (session.kind === 'lesson') return true;
-      const key = JSON.stringify([
-        session.courseId,
-        session.courseDayId,
-        dateStr,
-        session.time,
-        session.endTime,
-        session.timeZone,
-      ]);
-      if (seenCourseDays.has(key)) return false;
-      seenCourseDays.add(key);
-      return true;
-    }
-  );
+  const nextSessions = getNextSessionsNext7DaysFromSessions(
+    activeSessions,
+    fromDate,
+    timeZone
+  ).filter(({ session, dateStr }) => {
+    if (session.kind === 'lesson') return true;
+    const key = JSON.stringify([
+      session.courseId,
+      session.courseDayId,
+      dateStr,
+      session.time,
+      session.endTime,
+      session.timeZone,
+    ]);
+    if (seenCourseDays.has(key)) return false;
+    seenCourseDays.add(key);
+    return true;
+  });
   const nextParticipantsBySessionKey = Object.fromEntries(
     nextSessions.map(({ session }) => [
       sessionItemKey(session),

@@ -1,6 +1,16 @@
+import { retrySchoolTimeZone } from '../../src/features/settings/schoolTimeZone';
+const schoolZone = vi.hoisted(() => ({
+  timeZone: 'Asia/Almaty',
+  ready: true,
+  error: undefined as Error | undefined,
+}));
+vi.mock('../../src/features/settings/schoolTimeZone', () => ({
+  useSchoolTimeZone: () => schoolZone,
+  retrySchoolTimeZone: vi.fn(),
+}));
 import { cabinetLessonTiming } from '../fixtures/cabinetLessonTiming';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { act, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -34,7 +44,15 @@ const homeworkHistoryCalls = vi.hoisted(() => ({
 vi.mock('../../src/features/instructor-workspace/useLessonHomeworkHistory', () => ({
   useLessonHomeworkHistory: (threadIds: string[]) => {
     homeworkHistoryCalls.sources = threadIds;
-    return { items: [], denied: [], hasMore: false, loading: false, error: false, signedIn: true, loadMore: vi.fn() };
+    return {
+      items: [],
+      denied: [],
+      hasMore: false,
+      loading: false,
+      error: false,
+      signedIn: true,
+      loadMore: vi.fn(),
+    };
   },
 }));
 
@@ -228,6 +246,7 @@ function HeaderAndHome() {
 }
 
 beforeEach(() => {
+  Object.assign(schoolZone, { timeZone: 'Asia/Almaty', ready: true, error: undefined });
   recommendationsForHome = [];
   homeworkHistoryCalls.sources = [];
   useAccountParticipantLessonStatsStore.getState().reset();
@@ -1207,5 +1226,87 @@ describe('Student Home participant scope', () => {
     );
     expect(scopeIn('scSkillRingsTitle')).toHaveAttribute('title', name);
     expect(screen.getByRole('img', { name })).toHaveTextContent('О');
+  });
+});
+
+function calendarCourse(participantId: string): CabinetSessionItem {
+  return {
+    kind: 'course_day',
+    courseId: 'calendar-course',
+    courseDayId: 'calendar-day',
+    enrollmentId: `calendar-${participantId}`,
+    courseTitle: `Calendar ${participantId}`,
+    participantId,
+    lifecycleStatus: 'confirmed',
+    date: '2026-11-13',
+    time: '01:00',
+    endTime: '02:00',
+    timeZone: 'Asia/Almaty',
+    startsAt: { seconds: Date.parse('2026-11-12T20:00:00Z') / 1000, nanoseconds: 0 },
+    endsAt: { seconds: Date.parse('2026-11-12T21:00:00Z') / 1000, nanoseconds: 0 },
+  } as CabinetSessionItem;
+}
+function calendarHome(id = 'alice') {
+  return (
+    <MemoryRouter>
+      <StudentCabinetHome {...input(id)} sessionItems={[calendarCourse(id)]} />
+    </MemoryRouter>
+  );
+}
+describe('B6 Home school calendar readiness and scope', () => {
+  it('waits for confirmation, surfaces errors and retry, and updates after a school zone change', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-12T19:30:00Z'));
+    schoolZone.ready = false;
+    const view = render(calendarHome());
+    expect(view.container.querySelector('.sc-next-session')).toBeNull();
+    expect(view.container.querySelector('.sc-session-countdown')).toBeNull();
+    schoolZone.error = new Error('offline');
+    view.rerender(calendarHome());
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not load school time zone.');
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(retrySchoolTimeZone).toHaveBeenCalled();
+    schoolZone.error = undefined;
+    schoolZone.ready = true;
+    view.rerender(calendarHome());
+    expect(view.container.querySelector('[aria-current="date"]')).toHaveTextContent('13');
+    expect(view.container.querySelector('.sc-next-session-day-label')).toHaveTextContent('scToday');
+    schoolZone.timeZone = 'America/New_York';
+    view.rerender(calendarHome());
+    expect(view.container.querySelector('[aria-current="date"]')).toHaveTextContent('12');
+    expect(view.container.querySelector('.sc-next-session-day-label')).toHaveTextContent('scToday');
+    schoolZone.ready = false;
+    view.rerender(calendarHome());
+    expect(view.container.querySelector('.sc-next-session')).toBeNull();
+    schoolZone.ready = true;
+    view.rerender(calendarHome());
+    expect(view.container.querySelector('[aria-current="date"]')).toHaveTextContent('12');
+  });
+
+  it('replaces participant calendar entries on A to B to A and keeps the school day', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-12T19:30:00Z'));
+    const view = render(calendarHome('alice'));
+    for (const id of ['bob', 'alice']) {
+      view.rerender(calendarHome(id));
+      const list = view.container.querySelector('.sc-next-session-list')!;
+      expect(list).toHaveTextContent(`Calendar ${id}`);
+      expect(list).not.toHaveTextContent(`Calendar ${id === 'alice' ? 'bob' : 'alice'}`);
+      expect(view.container.querySelector('[aria-current="date"]')).toHaveTextContent('13');
+      expect(view.container.querySelectorAll('.sc-next-session-day')).toHaveLength(7);
+    }
+  });
+
+  it('updates labels and the calendar at school midnight while mounted', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-12T18:59:59Z'));
+    const view = render(calendarHome());
+    expect(view.container.querySelector('[aria-current="date"]')).toHaveTextContent('12');
+    expect(view.container.querySelector('.sc-next-session-day-label')).toHaveTextContent(
+      'scTomorrow'
+    );
+    act(() => vi.advanceTimersByTime(1000));
+    expect(view.container.querySelector('[aria-current="date"]')).toHaveTextContent('13');
+    expect(view.container.querySelector('.sc-next-session-day-label')).toHaveTextContent('scToday');
   });
 });

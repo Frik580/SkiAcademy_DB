@@ -8,6 +8,7 @@
   --journey-gradient-start: #1a6578;
   --journey-gradient-middle: #2d8fa7;
   --journey-gradient-end: #5ec8e8;
+  --journey-marker-diameter: 2rem;
   width: calc(100% - 2rem);
   max-width: calc(80rem - 3rem);
   margin: 1rem auto 0;
@@ -171,8 +172,8 @@
 
 .sc-journey .journey-stage-node > span {
   position: relative;
-  width: 2rem;
-  height: 2rem;
+  width: var(--journey-marker-diameter);
+  height: var(--journey-marker-diameter);
   border: 1px solid var(--journey-muted) !important;
   background: var(--journey-surface) !important;
   box-shadow: none !important;
@@ -219,8 +220,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: var(--journey-marker-diameter);
+  height: var(--journey-marker-diameter);
   padding: 0;
   margin-top: 0;
 }
@@ -230,8 +231,8 @@
 }
 
 .sc-journey .journey-user-marker .ui-avatar {
-  width: 2rem;
-  height: 2rem;
+  width: var(--journey-marker-diameter);
+  height: var(--journey-marker-diameter);
   border-color: var(--accent) !important;
   box-shadow: 0 0 0 2px var(--card-bg) !important;
 }
@@ -356,6 +357,7 @@
 @media (min-width: 640px) {
   .sc-journey {
     --journey-padding: 1.5rem;
+    --journey-marker-diameter: 2.75rem;
     width: calc(100% - 3rem);
     margin-top: 1.5rem;
   }
@@ -370,11 +372,6 @@
 
   .sc-journey .journey-traveled {
     stroke-width: 4.375px;
-  }
-
-  .sc-journey .journey-stage-node > span {
-    width: 2.75rem;
-    height: 2.75rem;
   }
 
   .sc-journey .journey-stage-labels h3 {

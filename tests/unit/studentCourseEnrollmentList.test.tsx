@@ -18,6 +18,14 @@ import { CurrencyProvider } from '../../src/app/providers/CurrencyContext';
 import { translations } from '../../src/lib/i18n/translations';
 import type { CourseScheduleProjectionReadModel } from '@ski-academy/shared-domain';
 
+// This suite exercises presentation with a server-confirmed school timezone.
+// The real hook subscribes to Firestore and must not run in isolated app unit tests.
+vi.mock('../../src/features/settings/schoolTimeZone', () => ({
+  useSchoolTimeZone: () => ({ timeZone: 'Asia/Almaty', ready: true, error: undefined }),
+  requireSchoolTimeZone: () => 'Asia/Almaty',
+  retrySchoolTimeZone: vi.fn(),
+}));
+
 function shiftDate(days: number): string {
   const date = new Date();
   date.setHours(12, 0, 0, 0);

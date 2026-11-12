@@ -16,8 +16,7 @@ function publish(next: SchoolTimeZoneState) {
   state = next;
   listeners.forEach((listener) => listener());
 }
-function subscribe(listener: () => void) {
-  listeners.add(listener);
+function startSubscription() {
   if (!unsubscribe) {
     unsubscribe = onSnapshot(
       configRef,
@@ -36,6 +35,16 @@ function subscribe(listener: () => void) {
       (error) => publish({ ...initial, error })
     );
   }
+}
+export function retrySchoolTimeZone(): void {
+  unsubscribe?.();
+  unsubscribe = undefined;
+  publish(initial);
+  if (listeners.size > 0) startSubscription();
+}
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  startSubscription();
   return () => {
     listeners.delete(listener);
     if (listeners.size === 0) {

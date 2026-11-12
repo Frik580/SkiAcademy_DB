@@ -52,9 +52,11 @@ import {
   useBookingCollaborationStore,
 } from '../../../features/booking-collaboration';
 import {
+  type AccountCalendarMonth,
   resolveInitialVisibleAccountCalendarMonth,
   shiftVisibleAccountCalendarMonth,
 } from '../../../features/lesson-bookings/calendarMonthRange';
+import { useSchoolTimeZone } from '../../settings/schoolTimeZone';
 import { useAccountLessonBookingCalendarMonth } from '../../../features/lesson-bookings/useAccountLessonBookingCalendarMonth';
 
 const LIST_SCOPE_FILTERS: SessionListScope[] = ['upcoming', 'current', 'past', 'all'];
@@ -120,18 +122,26 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
     return saved === 'true';
   });
 
-  const [currentMonth, setCurrentMonth] = useState<Date>(() =>
-    resolveInitialVisibleAccountCalendarMonth()
-  );
+  const school = useSchoolTimeZone();
+  const [selectedMonth, setCurrentMonth] = useState<AccountCalendarMonth | null>(null);
+  const currentMonth =
+    selectedMonth ??
+    (school.ready ? resolveInitialVisibleAccountCalendarMonth(school.timeZone) : null);
+  useEffect(() => {
+    if (school.ready)
+      setCurrentMonth(
+        (previous) => previous ?? resolveInitialVisibleAccountCalendarMonth(school.timeZone)
+      );
+  }, [school.ready, school.timeZone]);
 
   const [selectedDateFilter, setSelectedDateFilter] = useState<string | null>(null);
   const [listScope, setListScope] = useState<SessionListScope>('upcoming');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const ITEMS_PER_PAGE = 5;
-  const year = currentMonth.getFullYear();
-  const month = currentMonth.getMonth();
+  const year = currentMonth?.year ?? 0;
+  const month = currentMonth?.monthIndex ?? 0;
   const calendarMonth = useAccountLessonBookingCalendarMonth({
-    enabled: showWorkoutCalendar,
+    enabled: showWorkoutCalendar && currentMonth !== null,
     year,
     monthIndex: month,
   });
@@ -161,10 +171,10 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
     filteredSessions.filter((item) => isSessionOnDate(item, dateStr));
 
   const firstDayIndex = (() => {
-    const day = new Date(year, month, 1).getDay();
+    const day = new Date(Date.UTC(year, month, 1)).getUTCDay();
     return day === 0 ? 6 : day - 1;
   })();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInMonth = !currentMonth ? 0 : new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
 
   const daysArray: (number | null)[] = [];
   for (let i = 0; i < firstDayIndex; i++) daysArray.push(null);
@@ -250,7 +260,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
             </div>
           </div>
 
-          {sessionItems.length > 0 && (
+          {(currentMonth !== null || !school.ready) && (
             <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--profile-bg)] p-4 space-y-3 w-full min-w-0">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-wrap w-full min-w-0">
                 <span className="type-compact font-medium text-[var(--ink)]">
@@ -259,20 +269,28 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     type="button"
+                    disabled={!currentMonth || !school.ready}
                     onClick={() =>
-                      setCurrentMonth((prev) => shiftVisibleAccountCalendarMonth(prev, -1))
+                      setCurrentMonth((prev) =>
+                        prev ? shiftVisibleAccountCalendarMonth(prev, -1) : prev
+                      )
                     }
                     className="p-1.5 rounded-lg border border-[var(--border-subtle)] text-[var(--ink-dim)] hover:text-[var(--ink)] transition"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   <span className="type-compact text-[var(--ink)] min-w-[120px] text-center">
-                    {language === 'ru' ? MONTHS_RU[month] : MONTHS_EN[month]} {year}
+                    {currentMonth
+                      ? `${language === 'ru' ? MONTHS_RU[month] : MONTHS_EN[month]} ${year}`
+                      : t('loading')}
                   </span>
                   <button
                     type="button"
+                    disabled={!currentMonth || !school.ready}
                     onClick={() =>
-                      setCurrentMonth((prev) => shiftVisibleAccountCalendarMonth(prev, 1))
+                      setCurrentMonth((prev) =>
+                        prev ? shiftVisibleAccountCalendarMonth(prev, 1) : prev
+                      )
                     }
                     className="p-1.5 rounded-lg border border-[var(--border-subtle)] text-[var(--ink-dim)] hover:text-[var(--ink)] transition"
                   >
@@ -281,7 +299,12 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                 </div>
               </div>
               {calendarMonth.status === 'loading' && (
-                <p className="type-compact text-[var(--ink-dim)]">{t('loading')}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="type-compact text-[var(--ink-dim)]">{t('loading')}</p>
+                  {!school.ready && (
+                    <ScTextButton onClick={calendarMonth.retry}>{t('retry')}</ScTextButton>
+                  )}
+                </div>
               )}
               {calendarMonth.error && (
                 <div className="flex flex-wrap items-center gap-2">

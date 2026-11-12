@@ -220,17 +220,30 @@ function calendarMonthInFlightKey(accountId: string, monthKey: string): string {
 
 export async function ensureAccountCalendarMonthLoaded(input: {
   readonly accountId: string;
+  readonly timeZone: string;
+  readonly getCurrentTimeZone?: () => string | undefined;
   readonly monthKey: string;
   readonly rangeStart: CanonicalTimestamp;
   readonly rangeEnd: CanonicalTimestamp;
   readonly getCurrentAccountId?: () => string | undefined;
 }): Promise<void> {
+  useLessonBookingStore.getState().setCalendarScope(`${input.accountId}:${input.timeZone}`);
   const store = useLessonBookingStore.getState();
   if (store.calendarMonths.get(input.monthKey) === 'loaded') {
     return;
   }
 
-  const inFlightKey = calendarMonthInFlightKey(input.accountId, input.monthKey);
+  const generation = store.calendarGeneration;
+  const isCurrent = () => {
+    const current = useLessonBookingStore.getState();
+    return (
+      current.calendarGeneration === generation &&
+      current.syncGeneration === store.syncGeneration &&
+      (!input.getCurrentAccountId || input.getCurrentAccountId() === input.accountId) &&
+      (!input.getCurrentTimeZone || input.getCurrentTimeZone() === input.timeZone)
+    );
+  };
+  const inFlightKey = `${calendarMonthInFlightKey(input.accountId, input.monthKey)}:${generation}`;
   const existing = calendarMonthInFlight.get(inFlightKey);
   if (existing) {
     return existing;
@@ -246,7 +259,7 @@ export async function ensureAccountCalendarMonthLoaded(input: {
         rangeStart: input.rangeStart,
         rangeEnd: input.rangeEnd,
       });
-      if (input.getCurrentAccountId && input.getCurrentAccountId() !== input.accountId) {
+      if (!isCurrent()) {
         return;
       }
       applyAccountLessonBookingReadResults({
@@ -256,7 +269,7 @@ export async function ensureAccountCalendarMonthLoaded(input: {
       });
       useLessonBookingStore.getState().setCalendarMonthStatus(input.monthKey, 'loaded');
     } catch (error) {
-      if (input.getCurrentAccountId && input.getCurrentAccountId() !== input.accountId) {
+      if (!isCurrent()) {
         return;
       }
       useLessonBookingStore.getState().clearCalendarMonthStatus(input.monthKey);

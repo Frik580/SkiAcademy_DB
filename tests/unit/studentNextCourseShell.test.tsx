@@ -46,6 +46,14 @@ vi.mock('../../src/app/providers/LanguageContext', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/app/providers/LanguageContext')>()),
   useLanguage: () => ({ language: 'en', t: (key: string) => key }),
 }));
+// This suite exercises presentation with a server-confirmed school timezone.
+// The real hook subscribes to Firestore and must not run in isolated app unit tests.
+vi.mock('../../src/features/settings/schoolTimeZone', () => ({
+  useSchoolTimeZone: () => ({ timeZone: 'Asia/Almaty', ready: true, error: undefined }),
+  requireSchoolTimeZone: () => 'Asia/Almaty',
+  retrySchoolTimeZone: vi.fn(),
+}));
+
 vi.mock('../../src/features/lesson-bookings/useAccountLessonBookingCalendarMonth', () => ({
   useAccountLessonBookingCalendarMonth: () => ({ loading: false, error: undefined }),
 }));

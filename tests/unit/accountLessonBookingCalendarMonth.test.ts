@@ -24,12 +24,34 @@ import { mapLessonBookingReadModelToCabinetItem } from '../../src/features/lesso
 import {
   accountCalendarMonthKey,
   buildAccountCalendarMonthRange,
+  buildAccountCalendarMonthSearchRange,
   resolveInitialVisibleAccountCalendarMonth,
   shiftVisibleAccountCalendarMonth,
 } from '../../src/features/lesson-bookings/calendarMonthRange';
 import { useState } from 'react';
 import { buildMixedCabinetSessionItems } from '../../src/features/course-enrollments/cabinetSessionItems';
 import { isSessionOnDate } from '../../src/features/course-enrollments/sessionScheduleHelpers';
+
+const school = vi.hoisted(() => ({
+  timeZone: 'Asia/Almaty',
+  ready: true,
+  error: undefined as Error | undefined,
+  retry: vi.fn(),
+}));
+vi.mock('../../src/features/settings/schoolTimeZone', () => ({
+  useSchoolTimeZone: () => school,
+  requireSchoolTimeZone: () => {
+    if (!school.ready || school.error) throw new Error('not ready');
+    return school.timeZone;
+  },
+  retrySchoolTimeZone: () => school.retry(),
+}));
+beforeEach(() => {
+  school.timeZone = 'Asia/Almaty';
+  school.ready = true;
+  school.error = undefined;
+  school.retry.mockReset();
+});
 
 const queryLessonBookingReadModelsMock = vi.fn();
 
@@ -119,7 +141,9 @@ describe('account calendar month cache', () => {
     );
 
     await waitFor(() => {
-      expect(useLessonBookingStore.getState().calendarMonths.get('2026-09')).toBe('loaded');
+      expect(useLessonBookingStore.getState().calendarMonths.get('2026-09@Asia/Almaty')).toBe(
+        'loaded'
+      );
     });
     expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(1);
     expect(queryLessonBookingReadModelsMock).toHaveBeenCalledWith(
@@ -128,13 +152,17 @@ describe('account calendar month cache', () => {
 
     rerender({ monthIndex: 7 });
     await waitFor(() => {
-      expect(useLessonBookingStore.getState().calendarMonths.get('2026-08')).toBe('loaded');
+      expect(useLessonBookingStore.getState().calendarMonths.get('2026-08@Asia/Almaty')).toBe(
+        'loaded'
+      );
     });
     expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(2);
 
     rerender({ monthIndex: 8 });
     await waitFor(() => {
-      expect(useLessonBookingStore.getState().calendarMonths.get('2026-09')).toBe('loaded');
+      expect(useLessonBookingStore.getState().calendarMonths.get('2026-09@Asia/Almaty')).toBe(
+        'loaded'
+      );
     });
     expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(2);
     expect(
@@ -160,13 +188,17 @@ describe('account calendar month cache', () => {
     await waitFor(() => {
       expect(result.current.error).toBe('calendar month failed');
     });
-    expect(useLessonBookingStore.getState().calendarMonths.get('2026-09')).toBeUndefined();
+    expect(
+      useLessonBookingStore.getState().calendarMonths.get('2026-09@Asia/Almaty')
+    ).toBeUndefined();
 
     await act(async () => {
       result.current.retry();
     });
     await waitFor(() => {
-      expect(useLessonBookingStore.getState().calendarMonths.get('2026-09')).toBe('loaded');
+      expect(useLessonBookingStore.getState().calendarMonths.get('2026-09@Asia/Almaty')).toBe(
+        'loaded'
+      );
     });
     expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(2);
   });
@@ -179,16 +211,18 @@ describe('account calendar month cache', () => {
           resolveQuery = resolve;
         })
     );
-    const range = buildAccountCalendarMonthRange(2026, 8);
+    const range = buildAccountCalendarMonthRange(2026, 8, 'Asia/Almaty');
 
     const first = ensureAccountCalendarMonthLoaded({
       accountId: 'account_cal_a',
+      timeZone: 'Asia/Almaty',
       monthKey: range.monthKey,
       rangeStart: range.rangeStart,
       rangeEnd: range.rangeEnd,
     });
     const second = ensureAccountCalendarMonthLoaded({
       accountId: 'account_cal_a',
+      timeZone: 'Asia/Almaty',
       monthKey: range.monthKey,
       rangeStart: range.rangeStart,
       rangeEnd: range.rangeEnd,
@@ -198,7 +232,9 @@ describe('account calendar month cache', () => {
     resolveQuery?.({ scope: 'account_calendar_month', items: [], hasMore: false });
     await Promise.all([first, second]);
     expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(1);
-    expect(useLessonBookingStore.getState().calendarMonths.get('2026-09')).toBe('loaded');
+    expect(useLessonBookingStore.getState().calendarMonths.get('2026-09@Asia/Almaty')).toBe(
+      'loaded'
+    );
   });
 });
 
@@ -328,7 +364,9 @@ describe('account calendar month account safety and UI path', () => {
     );
 
     await waitFor(() => {
-      expect(useLessonBookingStore.getState().calendarMonths.get('2026-09')).toBe('loaded');
+      expect(useLessonBookingStore.getState().calendarMonths.get('2026-09@Asia/Almaty')).toBe(
+        'loaded'
+      );
     });
     expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(1);
 
@@ -339,7 +377,9 @@ describe('account calendar month account safety and UI path', () => {
     rerender({ accountId: 'account_cal_b' });
 
     await waitFor(() => {
-      expect(useLessonBookingStore.getState().calendarMonths.get('2026-09')).toBe('loaded');
+      expect(useLessonBookingStore.getState().calendarMonths.get('2026-09@Asia/Almaty')).toBe(
+        'loaded'
+      );
     });
     expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(2);
   });
@@ -352,10 +392,11 @@ describe('account calendar month account safety and UI path', () => {
           resolveQuery = resolve;
         })
     );
-    const range = buildAccountCalendarMonthRange(2026, 8);
+    const range = buildAccountCalendarMonthRange(2026, 8, 'Asia/Almaty');
     let currentAccountId = 'account_cal_a';
     const pending = ensureAccountCalendarMonthLoaded({
       accountId: 'account_cal_a',
+      timeZone: 'Asia/Almaty',
       monthKey: range.monthKey,
       rangeStart: range.rangeStart,
       rangeEnd: range.rangeEnd,
@@ -379,7 +420,9 @@ describe('account calendar month account safety and UI path', () => {
     await pending;
 
     expect(useLessonBookingStore.getState().items.has('booking_from_account_a')).toBe(false);
-    expect(useLessonBookingStore.getState().calendarMonths.get('2026-09')).toBeUndefined();
+    expect(
+      useLessonBookingStore.getState().calendarMonths.get('2026-09@Asia/Almaty')
+    ).toBeUndefined();
   });
 
   it('shows a past completed September lesson from calendar month without account_history', async () => {
@@ -437,27 +480,30 @@ describe('account calendar month account safety and UI path', () => {
 describe('student cabinet calendar initial visible month', () => {
   it('uses the current calendar month when today is in September 2026', () => {
     const now = new Date(2026, 8, 14, 15, 30, 0);
-    const initial = resolveInitialVisibleAccountCalendarMonth(now);
-    expect(initial.getFullYear()).toBe(2026);
-    expect(initial.getMonth()).toBe(8);
-    expect(initial.getDate()).toBe(1);
+    const initial = resolveInitialVisibleAccountCalendarMonth('Asia/Almaty', now);
+    expect(initial.year).toBe(2026);
+    expect(initial.monthIndex).toBe(8);
 
-    const range = buildAccountCalendarMonthRange(initial.getFullYear(), initial.getMonth());
-    expect(range.monthKey).toBe('2026-09');
-    expect(range.rangeStart).toEqual(timestampFromDate(new Date(2026, 8, 1)));
-    expect(range.rangeEnd).toEqual(timestampFromDate(new Date(2026, 9, 1)));
+    const range = buildAccountCalendarMonthRange(initial.year, initial.monthIndex, 'Asia/Almaty');
+    expect(range.monthKey).toBe('2026-09@Asia/Almaty');
+    expect(range.rangeStart).toEqual(timestampFromDate(new Date('2026-08-31T19:00:00Z')));
+    expect(range.rangeEnd).toEqual(timestampFromDate(new Date('2026-09-30T19:00:00Z')));
   });
 
   it('keeps a manually selected month across re-renders', () => {
     const { result, rerender } = renderHook(
       (_props: { participantId: string }) => {
         const [currentMonth, setCurrentMonth] = useState(() =>
-          resolveInitialVisibleAccountCalendarMonth(new Date(2026, 8, 14))
+          resolveInitialVisibleAccountCalendarMonth('Asia/Almaty', new Date('2026-09-14T00:00:00Z'))
         );
         return {
-          year: currentMonth.getFullYear(),
-          monthIndex: currentMonth.getMonth(),
-          monthKey: accountCalendarMonthKey(currentMonth.getFullYear(), currentMonth.getMonth()),
+          year: currentMonth.year,
+          monthIndex: currentMonth.monthIndex,
+          monthKey: accountCalendarMonthKey(
+            currentMonth.year,
+            currentMonth.monthIndex,
+            'Asia/Almaty'
+          ),
           goPrev: () => setCurrentMonth((prev) => shiftVisibleAccountCalendarMonth(prev, -1)),
           goNext: () => setCurrentMonth((prev) => shiftVisibleAccountCalendarMonth(prev, 1)),
         };
@@ -465,33 +511,37 @@ describe('student cabinet calendar initial visible month', () => {
       { initialProps: { participantId: 'participant_a' } }
     );
 
-    expect(result.current.monthKey).toBe('2026-09');
+    expect(result.current.monthKey).toBe('2026-09@Asia/Almaty');
 
     act(() => {
       result.current.goPrev();
     });
-    expect(result.current.monthKey).toBe('2026-08');
+    expect(result.current.monthKey).toBe('2026-08@Asia/Almaty');
 
     rerender({ participantId: 'participant_a' });
-    expect(result.current.monthKey).toBe('2026-08');
+    expect(result.current.monthKey).toBe('2026-08@Asia/Almaty');
 
     act(() => {
       result.current.goNext();
     });
-    expect(result.current.monthKey).toBe('2026-09');
+    expect(result.current.monthKey).toBe('2026-09@Asia/Almaty');
 
     rerender({ participantId: 'participant_a' });
-    expect(result.current.monthKey).toBe('2026-09');
+    expect(result.current.monthKey).toBe('2026-09@Asia/Almaty');
   });
 
   it('keeps the manually selected month when the participant changes', () => {
     const { result, rerender } = renderHook(
       (_props: { participantId: string }) => {
         const [currentMonth, setCurrentMonth] = useState(() =>
-          resolveInitialVisibleAccountCalendarMonth(new Date(2026, 8, 14))
+          resolveInitialVisibleAccountCalendarMonth('Asia/Almaty', new Date('2026-09-14T00:00:00Z'))
         );
         return {
-          monthKey: accountCalendarMonthKey(currentMonth.getFullYear(), currentMonth.getMonth()),
+          monthKey: accountCalendarMonthKey(
+            currentMonth.year,
+            currentMonth.monthIndex,
+            'Asia/Almaty'
+          ),
           goPrev: () => setCurrentMonth((prev) => shiftVisibleAccountCalendarMonth(prev, -1)),
         };
       },
@@ -501,10 +551,10 @@ describe('student cabinet calendar initial visible month', () => {
     act(() => {
       result.current.goPrev();
     });
-    expect(result.current.monthKey).toBe('2026-08');
+    expect(result.current.monthKey).toBe('2026-08@Asia/Almaty');
 
     rerender({ participantId: 'participant_b' });
-    expect(result.current.monthKey).toBe('2026-08');
+    expect(result.current.monthKey).toBe('2026-08@Asia/Almaty');
   });
 
   it('loads the current YYYY-MM month key/range on first open', async () => {
@@ -519,19 +569,25 @@ describe('student cabinet calendar initial visible month', () => {
     });
 
     const now = new Date(2026, 8, 14);
-    const initial = resolveInitialVisibleAccountCalendarMonth(now);
-    const expected = buildAccountCalendarMonthRange(initial.getFullYear(), initial.getMonth());
+    const initial = resolveInitialVisibleAccountCalendarMonth('Asia/Almaty', now);
+    const expected = buildAccountCalendarMonthSearchRange(
+      initial.year,
+      initial.monthIndex,
+      'Asia/Almaty'
+    );
 
     renderHook(() =>
       useAccountLessonBookingCalendarMonth({
         enabled: true,
-        year: initial.getFullYear(),
-        monthIndex: initial.getMonth(),
+        year: initial.year,
+        monthIndex: initial.monthIndex,
       })
     );
 
     await waitFor(() => {
-      expect(useLessonBookingStore.getState().calendarMonths.get('2026-09')).toBe('loaded');
+      expect(useLessonBookingStore.getState().calendarMonths.get('2026-09@Asia/Almaty')).toBe(
+        'loaded'
+      );
     });
     expect(queryLessonBookingReadModelsMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -540,6 +596,175 @@ describe('student cabinet calendar initial visible month', () => {
         rangeEnd: expected.rangeEnd,
       })
     );
-    expect(expected.monthKey).toBe('2026-09');
+    expect(expected.monthKey).toBe('2026-09@Asia/Almaty');
+  });
+});
+
+describe('school timezone calendar contract', () => {
+  beforeEach(() => {
+    useLessonBookingStore.getState().reset();
+    resetAccountLessonBookingSyncStateForTests();
+    queryLessonBookingReadModelsMock.mockReset();
+    useAuthStore.setState({ firebaseUser: { uid: 'account_cal_a' } as never });
+  });
+  it.each([
+    ['Asia/Almaty', 8, '2026-08-31T19:00:00Z', '2026-09-30T19:00:00Z'],
+    ['UTC', 8, '2026-09-01T00:00:00Z', '2026-10-01T00:00:00Z'],
+    ['America/New_York', 10, '2026-11-01T04:00:00Z', '2026-12-01T05:00:00Z'],
+    ['Europe/Paris', 2, '2026-02-28T23:00:00Z', '2026-03-31T22:00:00Z'],
+  ])('converts independent boundaries in %s', (zone, month, start, end) => {
+    const range = buildAccountCalendarMonthRange(2026, Number(month), String(zone));
+    expect(range.rangeStart).toEqual(timestampFromDate(new Date(start)));
+    expect(range.rangeEnd).toEqual(timestampFromDate(new Date(end)));
+  });
+  it('uses the school date near midnight and crosses years without local Date math', () => {
+    expect(
+      resolveInitialVisibleAccountCalendarMonth('Asia/Almaty', new Date('2026-08-31T19:00:00Z'))
+    ).toEqual({ year: 2026, monthIndex: 8 });
+    expect(
+      resolveInitialVisibleAccountCalendarMonth(
+        'America/New_York',
+        new Date('2026-09-01T00:00:00Z')
+      )
+    ).toEqual({ year: 2026, monthIndex: 7 });
+    expect(shiftVisibleAccountCalendarMonth({ year: 2026, monthIndex: 11 }, 1)).toEqual({
+      year: 2027,
+      monthIndex: 0,
+    });
+    expect(shiftVisibleAccountCalendarMonth({ year: 2027, monthIndex: 0 }, -1)).toEqual({
+      year: 2026,
+      monthIndex: 11,
+    });
+  });
+  it('waits for confirmed settings, exposes config errors, and retries configuration', async () => {
+    school.ready = false;
+    queryLessonBookingReadModelsMock.mockResolvedValue({ items: [], hasMore: false });
+    const { result, rerender } = renderHook(() =>
+      useAccountLessonBookingCalendarMonth({ enabled: true, year: 2026, monthIndex: 8 })
+    );
+    expect(result.current.status).toBe('loading');
+    expect(queryLessonBookingReadModelsMock).not.toHaveBeenCalled();
+    school.error = new Error('config denied');
+    rerender();
+    expect(result.current.error).toBe('config denied');
+    act(() => result.current.retry());
+    expect(school.retry).toHaveBeenCalledOnce();
+    expect(queryLessonBookingReadModelsMock).not.toHaveBeenCalled();
+    school.error = undefined;
+    school.ready = true;
+    rerender();
+    await waitFor(() => expect(result.current.status).toBe('loaded'));
+  });
+  it('reloads on timezone changes, ignores late results, and retains existing history', async () => {
+    let finish!: (value: unknown) => void;
+    queryLessonBookingReadModelsMock
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve;
+          })
+      )
+      .mockResolvedValue({ items: [], hasMore: false });
+    const retained = buildReadModel({
+      bookingId: 'booking_retained',
+      revision: 1,
+      status: 'completed',
+      startsAt: new Date('2026-06-01T00:00:00Z'),
+    });
+    applyAccountLessonBookingReadResults({ hotItems: [], historyItems: [retained] });
+    const { result, rerender } = renderHook(() =>
+      useAccountLessonBookingCalendarMonth({ enabled: true, year: 2026, monthIndex: 8 })
+    );
+    school.timeZone = 'UTC';
+    rerender();
+    await waitFor(() => expect(result.current.status).toBe('loaded'));
+    await act(async () =>
+      finish({
+        items: [
+          buildReadModel({
+            bookingId: 'booking_late',
+            revision: 1,
+            status: 'completed',
+            startsAt: new Date('2026-09-01T00:00:00Z'),
+          }),
+        ],
+        hasMore: false,
+      })
+    );
+    expect(useLessonBookingStore.getState().items.has('booking_late')).toBe(false);
+    expect(useLessonBookingStore.getState().items.has('booking_retained')).toBe(true);
+    expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(2);
+    school.timeZone = 'Asia/Almaty';
+    rerender();
+    await waitFor(() => expect(result.current.status).toBe('loaded'));
+    expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(3);
+    expect(queryLessonBookingReadModelsMock.mock.calls[0][0]).not.toEqual(
+      queryLessonBookingReadModelsMock.mock.calls[1][0]
+    );
+  });
+  it.each([
+    ['Pacific/Kiritimati', '2026-08-31T10:00:00Z', '2026-09-01'],
+    ['Etc/GMT+12', '2026-10-01T11:00:00Z', '2026-09-30'],
+  ])(
+    'retains %s Booking labels at both month edges after settings change',
+    (zone, instant, date) => {
+      const record = buildReadModel({
+        bookingId: 'booking_old_zone',
+        revision: 1,
+        status: 'completed',
+        startsAt: new Date(instant),
+      });
+      const oldZoneRecord = {
+        ...record,
+        occurrence: { ...record.occurrence, timeZone: zone },
+      } as LessonBookingReadModel;
+      const before = JSON.stringify(oldZoneRecord);
+      const item = mapLessonBookingReadModelToCabinetItem(oldZoneRecord);
+      expect(item.date).toBe(date);
+      for (const schoolZone of ['Asia/Almaty', 'Pacific/Kiritimati', 'Etc/GMT+12']) {
+        const range = buildAccountCalendarMonthSearchRange(2026, 8, schoolZone);
+        expect(record.occurrence.startsAt.seconds).toBeGreaterThanOrEqual(range.rangeStart.seconds);
+        expect(record.occurrence.startsAt.seconds).toBeLessThan(range.rangeEnd.seconds);
+      }
+      expect(JSON.stringify(oldZoneRecord)).toBe(before);
+    }
+  );
+});
+
+describe('calendar generation safety', () => {
+  it('does not dedupe against a request from a previous session of the same account', async () => {
+    useLessonBookingStore.getState().reset();
+    resetAccountLessonBookingSyncStateForTests();
+    queryLessonBookingReadModelsMock.mockReset();
+    let finishOld!: (value: unknown) => void;
+    queryLessonBookingReadModelsMock
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishOld = resolve;
+          })
+      )
+      .mockResolvedValue({ items: [], hasMore: false });
+    const range = buildAccountCalendarMonthRange(2026, 8, 'Asia/Almaty');
+    const input = { accountId: 'account_cal_a', timeZone: 'Asia/Almaty', ...range };
+    const first = ensureAccountCalendarMonthLoaded(input);
+    useLessonBookingStore.getState().reset();
+    const second = ensureAccountCalendarMonthLoaded(input);
+    await second;
+    finishOld({
+      items: [
+        buildReadModel({
+          bookingId: 'booking_old_session',
+          revision: 1,
+          status: 'completed',
+          startsAt: new Date('2026-09-01T00:00:00Z'),
+        }),
+      ],
+      hasMore: false,
+    });
+    await first;
+    expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(2);
+    expect(useLessonBookingStore.getState().items.has('booking_old_session')).toBe(false);
+    expect(useLessonBookingStore.getState().calendarMonths.get(range.monthKey)).toBe('loaded');
   });
 });

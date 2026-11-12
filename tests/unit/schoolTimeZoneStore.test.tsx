@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   requireSchoolTimeZone,
+  retrySchoolTimeZone,
   saveSchoolTimeZone,
   useSchoolTimeZone,
 } from '../../src/features/settings/schoolTimeZone';
@@ -86,5 +87,17 @@ describe('confirmed school timezone subscription and compare-and-set', () => {
     mock.set.mockClear();
     await expect(saveSchoolTimeZone('Europe/Moscow', 'Asia/Almaty')).rejects.toThrow('changed');
     expect(mock.set).not.toHaveBeenCalled();
+  });
+  it('restarts the shared subscription after an error and confirms the retry', () => {
+    const first = renderHook(useSchoolTimeZone);
+    const second = renderHook(useSchoolTimeZone);
+    act(() => mock.error?.(new Error('offline')));
+    act(() => retrySchoolTimeZone());
+    expect(mock.stop).toHaveBeenCalledOnce();
+    expect(mock.listen).toHaveBeenCalledTimes(2);
+    expect(first.result.current.ready).toBe(false);
+    emit({ timeZone: 'Europe/Paris' });
+    expect(first.result.current.ready).toBe(true);
+    expect(second.result.current.timeZone).toBe('Europe/Paris');
   });
 });

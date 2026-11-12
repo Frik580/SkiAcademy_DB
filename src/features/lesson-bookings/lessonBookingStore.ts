@@ -19,6 +19,9 @@ interface LessonBookingStoreState {
   readonly historyRequestNonce: number;
   /** Invalidates async reads that began under a previous authenticated principal. */
   readonly syncGeneration: number;
+  readonly calendarScope?: string;
+  readonly calendarGeneration: number;
+  setCalendarScope: (scope: string) => void;
   readonly calendarMonths: ReadonlyMap<string, CalendarMonthLoadStatus>;
   readonly calendarMonthError?: { readonly monthKey: string; readonly message: string };
   setItems: (items: ReadonlyMap<string, LessonBookingCabinetItem>) => void;
@@ -66,12 +69,25 @@ const initialState = {
   error: undefined,
   historyRequestNonce: 0,
   syncGeneration: 0,
+  calendarScope: undefined,
+  calendarGeneration: 0,
   calendarMonths: EMPTY_CALENDAR_MONTHS,
   calendarMonthError: undefined,
 };
 
 export const useLessonBookingStore = create<LessonBookingStoreState>((set) => ({
   ...initialState,
+  setCalendarScope: (calendarScope) =>
+    set((state) =>
+      state.calendarScope === calendarScope
+        ? state
+        : {
+            calendarScope,
+            calendarGeneration: state.calendarGeneration + 1,
+            calendarMonths: new Map(),
+            calendarMonthError: undefined,
+          }
+    ),
   setItems: (items) =>
     set({
       items,
@@ -165,6 +181,7 @@ export const useLessonBookingStore = create<LessonBookingStoreState>((set) => ({
       itemsList: EMPTY_ITEMS_LIST,
       calendarMonths: new Map(),
       syncGeneration: state.syncGeneration + 1,
+      calendarGeneration: state.calendarGeneration + 1,
     })),
 }));
 

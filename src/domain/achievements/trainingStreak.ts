@@ -2,7 +2,8 @@ import {
   lessonStartsAtLocalCalendarDate,
   participantAttendedLessonFromEvidence,
 } from '@ski-academy/shared-domain/canonical/participantLessonStatsSemantics';
-import { timestampFromDate, type ParticipantLessonStatsEvidence } from '@ski-academy/shared-domain';
+import { timestampFromDate } from '@ski-academy/shared-domain/canonical/primitives';
+import type { ParticipantLessonStatsEvidence } from '@ski-academy/shared-domain';
 
 function calendarDate(input: string): Date | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input)) return null;

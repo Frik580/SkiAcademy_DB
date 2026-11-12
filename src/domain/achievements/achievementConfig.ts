@@ -56,6 +56,8 @@ export interface AchievementEvaluationContext {
   readonly lessonFeedback: readonly ParticipantLessonFeedbackReadModel[];
   readonly accountReviews: readonly CanonicalAccountReviewEvidence[];
   readonly skillConfig?: SkillConfig;
+  /** Confirmed school timezone; undefined suppresses new timezone-sensitive awards. */
+  readonly timeZone: string | undefined;
   readonly now?: Date;
 }
 

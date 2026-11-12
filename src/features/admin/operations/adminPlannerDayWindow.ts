@@ -1,9 +1,6 @@
 import {
   intervalsOverlap,
-  localCalendarInputToUtcDate,
-  IanaTimeZoneSchema,
-  TimeIntervalSchema,
-  timestampFromDate,
+  localCalendarWindow,
   type AdminPlannerOccupancyItem,
   type TimeInterval,
 } from '@ski-academy/shared-domain';
@@ -12,16 +9,7 @@ import { parsePlannerLocalDateInput } from '../components/schedule/scheduleDateI
 import type { ScheduleViewMode } from '../components/schedule/ScheduleToolbar';
 
 export function plannerDayWindow(localDate: string, timeZone: string): TimeInterval {
-  const zone = IanaTimeZoneSchema.parse(timeZone);
-  const start = localCalendarInputToUtcDate(
-    { localDate, localTime: '00:00', durationMinutes: 60 },
-    zone
-  );
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-  return TimeIntervalSchema.parse({
-    startsAt: timestampFromDate(start),
-    endsAt: timestampFromDate(end),
-  });
+  return localCalendarWindow(localDate, timeZone);
 }
 
 export function filterOccupancyForLocalDate(

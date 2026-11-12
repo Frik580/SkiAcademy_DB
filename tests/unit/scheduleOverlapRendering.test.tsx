@@ -43,6 +43,30 @@ const bookings: Booking[] = [
 ] as Booking[];
 
 describe('day and week calendar overlapping Booking rendering', () => {
+  it('routes Today to the school calendar action supplied by the container', () => {
+    const onToday = vi.fn();
+    const onWindowChange = vi.fn();
+    render(
+      <LanguageProvider>
+        <ScheduleCalendar
+          instructors={[instructor]}
+          bookings={[]}
+          courses={[]}
+          usersList={[]}
+          adminProfile={{ uid: 'admin' } as UserProfile}
+          plannerDate="2026-03-29"
+          plannerView="day"
+          onToday={onToday}
+          onWindowChange={onWindowChange}
+          onCancelBooking={vi.fn()}
+        />
+      </LanguageProvider>
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Today|Сегодня/i }));
+    expect(onToday).toHaveBeenCalledOnce();
+    expect(onWindowChange).not.toHaveBeenCalled();
+  });
+
   it.each(['day', 'week'] as const)(
     'renders both bookings and opens their own IDs in %s',
     (view) => {

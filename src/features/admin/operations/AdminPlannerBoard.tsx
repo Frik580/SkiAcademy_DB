@@ -12,12 +12,12 @@ import {
 import { ScheduleCalendar } from '../components/schedule/ScheduleCalendar';
 import type { PlannerCreateOccupancyInput } from '../components/schedule/scheduleContracts';
 import type { ScheduleViewMode } from '../components/schedule/ScheduleToolbar';
-import { formatDateLocalYMD } from '../components/schedule/scheduleUtils';
 import { useScheduleTranslations } from '../components/schedule/useScheduleTranslations';
 import {
   mapPlannerCourses,
   mapPlannerInstructors,
   mapPlannerOccupancyToBookings,
+  plannerLocalDateTime,
 } from './adminPlannerMapping';
 import { filterOccupancyForLocalDate, plannerFetchWindow } from './adminPlannerDayWindow';
 import { useSchoolTimeZone } from '../../settings/schoolTimeZone';
@@ -69,9 +69,9 @@ export function AdminPlannerBoard({
   const [searchParams, setSearchParams] = useSearchParams();
   const plannerDateParam = searchParams.get(ADMIN_PLANNER_DATE_QUERY_KEY);
   const focusBookingId = searchParams.get(ADMIN_PLANNER_FOCUS_QUERY_KEY) ?? undefined;
-  const [localDate, setLocalDate] = useState(
-    () => plannerDateParam || formatDateLocalYMD(new Date())
-  );
+  const [selectedLocalDate, setLocalDate] = useState(() => plannerDateParam || undefined);
+  const localDate =
+    selectedLocalDate ?? plannerLocalDateTime(Date.now() / 1_000, school.timeZone).date;
   const [view, setView] = useState<ScheduleViewMode>('day');
   const fetchWindow = useMemo(() => plannerFetchWindow(localDate, view), [localDate, view]);
   const { registerPlannerRefresh, refreshAllProjections } = useSharedAdminMonitorReadModels();
@@ -305,6 +305,9 @@ export function AdminPlannerBoard({
           focusBookingId={focusBookingId}
           onFocusConsumed={handleFocusConsumed}
           onWindowChange={handleWindowChange}
+          onToday={() =>
+            handleWindowChange(plannerLocalDateTime(Date.now() / 1_000, plannerTimeZone).date, view)
+          }
           skipLegacyBalanceGate
           onAddBooking={handleAddBooking}
           onRescheduleBooking={handleReschedule}

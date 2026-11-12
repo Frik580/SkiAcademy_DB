@@ -47,6 +47,7 @@ interface ScheduleCalendarProps {
   onLinkGuestBooking?: (bookingId: string, targetUserId: string) => Promise<void>;
   onOpenLessonDetail?: (bookingId: string) => void;
   onWindowChange?: (localDate: string, view: ScheduleViewMode) => void;
+  onToday?: () => void;
   skipLegacyBalanceGate?: boolean;
   plannerDate?: string;
   plannerView?: ScheduleViewMode;
@@ -70,6 +71,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   onLinkGuestBooking,
   onOpenLessonDetail,
   onWindowChange,
+  onToday,
   skipLegacyBalanceGate = false,
   plannerDate,
   plannerView,
@@ -343,7 +345,9 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
             onViewModeChange={(nextView) => updatePlannerWindow(selectedDate, nextView)}
             onDateChange={(nextDate) => updatePlannerWindow(formatDateLocalYMD(nextDate), viewMode)}
             onAdjustDate={adjustDate}
-            onToday={() => updatePlannerWindow(formatDateLocalYMD(new Date()), viewMode)}
+            onToday={
+              onToday ?? (() => updatePlannerWindow(formatDateLocalYMD(new Date()), viewMode))
+            }
           />
         </div>
 

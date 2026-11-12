@@ -7,7 +7,6 @@ import {
   type QueryLessonBookingReadModelsResult,
 } from '@ski-academy/shared-domain';
 import { queryLessonBookingReadModels } from '../../lib/canonical/canonicalReadModelClient';
-import { parseBookingEndTime } from '../student-cabinet/components/student/studentBookingSchedule';
 import type { LessonBookingCabinetItem } from './lessonBookingContracts';
 import { useLessonBookingStore } from './lessonBookingStore';
 import { mergeLessonBookingRecords } from './lessonBookingViewModel';
@@ -61,15 +60,6 @@ function markAccountHotApplied(generation: number): void {
   store.setHotLoadedAtMs(Date.now());
 }
 
-function cabinetItemEndsAtTimestamp(item: LessonBookingCabinetItem): CanonicalTimestamp {
-  const end = parseBookingEndTime(item.time, item.durationHours);
-  const [year, month, day] = item.date.split('-').map(Number);
-  const endDate = end
-    ? new Date(year, month - 1, day, end.h, end.m, 0, 0)
-    : new Date(year, month - 1, day, 23, 59, 59, 0);
-  return timestampFromDate(endDate);
-}
-
 /** Only valid against the complete authoritative account_hot collection. */
 export function findStaleHotLessonBookingIds(
   items: ReadonlyMap<string, LessonBookingCabinetItem>,
@@ -80,13 +70,15 @@ export function findStaleHotLessonBookingIds(
   const stale: string[] = [];
 
   for (const [bookingId, item] of items) {
-    if (hotIds.has(bookingId)) {
+    // Canonical adapters always supply endsAt. If it is missing, freshness is
+    // unknown: retain the row rather than inventing an instant from display fields.
+    if (hotIds.has(bookingId) || !item.endsAt) {
       continue;
     }
 
     const isHot = isLessonBookingHot({
       lifecycleStatus: item.status,
-      endsAt: cabinetItemEndsAtTimestamp(item),
+      endsAt: item.endsAt,
       now,
     });
     if (isHot) {

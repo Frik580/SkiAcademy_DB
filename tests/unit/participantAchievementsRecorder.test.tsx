@@ -50,6 +50,7 @@ const config = {
 function evaluation(participantId = self, startsAt = date): AchievementEvaluationContext {
   return {
     participantId,
+    timeZone: 'Asia/Almaty',
     progress: { participantId, level: 1, skillScores: {} },
     lessonFeedback: [],
     accountReviews: [],
@@ -332,4 +333,74 @@ describe('automatic Participant achievement recording', () => {
     expect(useParticipantAchievementsStore.getState().byId).toEqual({});
     expect(read).not.toHaveBeenCalled();
   });
+});
+
+it('records a streak only after timezone confirmation and settles repeated evaluations and A-B-A', async () => {
+  const streakConfig = {
+    items: DEFAULT_ACHIEVEMENTS_CONFIG.items.filter((item) => item.id === 'streak_3_weeks'),
+  };
+  function streakEvaluation(timeZone: string | undefined): AchievementEvaluationContext {
+    return {
+      ...evaluation(),
+      timeZone,
+      now: new Date('2026-11-23T03:30:00Z'),
+      lessonEvidence: ['09', '16', '23'].map((day, index) => ({
+        ...evaluation().lessonEvidence[0],
+        bookingId: BookingIdSchema.parse(`booking_record_zone_${index}`),
+        startsAt: timestampFromDate(new Date(`2026-11-${day}T03:00:00Z`)),
+      })),
+    };
+  }
+  const savedAt = timestampFromDate(new Date('2026-11-23T03:00:00Z'));
+  submit.mockResolvedValue(
+    commandSuccessResult(
+      'record_participant_achievements',
+      CorrelationIdSchema.parse('correlation_zone'),
+      { participantId: self, revision: 1, newlyEarnedAchievementIds: ['streak_3_weeks'] }
+    )
+  );
+  read.mockResolvedValue({
+    scope: 'managed',
+    items: [
+      {
+        participantId: self,
+        revision: 1,
+        earned: { streak_3_weeks: { earnedAt: savedAt, source: 'participant_attendance' } },
+      },
+    ],
+  });
+  const base = { ...props(), achievementsConfig: streakConfig };
+  const hook = renderHook((input) => useSelectedParticipantAchievementsRecorder(input), {
+    initialProps: { ...base, evaluation: streakEvaluation(undefined) },
+  });
+  expect(submit).not.toHaveBeenCalled();
+  hook.rerender({ ...base, evaluation: streakEvaluation('America/New_York') });
+  expect(submit).not.toHaveBeenCalled();
+  hook.rerender({
+    ...base,
+    selectedParticipantId: child,
+    evaluation: streakEvaluation('Asia/Almaty'),
+  });
+  expect(submit).not.toHaveBeenCalled();
+  hook.rerender({ ...base, evaluation: streakEvaluation('Asia/Almaty') });
+  await waitFor(() =>
+    expect(
+      useParticipantAchievementsStore.getState().byId[self].earned.streak_3_weeks
+    ).toBeDefined()
+  );
+  expect(submit).toHaveBeenCalledTimes(1);
+  expect(submit.mock.calls[0][1].intent).toMatchObject({
+    participantId: self,
+    earned: [{ achievementId: 'streak_3_weeks', earnedAt: savedAt }],
+  });
+  hook.rerender({ ...base, evaluation: streakEvaluation(undefined) });
+  hook.rerender({ ...base, evaluation: streakEvaluation('Asia/Almaty') });
+  hook.rerender({
+    ...base,
+    selectedParticipantId: child,
+    evaluation: streakEvaluation('Asia/Almaty'),
+  });
+  hook.rerender({ ...base, evaluation: streakEvaluation('Asia/Almaty') });
+  expect(submit).toHaveBeenCalledTimes(1);
+  expect(useParticipantAchievementsStore.getState().byId[child].earned).toEqual({});
 });

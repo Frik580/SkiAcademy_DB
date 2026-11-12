@@ -154,7 +154,11 @@ export const isAchievementRuleMet = (
         (rule.count ?? 1)
       );
     case 'streak_weeks':
-      return getTrainingStreakWeeksFromPresentEvidence(present, ctx.now) >= (rule.count ?? 1);
+      return (
+        Boolean(ctx.timeZone) &&
+        getTrainingStreakWeeksFromPresentEvidence(present, ctx.now ?? new Date(), ctx.timeZone!) >=
+          (rule.count ?? 1)
+      );
     case 'exercises_mastered':
       return countExercisesMastered(scores, skillItems) >= (rule.count ?? 1);
     case 'level_up':
@@ -191,11 +195,14 @@ const inferEarnedAt = (
     case 'hours_completed':
       return hoursCompletedTimestamp(present, definition.rule.count ?? 1);
     case 'streak_weeks':
-      return findStreakWeeksTimestampFromPresentEvidence(
-        present,
-        definition.rule.count ?? 1,
-        ctx.now
-      );
+      return ctx.timeZone
+        ? findStreakWeeksTimestampFromPresentEvidence(
+            present,
+            definition.rule.count ?? 1,
+            ctx.now ?? new Date(),
+            ctx.timeZone
+          )
+        : undefined;
     case 'exercises_mastered':
     case 'skill_items_max':
     case 'level_up':
@@ -221,14 +228,15 @@ export const evaluateEarnedAchievements = (
   ctx: AchievementEvaluationContext,
   config: AchievementsConfig
 ): EvaluatedAchievement[] => {
+  const evaluation = { ...ctx, now: ctx.now ?? new Date() };
   return config.items
-    .filter((definition) => isAchievementRuleMet(definition, ctx))
+    .filter((definition) => isAchievementRuleMet(definition, evaluation))
     .map((definition) => ({
       id: definition.id,
       icon: definition.icon,
       labelRu: definition.labelRu,
       labelEn: definition.labelEn,
-      earnedAt: inferEarnedAt(definition, ctx),
+      earnedAt: inferEarnedAt(definition, evaluation),
       order: definition.order,
     }))
     .sort((a, b) => a.order - b.order);

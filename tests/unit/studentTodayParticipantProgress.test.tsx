@@ -28,6 +28,13 @@ import { usePresentedParticipantAchievements } from '../../src/features/particip
 import { useStudentTodayAchievements } from '../../src/features/student-cabinet/components/student/useStudentTodayAchievements';
 import { useParticipantProgressDay } from '../../src/features/student-cabinet/components/student/useParticipantProgressDay';
 
+// This isolated UI suite must not start a real Firestore timezone subscription.
+vi.mock('../../src/features/settings/schoolTimeZone', () => ({
+  useSchoolTimeZone: () => ({ timeZone: 'Asia/Almaty', ready: true, error: undefined }),
+  requireSchoolTimeZone: () => 'Asia/Almaty',
+  retrySchoolTimeZone: vi.fn(),
+}));
+
 const locale = vi.hoisted(() => ({ language: 'en' as 'en' | 'ru' }));
 vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({ language: locale.language, t: (key: string) => key }),

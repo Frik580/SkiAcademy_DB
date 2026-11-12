@@ -14,7 +14,10 @@ import {
   isAchievementRuleMet,
   type AchievementEvaluationContext,
 } from '../../src/domain/achievements';
-import { mergeEvaluatedAndPersistedAchievements } from '../../src/features/participant-achievements/mergeParticipantAchievements';
+import {
+  buildCanonicalAchievementEvaluation,
+  mergeEvaluatedAndPersistedAchievements,
+} from '../../src/features/participant-achievements/mergeParticipantAchievements';
 import { getTodayAchievements } from '../../src/features/student-cabinet/components/student/studentCabinetUtils';
 import { readRepoFile } from '../helpers/readRepoFile';
 
@@ -96,6 +99,7 @@ function ctx(input: {
   const participantId = input.participantId ?? selfId;
   return {
     participantId,
+    timeZone: 'Asia/Almaty',
     lessonEvidence: input.lessonEvidence ?? [],
     progress: {
       participantId,
@@ -613,5 +617,42 @@ describe('canonical stats/achievements reachable isolation', () => {
     expect(coach).toContain('instructorLessonCountFromEvidence');
     expect(coach).not.toContain('getInstructorLessonCount');
     expect(sync).not.toContain('useBookingsStore');
+  });
+});
+
+describe('confirmed school timezone streak evaluation', () => {
+  const now = new Date('2026-11-23T03:30:00Z');
+  const rows = ['09', '16', '23'].map((day, index) =>
+    evidence({
+      participantId: childA,
+      attendanceStatus: 'present',
+      durationHours: 1,
+      startsAtIso: `2026-11-${day}T03:00:00Z`,
+      bookingId: `booking_school_week_${index}`,
+    })
+  );
+  it('gates only new streaks, applies the school timezone and isolates Participants', () => {
+    const evaluation = ctx({ participantId: childA, lessonEvidence: rows, now });
+    expect(earnedIds({ ...evaluation, timeZone: undefined })).not.toContain('streak_3_weeks');
+    expect(earnedIds({ ...evaluation, timeZone: undefined })).toContain('first_lesson');
+    expect(earnedIds({ ...evaluation, timeZone: 'America/New_York' })).not.toContain(
+      'streak_3_weeks'
+    );
+    expect(earnedIds(evaluation)).toContain('streak_3_weeks');
+    expect(
+      evaluateEarnedAchievements(evaluation, DEFAULT_ACHIEVEMENTS_CONFIG).find(
+        (item) => item.id === 'streak_3_weeks'
+      )?.earnedAt
+    ).toBe('2026-11-23T03:00:00.000Z');
+    expect(earnedIds({ ...evaluation, participantId: childB })).not.toContain('streak_3_weeks');
+  });
+  it('captures a shared anchor for presentation and recording', () => {
+    const evaluation = buildCanonicalAchievementEvaluation({
+      ...ctx({ lessonEvidence: rows }),
+      now: undefined,
+    });
+    expect(evaluation.now).toBeInstanceOf(Date);
+    expect(evaluation.timeZone).toBe('Asia/Almaty');
+    expect(buildCanonicalAchievementEvaluation({ ...ctx({}), now }).now).toBe(now);
   });
 });

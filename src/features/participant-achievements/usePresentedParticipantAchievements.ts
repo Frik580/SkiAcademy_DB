@@ -12,6 +12,7 @@ import { useAccountParticipantLessonStatsStore } from '../lesson-bookings/accoun
 import { emptyParticipantProgressView, useParticipantProgressStore } from '../participant-progress';
 import { useParticipantLessonFeedbackStore } from '../participant-lesson-feedback/participantLessonFeedbackStore';
 import { isTimestampOnLocalDate } from '../student-cabinet/components/student/studentCabinetPresentation';
+import { useSchoolTimeZone } from '../settings/schoolTimeZone';
 import { useSettingsStore } from '../settings/settingsStore';
 import {
   buildCanonicalAchievementEvaluation,
@@ -53,6 +54,8 @@ export function usePresentedParticipantAchievements(input: {
   }>;
   readonly sourcesReady: boolean;
 } {
+  const schoolTimeZone = useSchoolTimeZone();
+  const confirmedTimeZone = schoolTimeZone.ready ? schoolTimeZone.timeZone : undefined;
   const selectedParticipantId = input.selectedParticipantId;
   const statsItems = useAccountParticipantLessonStatsStore((state) => state.items);
   const statsLoaded = useAccountParticipantLessonStatsStore((state) => state.loaded);
@@ -106,6 +109,7 @@ export function usePresentedParticipantAchievements(input: {
       lessonFeedback,
       accountReviews: input.accountReviews,
       skillConfig,
+      timeZone: confirmedTimeZone,
     });
   }, [
     selectedParticipantId,
@@ -115,6 +119,7 @@ export function usePresentedParticipantAchievements(input: {
     lessonFeedback,
     input.accountReviews,
     skillConfig,
+    confirmedTimeZone,
   ]);
 
   const achievements = useMemo(() => {

@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   InstructorIdSchema,
   ParticipantIdSchema,
@@ -16,6 +16,13 @@ import { DEFAULT_ACHIEVEMENTS_CONFIG, DEFAULT_SKILL_CONFIG } from '../../src/dom
 import { useCabinetProgressParticipantSelection } from '../../src/features/student-cabinet/useCabinetProgressParticipantSelection';
 import { useCabinetProgressParticipantSelectionStore } from '../../src/features/student-cabinet/cabinetProgressParticipantSelectionStore';
 import type { ManagedParticipantOption } from '../../src/features/lesson-bookings/lessonBookingContracts';
+
+const school = vi.hoisted(() => ({
+  timeZone: 'Asia/Almaty',
+  ready: true,
+  error: undefined as Error | undefined,
+}));
+vi.mock('../../src/features/settings/schoolTimeZone', () => ({ useSchoolTimeZone: () => school }));
 
 const selfId = ParticipantIdSchema.parse('participant_ach_switch_self');
 const childA = ParticipantIdSchema.parse('participant_ach_switch_a');
@@ -109,6 +116,7 @@ function persisted(
 describe('selectedParticipantId achievement switching', () => {
   beforeEach(() => {
     useCabinetProgressParticipantSelectionStore.getState().reset();
+    Object.assign(school, { timeZone: 'Asia/Almaty', ready: true, error: undefined });
   });
 
   it('switches participant-level badges immediately and does not show A under B', () => {
@@ -196,5 +204,94 @@ describe('selectedParticipantId achievement switching', () => {
       items: [],
     });
     expect(result.current.selectedParticipantId).toBe(childB);
+  });
+});
+
+describe('school timezone achievement presentation', () => {
+  it('re-evaluates confirmation, timezone changes, error/recovery and A-B-A without changing persisted evidence', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-23T03:30:00Z'));
+    try {
+      useAccountParticipantLessonStatsStore.getState().reset();
+      useParticipantProgressStore.getState().clear();
+      useParticipantAchievementsStore.getState().clear();
+      useAccountParticipantLessonStatsStore
+        .getState()
+        .setLoading({ accountId: 'account_zone', generation: 1 });
+      useAccountParticipantLessonStatsStore.getState().replaceItems({
+        accountId: 'account_zone',
+        generation: 1,
+        items: ['09', '16', '23'].map((day, index) => {
+          const row = lesson(`booking_zone_${index}`, [
+            { participantId: selfId, attendanceStatus: 'present' },
+          ]);
+          return {
+            ...row,
+            occurrence: {
+              ...row.occurrence,
+              startsAt: timestampFromDate(new Date(`2026-11-${day}T03:00:00Z`)),
+              endsAt: timestampFromDate(new Date(`2026-11-${day}T03:20:00Z`)),
+            },
+          };
+        }),
+      });
+      useParticipantProgressStore
+        .getState()
+        .setItems([emptyParticipantProgressView(selfId), emptyParticipantProgressView(childA)]);
+      school.ready = false;
+      const hook = renderHook(
+        ({ participantId }) =>
+          usePresentedParticipantAchievements({
+            selectedParticipantId: participantId,
+            language: 'en',
+            accountReviews: [],
+            achievementsConfig: DEFAULT_ACHIEVEMENTS_CONFIG,
+            skillConfig: DEFAULT_SKILL_CONFIG,
+          }),
+        { initialProps: { participantId: selfId } }
+      );
+      const streak = () =>
+        hook.result.current.achievements.find((item) => item.id === 'streak_3_weeks');
+      expect(streak()).toBeUndefined();
+      expect(hook.result.current.evaluation?.timeZone).toBeUndefined();
+      school.ready = true;
+      hook.rerender({ participantId: selfId });
+      expect(streak()?.earnedAt).toBe('2026-11-23T03:00:00.000Z');
+      school.timeZone = 'America/New_York';
+      hook.rerender({ participantId: selfId });
+      expect(streak()).toBeUndefined();
+      school.timeZone = 'Asia/Almaty';
+      hook.rerender({ participantId: childA });
+      expect(streak()).toBeUndefined();
+      hook.rerender({ participantId: selfId });
+      expect(streak()).toBeDefined();
+      const saved = timestampFromDate(new Date('2026-11-23T03:20:00Z'));
+      act(() =>
+        useParticipantAchievementsStore.getState().setItems([
+          {
+            participantId: selfId,
+            revision: 1,
+            earned: { streak_3_weeks: { earnedAt: saved, source: 'participant_attendance' } },
+          },
+        ])
+      );
+      expect(streak()?.earnedAt).toBe('2026-11-23T03:20:00.000Z');
+      Object.assign(school, { ready: false, error: new Error('offline') });
+      hook.rerender({ participantId: selfId });
+      expect(hook.result.current.evaluation?.timeZone).toBeUndefined();
+      expect(streak()?.earnedAt).toBe('2026-11-23T03:20:00.000Z');
+      Object.assign(school, { ready: true, timeZone: 'America/New_York', error: undefined });
+      hook.rerender({ participantId: selfId });
+      expect(
+        hook.result.current.achievements.filter((item) => item.id === 'streak_3_weeks')
+      ).toHaveLength(1);
+      expect(streak()?.earnedAt).toBe('2026-11-23T03:20:00.000Z');
+      expect(
+        useParticipantAchievementsStore.getState().byId[selfId].earned.streak_3_weeks.earnedAt
+      ).toEqual(saved);
+      hook.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

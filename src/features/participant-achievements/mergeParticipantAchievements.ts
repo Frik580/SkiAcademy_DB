@@ -50,7 +50,10 @@ export function mergeEvaluatedAndPersistedAchievements(input: {
       icon: definition.icon,
       labelRu: definition.labelRu,
       labelEn: definition.labelEn,
-      earnedAt: pickAchievementTimestamp(persistedIso, current?.earnedAt),
+      earnedAt:
+        definition.rule.type === 'streak_weeks'
+          ? persistedIso
+          : pickAchievementTimestamp(persistedIso, current?.earnedAt),
       order: definition.order,
     });
   }
@@ -64,6 +67,7 @@ export function buildCanonicalAchievementEvaluation(input: {
   readonly lessonFeedback: readonly ParticipantLessonFeedbackReadModel[];
   readonly accountReviews: AchievementEvaluationContext['accountReviews'];
   readonly skillConfig?: SkillConfig;
+  readonly timeZone: string | undefined;
   readonly now?: Date;
 }): AchievementEvaluationContext {
   return {
@@ -75,7 +79,8 @@ export function buildCanonicalAchievementEvaluation(input: {
     ),
     accountReviews: input.accountReviews,
     skillConfig: input.skillConfig,
-    now: input.now,
+    now: input.now ?? new Date(),
+    timeZone: input.timeZone,
   };
 }
 

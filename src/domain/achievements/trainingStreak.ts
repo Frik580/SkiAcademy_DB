@@ -2,106 +2,88 @@ import {
   lessonStartsAtLocalCalendarDate,
   participantAttendedLessonFromEvidence,
 } from '@ski-academy/shared-domain/canonical/participantLessonStatsSemantics';
-import { type ParticipantLessonStatsEvidence } from '@ski-academy/shared-domain';
+import { timestampFromDate } from '@ski-academy/shared-domain/canonical/primitives';
+import type { ParticipantLessonStatsEvidence } from '@ski-academy/shared-domain';
 
-export const toIsoWeekKey = (input: string | Date): string | null => {
-  const d =
+function calendarDate(input: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input)) return null;
+  const date = new Date(`${input}T00:00:00.000Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === input ? date : null;
+}
+
+/** Calendar strings are dates; Date inputs are instants and require an explicit timezone. */
+export function toIsoWeekKey(input: string): string | null;
+export function toIsoWeekKey(input: Date, timeZone: string): string | null;
+export function toIsoWeekKey(input: string | Date, timeZone?: string): string | null {
+  if (input instanceof Date && (!timeZone || !Number.isFinite(input.getTime()))) return null;
+  const date = calendarDate(
     input instanceof Date
-      ? new Date(input)
-      : new Date(input.includes('T') ? input : `${input}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return null;
-  d.setHours(12, 0, 0, 0);
-  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
-  const week1 = new Date(d.getFullYear(), 0, 4);
-  const weekNum =
+      ? lessonStartsAtLocalCalendarDate(timestampFromDate(input), timeZone!)
+      : input
+  );
+  if (!date) return null;
+  // Thursday determines the ISO week-year. All arithmetic is on UTC calendar dates.
+  date.setUTCDate(date.getUTCDate() + 3 - ((date.getUTCDay() + 6) % 7));
+  const year = date.getUTCFullYear();
+  const week1 = calendarDate(`${String(year).padStart(4, '0')}-01-04`)!;
+  const week =
     1 +
-    Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
-  return `${d.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
-};
-
-const countStreakFromWeekKeys = (weekKeys: ReadonlySet<string>, anchor = new Date()): number => {
-  if (weekKeys.size === 0) return 0;
-
-  let streak = 0;
-  for (let offset = 0; offset < 104; offset++) {
-    const check = new Date(anchor);
-    check.setDate(anchor.getDate() - offset * 7);
-    const key = toIsoWeekKey(check);
-    if (!key) break;
-    if (weekKeys.has(key)) {
-      streak++;
-      continue;
-    }
-    if (offset === 0) continue;
-    break;
-  }
-  return streak;
-};
-
-const findStreakWeeksTimestampFromWeekMap = (
-  weekTimestamps: ReadonlyMap<string, string>,
-  requiredWeeks = 1,
-  anchor = new Date()
-): string | undefined => {
-  if (weekTimestamps.size === 0) return undefined;
-
-  let streak = 0;
-  let latestWeekKeyInStreak: string | null = null;
-  for (let offset = 0; offset < 104; offset++) {
-    const check = new Date(anchor);
-    check.setDate(anchor.getDate() - offset * 7);
-    const key = toIsoWeekKey(check);
-    if (!key) break;
-    if (weekTimestamps.has(key)) {
-      if (streak === 0) latestWeekKeyInStreak = key;
-      streak++;
-      if (streak === requiredWeeks) {
-        return latestWeekKeyInStreak ? weekTimestamps.get(latestWeekKeyInStreak) : undefined;
-      }
-      continue;
-    }
-    if (offset === 0) continue;
-    break;
-  }
-  return undefined;
-};
-
-function isoStringFromLessonStartsAt(row: ParticipantLessonStatsEvidence): string {
-  return new Date(row.startsAt.seconds * 1000 + row.startsAt.nanoseconds / 1_000_000).toISOString();
+    Math.round(
+      ((date.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getUTCDay() + 6) % 7)) / 7
+    );
+  return `${year}-W${String(week).padStart(2, '0')}`;
 }
 
 function presentEvidenceWeekTimestamps(
-  evidence: readonly ParticipantLessonStatsEvidence[]
+  evidence: readonly ParticipantLessonStatsEvidence[],
+  anchor: Date
 ): Map<string, string> {
-  const weekTimestamps = new Map<string, string>();
+  const weeks = new Map<string, string>();
   for (const row of evidence) {
     if (!participantAttendedLessonFromEvidence(row)) continue;
-    const localDate = lessonStartsAtLocalCalendarDate(row.startsAt, row.timeZone);
-    const key = toIsoWeekKey(localDate);
+    const instant = row.startsAt.seconds * 1000 + row.startsAt.nanoseconds / 1_000_000;
+    if (instant > anchor.getTime()) continue;
+    const key = toIsoWeekKey(lessonStartsAtLocalCalendarDate(row.startsAt, row.timeZone));
     if (!key) continue;
-    const timestamp = isoStringFromLessonStartsAt(row);
-    const existing = weekTimestamps.get(key);
-    if (!existing || timestamp < existing) {
-      weekTimestamps.set(key, timestamp);
-    }
+    const timestamp = new Date(instant).toISOString();
+    const existing = weeks.get(key);
+    if (!existing || timestamp < existing) weeks.set(key, timestamp);
   }
-  return weekTimestamps;
+  return weeks;
 }
 
-/** Canonical streak: Attendance.present of this participantId only. */
+/** Shared traversal keeps the threshold and earnedAt on exactly the same weeks. */
+function streakTimestamps(
+  evidence: readonly ParticipantLessonStatsEvidence[],
+  anchor: Date,
+  timeZone: string
+): string[] {
+  if (!Number.isFinite(anchor.getTime())) return [];
+  const weeks = presentEvidenceWeekTimestamps(evidence, anchor);
+  const check = calendarDate(lessonStartsAtLocalCalendarDate(timestampFromDate(anchor), timeZone))!;
+  const streak: string[] = [];
+  for (let offset = 0; offset < 104; offset++) {
+    const timestamp = weeks.get(toIsoWeekKey(check.toISOString().slice(0, 10))!);
+    if (timestamp) streak.push(timestamp);
+    else if (offset !== 0) break;
+    check.setUTCDate(check.getUTCDate() - 7);
+  }
+  return streak;
+}
+
+/** Evidence must be scoped to the selected Participant by the evaluation context. */
 export const getTrainingStreakWeeksFromPresentEvidence = (
   evidence: readonly ParticipantLessonStatsEvidence[],
-  anchor = new Date()
-): number =>
-  countStreakFromWeekKeys(new Set(presentEvidenceWeekTimestamps(evidence).keys()), anchor);
+  anchor: Date,
+  timeZone: string
+): number => streakTimestamps(evidence, anchor, timeZone).length;
 
 export const findStreakWeeksTimestampFromPresentEvidence = (
   evidence: readonly ParticipantLessonStatsEvidence[],
-  requiredWeeks = 1,
-  anchor = new Date()
-): string | undefined =>
-  findStreakWeeksTimestampFromWeekMap(
-    presentEvidenceWeekTimestamps(evidence),
-    requiredWeeks,
-    anchor
-  );
+  requiredWeeks: number,
+  anchor: Date,
+  timeZone: string
+): string | undefined => {
+  const streak = streakTimestamps(evidence, anchor, timeZone);
+  return streak.length >= requiredWeeks ? streak[0] : undefined;
+};

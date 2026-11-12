@@ -24,6 +24,7 @@ export * from './bookingAttendancePolicy';
 export * from './participantLessonStatsSemantics';
 export * from './bookingPartyFinance';
 export * from './bookingCreation';
+export * from './localCalendarWindow';
 export * from './lessonPricingSettings';
 export * from './lessonLevels';
 export * from './emailDeliverySettings';

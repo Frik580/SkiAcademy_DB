@@ -4,8 +4,6 @@ import {
   AdminPlannerOccupancyItemSchema,
   ADMIN_PLANNER_READ_MODEL_PAGE_SIZE_MAX,
   ATTENDANCE_IDENTITY_STRATEGY_VERSION,
-  IanaTimeZoneSchema,
-  TimeIntervalSchema,
   attendanceIdFromBookingIdentity,
   attendanceIsOverdue,
   bookingInstructorAttendanceWindowEnd,
@@ -13,7 +11,7 @@ import {
   compareCanonicalTimestamps,
   frozenServiceParticipantIds,
   intervalsOverlap,
-  localCalendarInputToUtcDate,
+  localCalendarWindow,
   missingAttendanceParticipantIds,
   timestampFromDate,
   type AdminPlannerOccupancyItem,
@@ -59,15 +57,7 @@ export function instructorOccupancyWindow(
   timeZone: string,
   windowDays = 1
 ): TimeInterval {
-  const start = localCalendarInputToUtcDate(
-    { localDate, localTime: '00:00', durationMinutes: 60 },
-    IanaTimeZoneSchema.parse(timeZone)
-  );
-  const end = new Date(start.getTime() + windowDays * 24 * 60 * 60 * 1000);
-  return TimeIntervalSchema.parse({
-    startsAt: timestampFromDate(start),
-    endsAt: timestampFromDate(end),
-  });
+  return localCalendarWindow(localDate, timeZone, windowDays);
 }
 
 function localParts(

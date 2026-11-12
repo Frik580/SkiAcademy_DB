@@ -237,6 +237,7 @@
   "packages/shared-domain/src/canonical/adminIssueInboxRevision.test.ts": "shared-domain",
   "packages/shared-domain/src/canonical/adminRealtimeRevisionSignal.test.ts": "shared-domain",
   "packages/shared-domain/src/canonical/bookingCreation.test.ts": "shared-domain",
+  "packages/shared-domain/src/canonical/localCalendarWindow.test.ts": "shared-domain",
   "packages/shared-domain/src/canonical/canonicalReadScope.test.ts": "shared-domain",
   "packages/shared-domain/src/canonical/commands/commandIntents.test.ts": "shared-domain",
   "packages/shared-domain/src/canonical/commands/guestCallableTransport.test.ts": "shared-domain",

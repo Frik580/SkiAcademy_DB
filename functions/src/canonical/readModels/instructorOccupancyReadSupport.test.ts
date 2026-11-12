@@ -20,6 +20,7 @@ import {
 import { readRepoFile } from '../../../../tests/helpers/readRepoFile';
 import { queryAdminPlannerReadModels } from './adminPlannerReadModels';
 import { queryInstructorOccupancyReadModels } from './instructorOccupancyReadModels';
+import { participantOccupancyWindow } from './participantOccupancyReadSupport';
 import {
   instructorOccupancyWindow,
   isBookingVisibleForOccupancyScope,
@@ -39,6 +40,25 @@ const lessonStart = timestampFromDate(new Date('2026-09-10T04:00:00.000Z'));
 const lessonEnd = timestampFromDate(new Date('2026-09-10T05:00:00.000Z'));
 const localDate = '2026-09-10';
 const timeZone = 'Asia/Almaty';
+
+describe('occupancy calendar window consumers', () => {
+  it.each([
+    ['2026-03-29', 1, '2026-03-28T23:00:00Z', '2026-03-29T22:00:00Z'],
+    ['2026-10-25', 1, '2026-10-24T22:00:00Z', '2026-10-25T23:00:00Z'],
+    ['2026-03-23', 7, '2026-03-22T23:00:00Z', '2026-03-29T22:00:00Z'],
+    ['2026-10-19', 7, '2026-10-18T22:00:00Z', '2026-10-25T23:00:00Z'],
+  ] as const)(
+    'keeps instructor and participant boundaries aligned: %s / %i',
+    (date, days, start, end) => {
+      const expected = {
+        startsAt: timestampFromDate(new Date(start)),
+        endsAt: timestampFromDate(new Date(end)),
+      };
+      expect(instructorOccupancyWindow(date, 'Europe/Paris', days)).toEqual(expected);
+      expect(participantOccupancyWindow(date, 'Europe/Paris', days)).toEqual(expected);
+    }
+  );
+});
 
 function nestedValue(data: Record<string, unknown>, field: string): unknown {
   return field

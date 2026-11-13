@@ -1,5 +1,5 @@
 import { cabinetLessonTiming } from '../fixtures/cabinetLessonTiming';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type {
   CabinetSessionItem,
@@ -129,13 +129,13 @@ describe('current sessions presentation', () => {
     );
     const cards = screen.getAllByRole('article');
     expect(cards).toHaveLength(2);
-    expect(within(cards[0]).getByText('Alice Student')).toBeInTheDocument();
-    expect(within(cards[0]).getByText('Bob Student')).toBeInTheDocument();
-    expect(within(cards[1]).queryByText('Alice Student')).not.toBeInTheDocument();
-    expect(within(cards[1]).getByText('Bob Student')).toBeInTheDocument();
-    expect(screen.queryByText('Other Student')).not.toBeInTheDocument();
+    expect(within(cards[0]).getByLabelText('Alice Student')).toBeInTheDocument();
+    expect(within(cards[0]).getByLabelText('Bob Student')).toBeInTheDocument();
+    expect(within(cards[1]).queryByLabelText('Alice Student')).not.toBeInTheDocument();
+    expect(within(cards[1]).getByLabelText('Bob Student')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Other Student')).not.toBeInTheDocument();
     expect(
-      Array.from(cards[0].querySelectorAll('img')).map((img) => img.getAttribute('src'))
+      Array.from(cards[0].querySelectorAll('ul img')).map((img) => img.getAttribute('src'))
     ).toEqual(['/alice.png', '/bob.png']);
     fireEvent.click(within(cards[0]).getByRole('button', { name: 'scMoreDetails' }));
     expect(handlers.onOpenLesson).toHaveBeenCalledWith(expect.objectContaining({ id: 'lesson_1' }));
@@ -154,9 +154,9 @@ describe('current sessions presentation', () => {
 describe('next session participants', () => {
   it('renders one booking participant with avatar and full displayName', () => {
     render(<NextSessionBlock {...props([lesson(['bob'])])} />);
-    expect(within(participantLists()[0]).getByText('Bob Student')).toBeInTheDocument();
+    expect(within(participantLists()[0]).getByLabelText('Bob Student')).toBeInTheDocument();
     expect(participantLists()[0].querySelector('img')).toHaveAttribute('src', '/bob.png');
-    expect(screen.queryByText('Alice Student')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Alice Student')).not.toBeInTheDocument();
   });
 
   it('renders every ID of a family booking, without unrelated profiles', () => {
@@ -164,9 +164,9 @@ describe('next session participants', () => {
     expect(
       within(participantLists()[0])
         .getAllByRole('listitem')
-        .map((item) => item.textContent)
+        .map((item) => item.getAttribute('aria-label'))
     ).toEqual(['Bob Student', 'Alice Student']);
-    expect(screen.queryByText('Other Student')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Other Student')).not.toBeInTheDocument();
   });
 
   it('keeps two enrollments of the same course isolated', () => {
@@ -174,10 +174,10 @@ describe('next session participants', () => {
     const b = course('enrollment_b', 'bob');
     render(<NextSessionBlock {...props([a, b])} />);
     const lists = participantLists();
-    expect(within(lists[0]).getByText('Alice Student')).toBeInTheDocument();
-    expect(within(lists[0]).queryByText('Bob Student')).not.toBeInTheDocument();
-    expect(within(lists[1]).getByText('Bob Student')).toBeInTheDocument();
-    expect(within(lists[1]).queryByText('Alice Student')).not.toBeInTheDocument();
+    expect(within(lists[0]).getByLabelText('Alice Student')).toBeInTheDocument();
+    expect(within(lists[0]).queryByLabelText('Bob Student')).not.toBeInTheDocument();
+    expect(within(lists[1]).getByLabelText('Bob Student')).toBeInTheDocument();
+    expect(within(lists[1]).queryByLabelText('Alice Student')).not.toBeInTheDocument();
   });
 
   it('shows all participants of a course submission through their distinct canonical enrollments', () => {
@@ -217,8 +217,8 @@ describe('next session participants', () => {
     const sessions = expandEnrollmentsToCourseDaySessions(enrollments);
     render(<NextSessionBlock {...props(sessions)} />);
     expect(participantLists()).toHaveLength(2);
-    expect(screen.getByText('Alice Student')).toBeInTheDocument();
-    expect(screen.getByText('Bob Student')).toBeInTheDocument();
+    expect(screen.getByLabelText('Alice Student')).toBeInTheDocument();
+    expect(screen.getByLabelText('Bob Student')).toBeInTheDocument();
   });
 
   it('does not change card membership when the header selection changes', () => {
@@ -236,21 +236,21 @@ describe('next session participants', () => {
     const before = participantLists().map((list) => list.textContent);
     view.rerender(<StudentTodaySection {...input} selectedParticipantId="other" />);
     expect(participantLists().map((list) => list.textContent)).toEqual(before);
-    expect(screen.queryByText('Other Student')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Other Student')).not.toBeInTheDocument();
   });
 
   it('uses existing initials and projected name/ID fallbacks while profiles are missing, then updates', () => {
     const sessions = [lesson(['alice', 'unknown']), course('enrollment_b', 'bob')];
     const view = render(<NextSessionBlock {...props(sessions, [])} />);
-    expect(screen.getByText('Alice Snapshot')).toBeInTheDocument();
-    expect(screen.getByText('unknown')).toBeInTheDocument();
-    expect(screen.getByText('bob Snapshot')).toBeInTheDocument();
+    expect(screen.getByLabelText('Alice Snapshot')).toBeInTheDocument();
+    expect(screen.getByLabelText('unknown')).toBeInTheDocument();
+    expect(screen.getByLabelText('bob Snapshot')).toBeInTheDocument();
     expect(
       participantLists()[0].querySelectorAll('[data-participant-avatar-face]')[0]
     ).toHaveTextContent('A');
     expect(participantLists()[0].querySelector('img')).toBeNull();
     view.rerender(<NextSessionBlock {...props(sessions)} />);
-    expect(screen.getByText('Alice Student')).toBeInTheDocument();
+    expect(screen.getByLabelText('Alice Student')).toBeInTheDocument();
     expect(participantLists()[0].querySelector('img')).toHaveAttribute('src', '/alice.png');
   });
 
@@ -284,7 +284,7 @@ describe('account-level next course aggregation', () => {
     expect(
       within(participantLists()[0])
         .getAllByRole('listitem')
-        .map((item) => item.textContent)
+        .map((item) => item.getAttribute('aria-label'))
     ).toEqual(['Alice Student', 'Bob Student']);
   });
 
@@ -313,12 +313,16 @@ describe('account-level next course aggregation', () => {
     render(<NextSessionBlock {...props([])} {...cards} />);
     const lists = participantLists();
     expect(lists).toHaveLength(3);
-    expect(lists.filter((list) => list.textContent?.includes('Alice Student'))).toHaveLength(2);
-    for (const list of lists.filter((list) => list.textContent?.includes('Alice Student'))) {
-      expect(within(list).getByText('Bob Student')).toBeInTheDocument();
-      expect(within(list).queryByText('Other Student')).not.toBeInTheDocument();
+    expect(lists.filter((list) => list.querySelector('[aria-label="Alice Student"]'))).toHaveLength(
+      2
+    );
+    for (const list of lists.filter((list) => list.querySelector('[aria-label="Alice Student"]'))) {
+      expect(within(list).getByLabelText('Bob Student')).toBeInTheDocument();
+      expect(within(list).queryByLabelText('Other Student')).not.toBeInTheDocument();
     }
-    expect(lists.filter((list) => list.textContent === 'Other Student')).toHaveLength(1);
+    expect(lists.filter((list) => list.querySelector('[aria-label="Other Student"]'))).toHaveLength(
+      1
+    );
   });
 
   it('preserves lesson booking membership beside an aggregated course and missing profiles', () => {
@@ -331,9 +335,57 @@ describe('account-level next course aggregation', () => {
     render(<NextSessionBlock {...props([])} {...cards} />);
     const lists = participantLists();
     expect(lists).toHaveLength(2);
-    expect(lists[0]).toHaveTextContent('Bob Snapshot');
+    expect(within(lists[0]).getByLabelText('Bob Snapshot')).toBeInTheDocument();
     expect(within(lists[0]).getAllByRole('listitem')).toHaveLength(1);
     expect(within(lists[1]).getAllByRole('listitem')).toHaveLength(2);
     expect(lists[1].querySelector('img')).toBeNull();
+  });
+});
+
+describe('session avatar overflow', () => {
+  it('uses all available slots and recalculates overflow on resize and participant updates', () => {
+    let resize!: (entries: { contentRect: { width: number } }[]) => void;
+    const disconnect = vi.fn();
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback: typeof resize) {
+          resize = callback;
+        }
+        observe() {}
+        disconnect = disconnect;
+      }
+    );
+    try {
+      const people = Array.from({ length: 8 }, (_, index) => ({
+        participantId: `p${index}`,
+        displayName: `Person ${index}`,
+        avatarUrl: `/p${index}.png`,
+      }));
+      const session = lesson(people.map((p) => p.participantId));
+      const view = render(<NextSessionBlock {...props([session], people)} />);
+      act(() => resize([{ contentRect: { width: 200 } }]));
+      expect(participantLists()[0].querySelectorAll('img')).toHaveLength(4);
+      expect(participantLists()[0]).toHaveTextContent('+4');
+      act(() => resize([{ contentRect: { width: 320 } }]));
+      expect(participantLists()[0].querySelectorAll('img')).toHaveLength(8);
+      expect(participantLists()[0].textContent).toBe('');
+      act(() => resize([{ contentRect: { width: 200 } }]));
+      view.rerender(
+        <NextSessionBlock
+          {...props([lesson(people.slice(0, 5).map((p) => p.participantId))], people)}
+        />
+      );
+      expect(participantLists()[0].querySelectorAll('img')).toHaveLength(5);
+      expect(participantLists()[0].textContent).toBe('');
+      expect(within(participantLists()[0]).getByLabelText('Person 4')).toHaveAttribute(
+        'title',
+        'Person 4'
+      );
+      view.unmount();
+      expect(disconnect).toHaveBeenCalledOnce();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

@@ -132,7 +132,7 @@ describe('Next Session tile functional adaptation', () => {
       'lesson:second',
       'lesson:third',
     ]);
-    expect(cards[2]).toHaveTextContent(longName);
+    expect(within(cards[2]).getByLabelText(longName)).toBeInTheDocument();
     const user = userEvent.setup();
     for (const [index, id] of [
       [0, 'family'],
@@ -162,10 +162,10 @@ describe('Next Session tile functional adaptation', () => {
     expect(card).toHaveAttribute('data-session-id', 'lesson:family');
     expect(card).toHaveTextContent('10:00–11:00');
     expect(card).toHaveTextContent('Actual coach');
-    expect(within(card).getByText('Alice')).toBeInTheDocument();
-    expect(within(card).getByText('Bob')).toBeInTheDocument();
+    expect(within(card).getByLabelText('Alice')).toBeInTheDocument();
+    expect(within(card).getByLabelText('Bob')).toBeInTheDocument();
     expect(card.querySelector('img')).toHaveAttribute('src', '/alice.png');
-    expect(card.querySelectorAll('[data-participant-avatar-face]')[1]).toHaveTextContent('B');
+    expect(card.querySelectorAll('ul [data-participant-avatar-face]')[1]).toHaveTextContent('B');
     expect(card.querySelector('[data-feedback-id]')).toHaveAttribute('data-feedback-id', 'family');
     await user.click(within(card).getByRole('button', { name: translations.en.scMoreDetails }));
     expect(props.onOpenLesson).toHaveBeenCalledWith(expect.objectContaining({ id: 'family' }));

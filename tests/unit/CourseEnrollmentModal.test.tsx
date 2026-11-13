@@ -1,3 +1,4 @@
+import { translations } from '../../src/lib/i18n/translations';
 import { useCourseEnrollmentStore as useCatalogStore } from '../../src/features/course-enrollments/courseEnrollmentStore';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { StrictMode } from 'react';
@@ -918,6 +919,49 @@ describe('CourseEnrollmentModal guest enrollment', () => {
       expect(screen.queryByRole('button', { name: 'Complete profile' })).not.toBeInTheDocument()
     );
   });
+
+  it.each(['ru', 'en'] as const)(
+    'validates pasted phone, preserves fields and submits once (%s)',
+    async (locale) => {
+      mocks.language = locale;
+      expect(translations[locale].guestPhoneInvalid).toBe(
+        locale === 'en'
+          ? 'Enter a valid phone number with country code'
+          : '\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u044b\u0439 \u043d\u043e\u043c\u0435\u0440 \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0430 \u0441 \u043a\u043e\u0434\u043e\u043c \u0441\u0442\u0440\u0430\u043d\u044b'
+      );
+      const user = userEvent.setup();
+      render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
+      const name = screen.getByPlaceholderText('guestNamePlaceholder');
+      const phone = screen.getByPlaceholderText('guestPhonePlaceholder');
+      fireEvent.change(name, { target: { value: 'Guest Child' } });
+      fireEvent.change(phone, { target: { value: 'abc' } });
+      fireEvent.click(screen.getByRole('button', { name: /Add email or comment/i }));
+      const comment = screen.getByLabelText('guestCourseCommentLabel');
+      fireEvent.change(comment, { target: { value: 'Please call' } });
+      const submit = phone.closest('form')!;
+      fireEvent.submit(submit);
+      expect(phone).toHaveAttribute('aria-invalid', 'true');
+      expect(phone).toHaveFocus();
+      expect(screen.getByRole('alert')).toHaveTextContent('guestPhoneInvalid');
+      expect(mocks.createGuestEnrollment).not.toHaveBeenCalled();
+      await user.clear(phone);
+      await user.paste('8 (701) 123-45-67');
+      expect(screen.queryByText('guestPhoneInvalid')).not.toBeInTheDocument();
+      expect(name).toHaveValue('Guest Child');
+      expect(comment).toHaveValue('Please call');
+      fireEvent.submit(submit);
+      fireEvent.submit(submit);
+      await waitFor(() => expect(mocks.createGuestEnrollment).toHaveBeenCalledTimes(1));
+      expect(mocks.createGuestEnrollment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          guestDisplayName: 'Guest Child',
+          guestPhone: '+77011234567',
+          guestDiscipline: 'ski',
+          notificationLocale: locale,
+        })
+      );
+    }
+  );
 
   it('does not ask for age or skill before submitting a course with catalog discipline', async () => {
     render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);

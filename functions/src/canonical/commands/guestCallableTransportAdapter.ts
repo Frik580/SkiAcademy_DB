@@ -6,7 +6,7 @@ import {
   GUEST_ACTION_SIGNATURE_TRANSPORT_KEY,
   GUEST_PARTICIPANT_TRANSPORT_METADATA_KEYS,
   GUEST_CONTACT_TRANSPORT_METADATA_KEYS,
-  GuestContactDetailsSchema,
+  GuestContactInputSchema,
   NOTIFICATION_LOCALE_TRANSPORT_KEY,
   guestSubjectIdFromBookingId,
   guestSubjectIdFromCourseEnrollmentId,
@@ -129,7 +129,7 @@ export function buildGuestCommandContextFromCallable(
   }
 
   if (input.guestPhone !== undefined) {
-    const contact = GuestContactDetailsSchema.parse({
+    const contact = GuestContactInputSchema.parse({
       phone: input.guestPhone,
       ...(input.guestEmail === undefined ? {} : { email: input.guestEmail }),
     });

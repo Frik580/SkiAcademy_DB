@@ -4,7 +4,11 @@ import {
   getBookingParticipantAccess,
   useBookingParticipantAccess,
 } from './useBookingParticipantAccess';
-import { activeLessonLevels, resolveLessonLevel } from '@ski-academy/shared-domain';
+import {
+  normalizeGuestPhone,
+  activeLessonLevels,
+  resolveLessonLevel,
+} from '@ski-academy/shared-domain';
 import { useWalletStore } from '../../../wallet/walletStore';
 import { useAuthStore } from '../../../auth/authStore';
 import { resolveBookingWalletState } from './bookingWalletState';
@@ -212,6 +216,7 @@ export const useBookingModal = ({
   const [unauthTab, setUnauthTab] = useState<'guest' | 'auth'>('guest');
   const [guestName, setGuestName] = useState<string>('');
   const [guestPhone, setGuestPhone] = useState<string>('');
+  const [guestPhoneError, setGuestPhoneError] = useState(false);
   const [guestEmail, setGuestEmail] = useState<string>('');
   const [guestAgeYears, setGuestAgeYears] = useState('');
   const [showGuestOptionalDetails, setShowGuestOptionalDetails] = useState(false);
@@ -580,8 +585,10 @@ export const useBookingModal = ({
       addNotification('warning', t('missingDetails'), t('guestNameLabel'));
       return;
     }
-    if (!guestPhone.trim()) {
-      addNotification('warning', t('missingDetails'), t('guestPhoneLabel'));
+    const normalizedPhone = normalizeGuestPhone(guestPhone);
+    if (!normalizedPhone) {
+      setGuestPhoneError(true);
+      document.getElementById('guest-lesson-phone')?.focus();
       return;
     }
     const guestProfile = GuestLessonParticipantProfileFromTransportSchema.safeParse({
@@ -646,7 +653,7 @@ export const useBookingModal = ({
         },
         guestDisplayName: guestProfile.data.displayName,
         guestDiscipline: guestProfile.data.discipline,
-        guestPhone: guestPhone.trim(),
+        guestPhone: normalizedPhone,
         guestEmail: guestEmail.trim() || undefined,
         notificationLocale: language,
         notes: notes.trim() || undefined,
@@ -1059,6 +1066,8 @@ export const useBookingModal = ({
     guestName,
     setGuestName,
     guestPhone,
+    guestPhoneError,
+    setGuestPhoneError,
     setGuestPhone,
     guestEmail,
     setGuestEmail,

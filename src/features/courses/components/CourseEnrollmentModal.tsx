@@ -1,3 +1,4 @@
+import { normalizeGuestPhone } from '@ski-academy/shared-domain';
 import { deriveGroupCourseEnrollmentCtaState } from '../groupCourseEnrollmentCta';
 import { lookupCourseCatalogOperational } from '../../course-enrollments/courseEnrollmentViewModel';
 import { CourseCatalogFeedback } from './CourseCatalogFeedback';
@@ -96,6 +97,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   );
   const [guestName, setGuestName] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
+  const [guestPhoneError, setGuestPhoneError] = useState(false);
   const [guestEmail, setGuestEmail] = useState('');
   const [guestNotes, setGuestNotes] = useState('');
   const [showGuestOptionalDetails, setShowGuestOptionalDetails] = useState(false);
@@ -269,8 +271,10 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
       addNotification('warning', t('missingDetails'), t('guestNameLabel'));
       return;
     }
-    if (!guestPhone.trim()) {
-      addNotification('warning', t('missingDetails'), t('guestPhoneLabel'));
+    const normalizedPhone = normalizeGuestPhone(guestPhone);
+    if (!normalizedPhone) {
+      setGuestPhoneError(true);
+      document.getElementById('course-guest-phone')?.focus();
       return;
     }
     const resolvedGuestDiscipline = course.discipline ?? guestDiscipline;
@@ -298,7 +302,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
         identity: { enrollmentId: stableEnrollmentId, idempotencyKey },
         guestDisplayName: guestName.trim(),
         guestDiscipline: resolvedGuestDiscipline,
-        guestPhone: guestPhone.trim(),
+        guestPhone: normalizedPhone,
         guestEmail: guestEmail.trim() || undefined,
         ...(guestNotes.trim() ? { guestComment: guestNotes.trim() } : {}),
         notificationLocale: language,
@@ -874,10 +878,30 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                             type="tel"
                             required
                             value={guestPhone}
-                            onChange={(e) => setGuestPhone(e.target.value)}
+                            onChange={(e) => {
+                              setGuestPhone(e.target.value);
+                              if (guestPhoneError)
+                                setGuestPhoneError(!normalizeGuestPhone(e.target.value));
+                            }}
+                            onInvalid={() => setGuestPhoneError(true)}
+                            autoComplete="tel"
+                            inputMode="tel"
+                            aria-invalid={guestPhoneError || undefined}
+                            aria-describedby={
+                              guestPhoneError ? 'course-guest-phone-error' : undefined
+                            }
                             placeholder={t('guestPhonePlaceholder')}
                             className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)] type-body"
                           />
+                          {guestPhoneError && (
+                            <p
+                              id="course-guest-phone-error"
+                              role="alert"
+                              className="type-caption text-[var(--ink)]"
+                            >
+                              {t('guestPhoneInvalid')}
+                            </p>
+                          )}
                         </div>
                       </div>
 

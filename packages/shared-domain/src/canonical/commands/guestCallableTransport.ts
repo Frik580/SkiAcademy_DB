@@ -12,7 +12,7 @@ import {
   type IdempotencyKey,
 } from './commandContext';
 import { CommandIntentSchemaByKind } from './commandIntents';
-import { GuestContactDetailsSchema, NotificationLocaleSchema } from '../guestContact';
+import { GuestContactInputSchema, NotificationLocaleSchema } from '../guestContact';
 import type { CommandKind } from './commandKinds';
 
 const guestParticipantProfileTransportFields = {
@@ -37,8 +37,8 @@ export const CreateGuestBookingRequestTransportSchema = z
       guestParticipantProfileTransportFields.guestParticipantSkillLevel.optional(),
     guestParticipantAgeYears:
       guestParticipantProfileTransportFields.guestParticipantAgeYears.optional(),
-    guestPhone: GuestContactDetailsSchema.shape.phone,
-    guestEmail: GuestContactDetailsSchema.shape.email,
+    guestPhone: GuestContactInputSchema.shape.phone,
+    guestEmail: GuestContactInputSchema.shape.email,
     notificationLocale: NotificationLocaleSchema.optional(),
   })
   .strict();
@@ -91,8 +91,8 @@ const guestCallableTransportSchemas = [
       guestParticipantDisplayName:
         guestParticipantProfileTransportFields.guestParticipantDisplayName,
       guestParticipantDiscipline: guestParticipantProfileTransportFields.guestParticipantDiscipline,
-      guestPhone: GuestContactDetailsSchema.shape.phone,
-      guestEmail: GuestContactDetailsSchema.shape.email,
+      guestPhone: GuestContactInputSchema.shape.phone,
+      guestEmail: GuestContactInputSchema.shape.email,
     })
     .strict(),
   guestCallableTransportSchemaForKind('complete_guest_participant_profile'),

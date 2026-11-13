@@ -625,7 +625,7 @@ describe('create_guest_booking_request command', () => {
         executor.snapshot().docs.get(`guest_contacts/booking_${bookingId}`)?.data
       ).toMatchObject({
         subject: { kind: 'booking', bookingId },
-        phone: '+7 701 123 45 67',
+        phone: '+77011234567',
         email: 'guest@example.com',
       });
     }

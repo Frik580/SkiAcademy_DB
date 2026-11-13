@@ -177,7 +177,7 @@ describe('booking modal submit success UX', () => {
     await waitForAvailableSlot(result);
     act(() => {
       result.current.setGuestName('Guest');
-      result.current.setGuestPhone('12345');
+      result.current.setGuestPhone('+77011234567');
       result.current.setGuestDiscipline('ski');
     });
     await act(async () =>
@@ -334,7 +334,7 @@ describe('booking modal submit success UX', () => {
       ).not.toBeInTheDocument();
       act(() => {
         result.current.setGuestName('Guest');
-        result.current.setGuestPhone('12345');
+        result.current.setGuestPhone('+77011234567');
       });
       await act(async () => {
         await result.current.handleSubmitGuest({
@@ -347,6 +347,35 @@ describe('booking modal submit success UX', () => {
     }
   );
 
+  it('rejects invalid lesson phone and clears the inline error after correction', async () => {
+    const { result } = renderHook(() => useBookingModal(createProps()));
+    await waitForAvailableSlot(result);
+    act(() => {
+      result.current.setGuestName('Guest');
+      result.current.setGuestPhone('abc');
+      result.current.setGuestDiscipline('ski');
+    });
+    const view = render(React.createElement(GuestBookingForm, { workspace: result.current }));
+    await act(async () =>
+      result.current.handleSubmitGuest({ preventDefault: vi.fn() } as unknown as React.FormEvent)
+    );
+    view.rerender(React.createElement(GuestBookingForm, { workspace: result.current }));
+    expect(screen.getByRole('alert')).toHaveTextContent('guestPhoneInvalid');
+    expect(mocks.createGuestBooking).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
+      target: { value: '+44 20 7946 0958' },
+    });
+    view.rerender(React.createElement(GuestBookingForm, { workspace: result.current }));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(result.current.guestName).toBe('Guest');
+    await act(async () =>
+      result.current.handleSubmitGuest({ preventDefault: vi.fn() } as unknown as React.FormEvent)
+    );
+    expect(mocks.createGuestBooking).toHaveBeenCalledWith(
+      expect.objectContaining({ guestPhone: '+442079460958' })
+    );
+  });
+
   it('requires an explicit discipline for a multi-specialty instructor', async () => {
     const { result } = renderHook(() => useBookingModal(createProps()));
     await waitForAvailableSlot(result);
@@ -354,7 +383,7 @@ describe('booking modal submit success UX', () => {
     expect(screen.getByRole('combobox', { name: 'participantsDisciplineLabel *' })).toHaveValue('');
     act(() => {
       result.current.setGuestName('Guest');
-      result.current.setGuestPhone('12345');
+      result.current.setGuestPhone('+77011234567');
     });
     await act(async () => {
       await result.current.handleSubmitGuest({
@@ -438,7 +467,7 @@ describe('booking modal submit success UX', () => {
     await waitForAvailableSlot(result);
     act(() => {
       result.current.setGuestName('Guest Name');
-      result.current.setGuestPhone('123456');
+      result.current.setGuestPhone('+77011234567');
       result.current.setGuestAgeYears('12');
       result.current.setGuestDiscipline('ski');
       result.current.setGuestEmail('guest@example.com');
@@ -463,7 +492,7 @@ describe('booking modal submit success UX', () => {
     expect(mocks.queryLessonPricingSettings).not.toHaveBeenCalled();
     expect(mocks.createAuthenticatedBooking).not.toHaveBeenCalled();
     expect(mocks.createGuestBooking).toHaveBeenCalledWith(
-      expect.objectContaining({ guestPhone: '123456', guestEmail: 'guest@example.com' })
+      expect.objectContaining({ guestPhone: '+77011234567', guestEmail: 'guest@example.com' })
     );
     expect(result.current.guestReservation?.lifecycle.status).toBe('pending');
     expect(result.current.guestReservation?.guestPaymentSummary?.price).toBe(25_000);
@@ -552,7 +581,7 @@ describe('booking modal submit success UX', () => {
     await waitForAvailableSlot(result);
     act(() => {
       result.current.setGuestName('Guest Name');
-      result.current.setGuestPhone('123456');
+      result.current.setGuestPhone('+77011234567');
       result.current.setGuestAgeYears('12');
       result.current.setGuestDiscipline('ski');
     });
@@ -600,7 +629,7 @@ describe('booking modal submit success UX', () => {
     await waitForAvailableSlot(result);
     act(() => {
       result.current.setGuestName('Guest Name');
-      result.current.setGuestPhone('123456');
+      result.current.setGuestPhone('+77011234567');
       result.current.setGuestAgeYears('12');
       result.current.setGuestDiscipline('ski');
     });
@@ -713,7 +742,7 @@ describe('booking modal submit success UX', () => {
     expect(localStorage.getItem(key)).toBeNull();
     act(() => {
       result.current.setGuestName('New Guest');
-      result.current.setGuestPhone('123456');
+      result.current.setGuestPhone('+77011234567');
       result.current.setGuestAgeYears('12');
       result.current.setGuestDiscipline('ski');
     });
@@ -797,7 +826,7 @@ describe('booking modal submit success UX', () => {
 
     act(() => {
       result.current.setGuestName('Guest Name');
-      result.current.setGuestPhone('123456');
+      result.current.setGuestPhone('+77011234567');
       result.current.setGuestAgeYears('12');
       result.current.setGuestDiscipline('ski');
     });
@@ -830,7 +859,7 @@ describe('booking modal submit success UX', () => {
     await waitForAvailableSlot(result);
     act(() => {
       result.current.setGuestName('Guest Name');
-      result.current.setGuestPhone('123456');
+      result.current.setGuestPhone('+77011234567');
       result.current.setGuestAgeYears('12');
       result.current.setGuestDiscipline('ski');
       result.current.setGuestEmail('guest@example.com');
@@ -845,7 +874,7 @@ describe('booking modal submit success UX', () => {
     expect(result.current.guestQuotaError).toBe(true);
     expect(result.current.isSubmitting).toBe(false);
     expect(result.current.guestName).toBe('Guest Name');
-    expect(result.current.guestPhone).toBe('123456');
+    expect(result.current.guestPhone).toBe('+77011234567');
     expect(result.current.guestEmail).toBe('guest@example.com');
     expect(result.current.difficulty).toBe('advanced');
     expect(result.current.duration).toBe(3);
@@ -915,7 +944,7 @@ describe('booking modal submit success UX', () => {
     await waitForAvailableSlot(result);
     act(() => {
       result.current.setGuestName('Previous Guest');
-      result.current.setGuestPhone('123456');
+      result.current.setGuestPhone('+77011234567');
       result.current.setGuestAgeYears('12');
       result.current.setGuestDiscipline('ski');
       result.current.setGuestEmail('previous@example.com');

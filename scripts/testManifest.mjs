@@ -90,6 +90,7 @@ export const suites = [
     'scripts/testFirestoreNetworkGuard.test.mjs',
     'scripts/runLocalTestSuite.test.mjs',
     'scripts/testManifest.test.mjs',
+    'scripts/e2eLifecycle.test.mjs',
   ]),
   suite('canonical-backend', 'backend', 'vitest', ['functions/src/**/*.emulator.test.ts'], {
     exclude: resetFiles,

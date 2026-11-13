@@ -1,5 +1,6 @@
 {
   "e2e/school-timezone-setting.spec.ts": "playwright",
+  "tests/unit/e2eFunctionsReadiness.test.ts": "app-unit",
   "tests/unit/schoolTimeZone.test.ts": "app-unit",
   "tests/unit/schoolTimeZoneSetting.test.tsx": "app-unit",
   "tests/unit/schoolTimeZoneStore.test.tsx": "app-unit",
@@ -295,6 +296,7 @@
   "scripts/syncSharedDomain.test.mjs": "node-guards",
   "scripts/testFirestoreNetworkGuard.test.mjs": "node-guards",
   "scripts/testManifest.test.mjs": "node-guards",
+  "scripts/e2eLifecycle.test.mjs": "node-guards",
   "src/domain/notifications/notifications.test.ts": "deferred:colocated",
   "src/features/auth/authService.test.ts": "deferred:colocated",
   "tests/browser/admin-issue-attendance/attendance.spec.ts": "deferred:browser-fixtures",

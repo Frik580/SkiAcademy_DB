@@ -1,4 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
+import { diagnose } from '../scripts/e2eDiagnostics.mjs';
+import { waitForFunctionsEmulatorReady } from './functions-readiness';
+export { waitForFunctionsEmulatorReady } from './functions-readiness';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -23,7 +26,6 @@ import {
   E2E_WORKSPACE_INSTRUCTOR_ID,
   E2E_WORKSPACE_INSTRUCTOR_NAME,
   FIRESTORE_EMULATOR_HOST,
-  functionsCallableUrl,
 } from './emulator-config';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -94,82 +96,6 @@ async function clearFirestoreEmulator(): Promise<void> {
       `Failed to clear the Firestore emulator before E2E setup: ${response.status} ${await response.text()}`
     );
   }
-}
-
-const FUNCTIONS_READINESS_PROBE = 'optimizeImage';
-const FUNCTIONS_READINESS_TIMEOUT_MS = 60_000;
-const FUNCTIONS_READINESS_RETRY_INTERVAL_MS = 250;
-const FUNCTIONS_READINESS_ATTEMPT_TIMEOUT_MS = 3_000;
-const FUNCTIONS_READINESS_STABLE_PROBES = 3;
-const FUNCTIONS_READINESS_STABLE_INTERVAL_MS = 500;
-
-async function probeFunctionsHttp(functionName: string): Promise<boolean> {
-  try {
-    const response = await fetch(functionsCallableUrl(functionName), {
-      method: 'GET',
-      signal: AbortSignal.timeout(FUNCTIONS_READINESS_ATTEMPT_TIMEOUT_MS),
-    });
-    return response.status < 502;
-  } catch {
-    return false;
-  }
-}
-
-async function probeFunctionsCallable(functionName: string): Promise<boolean> {
-  try {
-    const response = await fetch(functionsCallableUrl(functionName), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      // Missing callable envelope is rejected by the SDK before admission or
-      // domain handlers. Readiness must not write counters or contend on them.
-      body: JSON.stringify({}),
-      signal: AbortSignal.timeout(FUNCTIONS_READINESS_ATTEMPT_TIMEOUT_MS),
-    });
-    return response.status === 400;
-  } catch {
-    return false;
-  }
-}
-
-async function probeFunctionsRuntimeReady(): Promise<boolean> {
-  const [httpReady, guestCallableReady, authCallableReady] = await Promise.all([
-    probeFunctionsHttp(FUNCTIONS_READINESS_PROBE),
-    probeFunctionsCallable('executeGuestCanonicalCommand'),
-    probeFunctionsCallable('executeCanonicalCommand'),
-  ]);
-  return httpReady && guestCallableReady && authCallableReady;
-}
-
-/**
- * Poll until the Functions emulator serves callable traffic reliably. `firebase emulators:exec`
- * waits for initial emulator startup, but Playwright then starts Vite which can trigger
- * Functions reloads on Windows. Run this after the web server is up (e.g. test.beforeAll).
- */
-export async function waitForFunctionsEmulatorReady(
-  functionName = FUNCTIONS_READINESS_PROBE,
-  timeoutMs = FUNCTIONS_READINESS_TIMEOUT_MS
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  let stableProbes = 0;
-
-  while (Date.now() < deadline) {
-    if (await probeFunctionsRuntimeReady()) {
-      stableProbes += 1;
-      if (stableProbes >= FUNCTIONS_READINESS_STABLE_PROBES) {
-        return;
-      }
-      await new Promise((resolve) => setTimeout(resolve, FUNCTIONS_READINESS_STABLE_INTERVAL_MS));
-      continue;
-    }
-
-    stableProbes = 0;
-    await new Promise((resolve) => setTimeout(resolve, FUNCTIONS_READINESS_RETRY_INTERVAL_MS));
-  }
-
-  throw new Error(
-    `Functions emulator did not become ready for "${functionName}" at ${functionsCallableUrl(functionName)} within ${timeoutMs}ms. ` +
-      'Ensure E2E runs via `npm run test:e2e` so auth, firestore, functions, and storage emulators are started.'
-  );
 }
 
 export async function createAuthUser(email: string, password: string): Promise<string> {
@@ -458,6 +384,7 @@ async function seedCanonicalFirestoreFixtures(
 
 function markSetupTiming(key: string): void {
   const path = process.env.CARVE_E2E_TIMING_PATH;
+  diagnose(`global-setup:${key}`);
   if (!path) return;
   const timings = JSON.parse(readFileSync(path, 'utf8'));
   timings[key] = Date.now();
@@ -466,12 +393,15 @@ function markSetupTiming(key: string): void {
 
 export default async function globalSetup(): Promise<void> {
   markSetupTiming('globalSetupStartedAt');
+  diagnose('global-setup:clear-firestore');
   await clearFirestoreEmulator();
+  diagnose('global-setup:seed-auth');
 
   const studentUid = await createAuthUser(E2E_STUDENT_EMAIL, E2E_STUDENT_PASSWORD);
   const studentBUid = await createAuthUser(E2E_STUDENT_B_EMAIL, E2E_STUDENT_B_PASSWORD);
   const instructorUid = await createAuthUser(E2E_INSTRUCTOR_EMAIL, E2E_INSTRUCTOR_PASSWORD);
   const adminUid = await createAuthUser(E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD);
+  diagnose('global-setup:seed-firestore');
   const participantIds = await seedCanonicalFirestoreFixtures(studentUid, studentBUid);
 
   await seedWorkspaceAccount({

@@ -17,28 +17,65 @@ export function notificationLocaleFromTransportMetadata(
   return parsed.success ? parsed.data : undefined;
 }
 
-export const GuestContactDetailsSchema = z.object({
-  phone: z.string().trim().min(1).max(32),
-  email: z.string().trim().email().max(320).optional(),
-}).strict();
+/** Format validation only; does not establish ownership or reachability. */
+export function normalizeGuestPhone(input: string): string | undefined {
+  const value = input.trim();
+  if (!value || value.length > 64 || !/^\+?[0-9\s()-]+$/.test(value)) return undefined;
+  let compact = value.replace(/[\s()-]/g, '');
+  // The school accepts the shared +7 numbering zone with either local prefix.
+  if (/^[78][0-9]{10}$/.test(compact)) compact = `+7${compact.slice(1)}`;
+  if (!/^\+[1-9][0-9]{6,14}$/.test(compact)) return undefined;
+  if (compact.startsWith('+7') && compact.length !== 12) return undefined;
+  return compact;
+}
+
+export const GuestPhoneInputSchema = z.string().transform((value, context) => {
+  const phone = normalizeGuestPhone(value);
+  if (phone === undefined) {
+    context.addIssue({ code: 'custom', message: 'Enter a valid phone number with country code' });
+    return z.NEVER;
+  }
+  return phone;
+});
+
+export const GuestContactDetailsSchema = z
+  .object({
+    phone: z.string().trim().min(1).max(32),
+    email: z.string().trim().email().max(320).optional(),
+  })
+  .strict();
+
+// New command input is stricter than persisted/read contacts for backward compatibility.
+export const GuestContactInputSchema = GuestContactDetailsSchema.extend({
+  phone: GuestPhoneInputSchema,
+});
 
 export const GuestContactSubjectSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('booking'), bookingId: BookingIdSchema }).strict(),
-  z.object({ kind: z.literal('course_enrollment'), enrollmentId: CourseEnrollmentIdSchema }).strict(),
+  z
+    .object({ kind: z.literal('course_enrollment'), enrollmentId: CourseEnrollmentIdSchema })
+    .strict(),
 ]);
 
-export const GuestContactSchema = z.object({
-  subject: GuestContactSubjectSchema,
-  ...GuestContactDetailsSchema.shape,
-  notificationLocale: NotificationLocaleSchema.optional(),
-  dataScope: DataScopeSchema,
-  testSessionId: TestSessionIdSchema.optional(),
-  createdAt: CanonicalTimestampSchema,
-}).strict().superRefine((contact, context) => {
-  if ((contact.dataScope === 'test') !== (contact.testSessionId !== undefined)) {
-    context.addIssue({ code: 'custom', path: ['testSessionId'], message: 'Test scope requires testSessionId' });
-  }
-});
+export const GuestContactSchema = z
+  .object({
+    subject: GuestContactSubjectSchema,
+    ...GuestContactDetailsSchema.shape,
+    notificationLocale: NotificationLocaleSchema.optional(),
+    dataScope: DataScopeSchema,
+    testSessionId: TestSessionIdSchema.optional(),
+    createdAt: CanonicalTimestampSchema,
+  })
+  .strict()
+  .superRefine((contact, context) => {
+    if ((contact.dataScope === 'test') !== (contact.testSessionId !== undefined)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['testSessionId'],
+        message: 'Test scope requires testSessionId',
+      });
+    }
+  });
 
 export type GuestContact = Readonly<z.output<typeof GuestContactSchema>>;
 export type GuestContactSubject = z.output<typeof GuestContactSubjectSchema>;

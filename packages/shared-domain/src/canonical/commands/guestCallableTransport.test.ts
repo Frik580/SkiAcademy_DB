@@ -29,7 +29,7 @@ describe('guestCallableTransport schema', () => {
     expect(CreateGuestBookingRequestTransportSchema.safeParse(payload).success).toBe(true);
     expect(parseCallableGuestCommandTransport(payload).success).toBe(true);
     expect(CreateGuestBookingRequestTransportSchema.parse(payload)).toMatchObject({
-      guestPhone: '+7 701 123 45 67',
+      guestPhone: '+77011234567',
       guestEmail: 'guest@example.com',
     });
   });
@@ -64,7 +64,7 @@ describe('guestCallableTransport schema', () => {
       durationMinutes: 120,
       timezone: 'Asia/Almaty',
       guestDisplayName: 'Schema Guest',
-      guestPhone: '+7 701 123 45 67',
+      guestPhone: '+77011234567',
       guestEmail: 'guest@example.com',
       guestSkillLevel: 'beginner',
       guestDiscipline: 'ski',

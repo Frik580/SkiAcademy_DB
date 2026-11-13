@@ -572,7 +572,7 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
       guestState: 'pending_unlinked',
       lifecycleStatus: 'pending',
       payment: { paymentId: enrollment!.paymentId, outstanding: 50_000 },
-      guestContact: { phone: '+7 701 123 45 67', email: 'course@example.com' },
+      guestContact: { phone: '+77011234567', email: 'course@example.com' },
     });
     expect(await commands.execute(envelope)).toEqual(created);
     expect((await revisionRef.get()).data()?.revision).toBe(beforeRevision + 1);
@@ -595,6 +595,27 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     expect(await queryPending()).toMatchObject({ items: [] });
   });
 
+  it.each(['abc', '+555', '+1234567890123456'])(
+    'rejects invalid public phone without writes: %s',
+    async (guestPhone) => {
+      const before = await durableGuestCounts();
+      expect(() =>
+        parseCallableGuestCommandTransportInput({
+          data: {
+            kind: 'create_course_enrollments',
+            intent: { courseId, participantIds: [participantId], enrollmentIds: [enrollmentId] },
+            idempotencyKey: 'idem-invalid-phone',
+            correlationId,
+            guestParticipantDisplayName: 'Guest',
+            guestParticipantDiscipline: 'ski',
+            guestPhone,
+          },
+        } as never)
+      ).toThrow();
+      expect(await durableGuestCounts()).toEqual(before);
+    }
+  );
+
   it('traces a successful guest create through canonical documents and both read models', async () => {
     const transport = parseCallableGuestCommandTransportInput({
       data: {
@@ -606,7 +627,7 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
         guestParticipantAgeYears: 30,
         guestParticipantDiscipline: 'ski',
         guestParticipantSkillLevel: 'beginner',
-        guestPhone: '+555',
+        guestPhone: '8 (701) 123-45-67',
       },
     } as never);
     const created = await createCommands().execute(
@@ -645,7 +666,7 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
         ).data()
       ),
       'persisted contact canonical parse'
-    ).toMatchObject({ phone: '+555' });
+    ).toMatchObject({ phone: '+77011234567' });
     expect(
       parseCourse((await firestore.doc(`courses/${courseId}`).get()).data()),
       'persisted course canonical parse'
@@ -934,7 +955,7 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     expect(participant?.management?.kind).toBe('unmanaged_guest');
     expect(
       (await firestore.doc(`guest_contacts/course_enrollment_${enrollmentId}`).get()).data()
-    ).toMatchObject({ phone: '+7 701 123 45 67', email: 'course@example.com' });
+    ).toMatchObject({ phone: '+77011234567', email: 'course@example.com' });
 
     const enrollmentSnap = await firestore.doc(`course_enrollments/${enrollmentId}`).get();
     const enrollment = parseCourseEnrollment(

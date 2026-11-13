@@ -564,7 +564,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('guest booking commands (firestore emu
     expect(contacts.size).toBe(1);
     expect(contacts.docs[0]?.data()).toMatchObject({
       subject: { kind: 'booking', bookingId },
-      phone: '+7 701 123 45 67',
+      phone: '+77011234567',
       email: 'lesson@example.com',
     });
   }, 30_000);

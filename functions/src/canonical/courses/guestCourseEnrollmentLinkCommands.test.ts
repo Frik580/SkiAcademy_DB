@@ -326,7 +326,7 @@ describe('link_guest_course_enrollment_to_account command', () => {
         .docs.get(`guest_contacts/course_enrollment_${createEnvelope.intent.enrollmentIds![0]}`)
         ?.data
     ).toMatchObject({
-      phone: '+7 701 123 45 67',
+      phone: '+77011234567',
       email: 'course@example.com',
     });
     if (createResult.status !== 'success') {

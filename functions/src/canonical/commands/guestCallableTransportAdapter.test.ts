@@ -45,6 +45,17 @@ function validTransportPayload() {
 }
 
 describe('guestCallableTransportAdapter', () => {
+  it.each(['', 'abc', '+555', '+1234567890123456', '+77011234567#'])(
+    'rejects invalid phone before command execution: %j',
+    (guestPhone) => {
+      expect(() =>
+        parseCallableGuestCommandTransportInput({
+          data: { ...validTransportPayload(), guestPhone },
+        } as never)
+      ).toThrow(HttpsError);
+    }
+  );
+
   it('derives the canonical guest subject for a single course enrollment cancellation intent', () => {
     const courseEnrollmentId = CourseEnrollmentIdSchema.parse(
       'enrollment_guest_cancel_contract_01'
@@ -103,7 +114,7 @@ describe('guestCallableTransportAdapter', () => {
     const envelope = buildGuestCommandEnvelopeFromCallable(guestSubjectId!, transport);
     expect(parseCommandEnvelope(envelope).success).toBe(true);
     expect(envelope.context.transportMetadata).toMatchObject({
-      guest_contact_phone: '+7 701 123 45 67',
+      guest_contact_phone: '+77011234567',
       guest_contact_email: 'guest@example.com',
     });
     expect(envelope.context.transportMetadata?.participant_display_name).toBe(
@@ -120,7 +131,7 @@ describe('guestCallableTransportAdapter', () => {
     const guestSubjectId = deriveGuestSubjectIdForIntent(transport.intent);
     const envelope = buildGuestCommandEnvelopeFromCallable(guestSubjectId!, transport);
     expect(envelope.context.transportMetadata?.notification_locale).toBe('ru');
-    expect(envelope.context.transportMetadata?.guest_contact_phone).toBe('+7 701 123 45 67');
+    expect(envelope.context.transportMetadata?.guest_contact_phone).toBe('+77011234567');
   });
 
   it('rejects malformed transport payloads before envelope construction', () => {

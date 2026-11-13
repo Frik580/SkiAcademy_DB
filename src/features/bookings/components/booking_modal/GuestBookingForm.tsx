@@ -1,3 +1,4 @@
+import { normalizeGuestPhone } from '@ski-academy/shared-domain';
 import { SchoolTimeZoneNotice } from '../../../settings/SchoolTimeZoneNotice';
 import React from 'react';
 import { User, Phone, Mail, Send } from 'lucide-react';
@@ -34,6 +35,8 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
     guestName,
     setGuestName,
     guestPhone,
+    guestPhoneError,
+    setGuestPhoneError,
     setGuestPhone,
     guestEmail,
     setGuestEmail,
@@ -111,10 +114,27 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
                 type="tel"
                 required
                 value={guestPhone}
-                onChange={(e) => setGuestPhone(e.target.value)}
+                onChange={(e) => {
+                  setGuestPhone(e.target.value);
+                  if (guestPhoneError) setGuestPhoneError(!normalizeGuestPhone(e.target.value));
+                }}
+                onInvalid={() => setGuestPhoneError(true)}
+                autoComplete="tel"
+                inputMode="tel"
+                aria-invalid={guestPhoneError || undefined}
+                aria-describedby={guestPhoneError ? 'guest-lesson-phone-error' : undefined}
                 placeholder={t('guestPhonePlaceholder')}
                 className={fieldClass}
               />
+              {guestPhoneError && (
+                <p
+                  id="guest-lesson-phone-error"
+                  role="alert"
+                  className="type-caption text-[var(--ink)]"
+                >
+                  {t('guestPhoneInvalid')}
+                </p>
+              )}
             </div>
           </div>
         </div>

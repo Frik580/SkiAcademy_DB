@@ -1,5 +1,5 @@
 import {
-  GuestContactDetailsSchema,
+  GuestContactInputSchema,
   GuestContactSchema,
   GUEST_CONTACT_TRANSPORT_METADATA_KEYS,
   guestContactDocumentId,
@@ -17,7 +17,7 @@ export function guestContactDetailsFromCommand(envelope: CommandEnvelope) {
   const metadata = envelope.context.transportMetadata;
   const phone = metadata?.[GUEST_CONTACT_TRANSPORT_METADATA_KEYS.phone];
   if (phone === undefined) return undefined;
-  return GuestContactDetailsSchema.parse({
+  return GuestContactInputSchema.parse({
     phone,
     ...(metadata?.[GUEST_CONTACT_TRANSPORT_METADATA_KEYS.email] === undefined
       ? {}
@@ -25,7 +25,9 @@ export function guestContactDetailsFromCommand(envelope: CommandEnvelope) {
   });
 }
 
-export function parseGuestContact(data: Record<string, unknown> | undefined): GuestContact | undefined {
+export function parseGuestContact(
+  data: Record<string, unknown> | undefined
+): GuestContact | undefined {
   const normalized = normalizeFirestoreDocument(data);
   if (!normalized) return undefined;
   const parsed = GuestContactSchema.safeParse(normalized);

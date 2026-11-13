@@ -1,3 +1,4 @@
+import { runE2EProcess } from './e2eProcess.mjs';
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
@@ -36,6 +37,16 @@ function interrupt() {
 }
 export async function runProcess(command, args, options = {}) {
   if (interrupted) throw new Error('Test gate interrupted');
+  if (args[0] === 'scripts/runE2E.mjs') {
+    const code = await runE2EProcess(command, args, {
+      cwd: ROOT,
+      ...options,
+      shutdownGraceMs: 6_000,
+      stage: 'e2e-wrapper',
+    });
+    if (code !== 0 || interrupted) throw new Error(`E2E process exited ${code}`);
+    return;
+  }
   const child = spawn(command, args, {
     cwd: ROOT,
     stdio: 'inherit',
@@ -315,7 +326,7 @@ export async function runGroup(
         [
           'scripts/runE2E.mjs',
           ...(suite.hosting ? ['--hosting'] : []),
-          '--reporter=list,json',
+          '--reporter=list,json,./e2e/diagnostics-reporter.ts',
           `--output=${join(reportDir, `${group.id}-artifacts`)}`,
           ...(suite.playwrightArgs ?? []),
         ],
@@ -323,6 +334,7 @@ export async function runGroup(
           env: {
             ...environment,
             CARVE_E2E_LIVE_FIXTURES: suite.liveFixtures ? 'true' : 'false',
+            CARVE_E2E_DIAGNOSTICS_DIR: join(reportDir, 'e2e-diagnostics'),
             PLAYWRIGHT_JSON_OUTPUT_NAME: reportPath,
           },
         }

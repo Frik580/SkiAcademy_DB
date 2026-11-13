@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, unlinkSync, existsSync, mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { spawn, spawnSync } from 'node:child_process';
+import { runE2EProcess } from './e2eProcess.mjs';
+import { diagnose, heartbeat } from './e2eDiagnostics.mjs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 
@@ -65,41 +66,21 @@ async function captureFailedEmulatorState(args) {
 }
 
 async function run(relativeCli, args, env = process.env, timeoutMs) {
-  const child = spawn(
+  return runE2EProcess(
     process.execPath,
     [fileURLToPath(new URL(relativeCli, import.meta.url)), ...args],
     {
       cwd: root,
       env,
-      stdio: 'inherit',
-      windowsHide: true,
+      timeoutMs,
+      group: relativeCli.includes('firebase-tools'),
+      stage: relativeCli.includes('firebase-tools')
+        ? 'emulator-lifecycle'
+        : args[0] === '--snapshot'
+          ? 'snapshot'
+          : 'playwright',
     }
   );
-  const interrupt = () => {
-    if (child.exitCode !== null || child.signalCode !== null) return;
-    if (process.platform === 'win32' && child.pid) {
-      spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
-        stdio: 'ignore',
-        windowsHide: true,
-      });
-    } else {
-      child.kill('SIGINT');
-    }
-  };
-  process.on('SIGINT', interrupt);
-  process.on('SIGTERM', interrupt);
-  // Diagnostics run in a separate process so a stuck SDK retry cannot hold CI open.
-  const timer = timeoutMs ? setTimeout(interrupt, timeoutMs) : undefined;
-  try {
-    return await new Promise((resolve, reject) => {
-      child.once('error', reject);
-      child.once('exit', (code) => resolve(code ?? 1));
-    });
-  } finally {
-    clearTimeout(timer);
-    process.off('SIGINT', interrupt);
-    process.off('SIGTERM', interrupt);
-  }
 }
 
 if (process.argv[2] === '--snapshot') {
@@ -110,15 +91,18 @@ if (process.argv[2] === '--snapshot') {
     process.exitCode = 1;
   }
 } else if (process.argv[2] === '--playwright') {
+  diagnose('emulator-startup:ready');
   markTiming('emulatorsReadyAt');
   if (process.env.GCLOUD_PROJECT !== projectId || !process.env.FIRESTORE_EMULATOR_HOST) {
     throw new Error('Run E2E through npm run test:e2e with the demo emulators.');
   }
   assertEmulators(process.env, ['firestore', 'auth', 'storage']);
   const args = JSON.parse(process.env.CARVE_E2E_PLAYWRIGHT_ARGS ?? '[]');
+  diagnose('playwright:start');
   process.exitCode = await run('../node_modules/@playwright/test/cli.js', ['test', ...args]);
+  diagnose('playwright:end', { code: process.exitCode });
   markTiming('playwrightFinishedAt');
-  if (process.exitCode) {
+  if (process.exitCode && ![130, 143].includes(process.exitCode)) {
     try {
       const diagnosticCode = await run(
         './runE2E.mjs',
@@ -131,6 +115,7 @@ if (process.argv[2] === '--snapshot') {
       console.error('Emulator diagnostic snapshot failed; preserving the Playwright exit code.');
     }
   }
+  diagnose('emulator-shutdown:start');
 } else {
   if (existsSync(localEnvPath)) {
     throw new Error(
@@ -150,6 +135,13 @@ if (process.argv[2] === '--snapshot') {
   );
   mkdirSync(resolve(timingPath, '..'), { recursive: true });
   writeFileSync(timingPath, JSON.stringify({ lifecycleStartedAt: lifecycleStarted }));
+  process.env.CARVE_E2E_DIAGNOSTICS_DIR ??= resolve(
+    timingPath,
+    '..',
+    `e2e-${process.pid}-diagnostics`
+  );
+  diagnose('emulator-startup:start');
+  const stopHeartbeat = heartbeat('emulator-lifecycle:heartbeat');
   let createdSecret = false;
   try {
     if (existsSync(secretPath)) {
@@ -191,6 +183,8 @@ if (process.argv[2] === '--snapshot') {
       }
     );
   } finally {
+    stopHeartbeat();
+    diagnose('emulator-shutdown:end', { code: process.exitCode });
     if (
       createdSecret &&
       existsSync(secretPath) &&

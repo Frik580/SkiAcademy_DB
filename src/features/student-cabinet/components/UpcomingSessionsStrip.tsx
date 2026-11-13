@@ -21,12 +21,14 @@ import { cabinetItemToLegacyPresentation } from '../../../features/lesson-bookin
 
 interface UpcomingSessionsStripProps {
   sessionItems: readonly CabinetSessionItem[];
+  timeZone?: string;
   userBookings?: readonly LessonBookingCabinetItem[];
   accountId?: string;
 }
 
 export const UpcomingSessionsStrip: React.FC<UpcomingSessionsStripProps> = ({
   sessionItems,
+  timeZone,
   userBookings = [],
   accountId = '',
 }) => {
@@ -51,7 +53,9 @@ export const UpcomingSessionsStrip: React.FC<UpcomingSessionsStripProps> = ({
       .replace('{month}', capitalizedMonth)
       .replace('{year}', String(todayDate.getFullYear()));
 
-    const sortedActiveSessions = getNextSessionsNext7DaysFromSessions(sessionItems, todayDate)
+    const sortedActiveSessions = (
+      timeZone ? getNextSessionsNext7DaysFromSessions(sessionItems, todayDate, timeZone) : []
+    )
       .map((entry) => entry.session)
       .filter(
         (item, index, items) =>
@@ -62,7 +66,7 @@ export const UpcomingSessionsStrip: React.FC<UpcomingSessionsStripProps> = ({
       .sort((left, right) => sessionStartSortKey(left).localeCompare(sessionStartSortKey(right)));
 
     return { upcomingDaysNumbers, header, sortedActiveSessions };
-  }, [sessionItems, language, t]);
+  }, [sessionItems, language, t, timeZone]);
 
   const legacyById = useMemo(
     () =>

@@ -2,7 +2,7 @@ import { getDifficultyLabel } from '../../../../lib/i18n/bookingLabels';
 import { Booking } from '../../../../types';
 import { type TranslationKey } from '../../../../app/providers/LanguageContext';
 import { parseBookingStartTime } from './studentBookingSchedule';
-import { toYMD } from './studentCabinetPresentation';
+import { addCalendarDays, formatCalendarDate } from '../../../course-enrollments/schoolCalendar';
 
 const BOOKING_TIME_RANGE_RE = /(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/;
 
@@ -33,16 +33,12 @@ export const formatSessionTimeRange = (booking: Pick<Booking, 'time' | 'duration
 export const formatSessionDayLabel = (
   dateStr: string,
   language: 'en' | 'ru',
-  t: (key: TranslationKey) => string
+  t: (key: TranslationKey) => string,
+  today: string | undefined
 ) => {
-  const today = toYMD(new Date());
-  const tomorrow = toYMD(new Date(Date.now() + 86_400_000));
   if (dateStr === today) return t('scToday');
-  if (dateStr === tomorrow) return t('scTomorrow');
-  return new Date(`${dateStr}T12:00:00`).toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US', {
-    day: 'numeric',
-    month: 'long',
-  });
+  if (today && dateStr === addCalendarDays(today, 1)) return t('scTomorrow');
+  return formatCalendarDate(dateStr, language);
 };
 
 export const getDifficultyShort = (

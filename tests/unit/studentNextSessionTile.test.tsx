@@ -58,7 +58,8 @@ function input(): NextSessionBlockInput {
     miniDays: getMiniCalendarDaysFromSessions(
       [],
       locale.language,
-      new Date('2026-10-31T00:00:00Z')
+      new Date('2026-10-31T00:00:00Z'),
+      'Asia/Almaty'
     ),
     courses: [],
     instructors: [],

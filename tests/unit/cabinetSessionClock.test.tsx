@@ -94,3 +94,23 @@ it('refreshes a boundary crossed between render and effect instead of skipping i
   unmount();
   expect(vi.getTimerCount()).toBe(0);
 });
+
+it.each([
+  ['Asia/Almaty', '2026-11-12T18:59:59Z'],
+  ['Europe/Paris', '2026-03-29T21:59:59Z'],
+  ['Europe/Paris', '2026-10-25T22:59:59Z'],
+  ['America/New_York', '2026-03-09T03:59:59Z'],
+  ['America/New_York', '2026-11-02T04:59:59Z'],
+])('refreshes an empty calendar on the next midnight in %s', (zone, beforeMidnight) => {
+  vi.setSystemTime(new Date(beforeMidnight));
+  const items: CabinetSessionItem[] = [];
+  const view = renderHook(() => useCabinetSessionNow(items, zone));
+  const before = view.result.current.getTime();
+  expect(vi.getTimerCount()).toBe(1);
+  act(() => vi.advanceTimersByTime(999));
+  expect(view.result.current.getTime()).toBe(before);
+  act(() => vi.advanceTimersByTime(1));
+  expect(view.result.current.getTime()).toBe(before + 1000);
+  view.unmount();
+  expect(vi.getTimerCount()).toBe(0);
+});

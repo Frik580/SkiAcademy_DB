@@ -21,7 +21,7 @@ export type { BookingNextSessionItem, BookingTodaySessionCountdown };
 
 const isBookingScheduleCall = (
   secondArg: Course[] | Date | undefined,
-  thirdArg: Date | undefined
+  thirdArg: Date | string | undefined
 ): boolean => {
   if (secondArg instanceof Date) return false;
   if (thirdArg instanceof Date) return true;
@@ -57,7 +57,8 @@ export function getCurrentSessions(
 
 export function getTodaySessionCountdown(
   sessionItems: readonly CabinetSessionItem[],
-  now?: Date
+  now: Date | undefined,
+  timeZone: string
 ): TodaySessionCountdown | null;
 export function getTodaySessionCountdown(
   bookings: Booking[],
@@ -67,24 +68,27 @@ export function getTodaySessionCountdown(
 export function getTodaySessionCountdown(
   first: readonly CabinetSessionItem[] | Booking[],
   second?: Course[] | Date,
-  third?: Date
+  third?: Date | string
 ): TodaySessionCountdown | BookingTodaySessionCountdown | null {
   if (isBookingScheduleCall(second, third)) {
     return getTodayBookingSessionCountdown(
       first as Booking[],
       (second as Course[]) ?? [],
-      third ?? new Date()
+      third instanceof Date ? third : new Date()
     );
   }
+  if (typeof third !== 'string') return null;
   return getTodaySessionCountdownFromSessions(
     first as CabinetSessionItem[],
-    second instanceof Date ? second : new Date()
+    second instanceof Date ? second : new Date(),
+    third
   );
 }
 
 export function getNextSessionsNext7Days(
   sessionItems: readonly CabinetSessionItem[],
-  fromDate?: Date
+  fromDate: Date | undefined,
+  timeZone: string
 ): NextSessionItem[];
 export function getNextSessionsNext7Days(
   bookings: Booking[],
@@ -94,20 +98,22 @@ export function getNextSessionsNext7Days(
 export function getNextSessionsNext7Days(
   first: readonly CabinetSessionItem[] | Booking[],
   second?: Course[] | Date,
-  third?: Date
+  third?: Date | string
 ): NextSessionItem[] | BookingNextSessionItem[] {
   if (isBookingScheduleCall(second, third)) {
     return getNextBookingsNext7Days(
       first as Booking[],
       (second as Course[]) ?? [],
-      third ?? new Date()
+      third instanceof Date ? third : new Date()
     );
   }
+  if (typeof third !== 'string') return [];
   return getNextSessionsNext7DaysFromSessions(
     first as CabinetSessionItem[],
-    second instanceof Date ? second : new Date()
+    second instanceof Date ? second : new Date(),
+    third
   );
 }
 
-export const getNextSession = (sessionItems: readonly CabinetSessionItem[]) =>
-  getNextSessionsNext7Days(sessionItems)[0]?.session ?? null;
+export const getNextSession = (sessionItems: readonly CabinetSessionItem[], timeZone: string) =>
+  getNextSessionsNext7Days(sessionItems, new Date(), timeZone)[0]?.session ?? null;

@@ -158,7 +158,7 @@ describe('customer session presentation cutover', () => {
 
   it('orders upcoming week sessions chronologically across lesson and course_day', () => {
     const now = new Date('2027-03-10T12:00:00Z');
-    const upcoming = getNextSessionsNext7DaysFromSessions(mixed, now);
+    const upcoming = getNextSessionsNext7DaysFromSessions(mixed, now, 'Asia/Almaty');
     expect(upcoming.length).toBeGreaterThan(0);
     expect(
       upcoming.every(
@@ -168,7 +168,12 @@ describe('customer session presentation cutover', () => {
   });
 
   it('marks mini calendar days from canonical session items', () => {
-    const days = getMiniCalendarDaysFromSessions(mixed, 'en', new Date('2027-03-10T12:00:00Z'));
+    const days = getMiniCalendarDaysFromSessions(
+      mixed,
+      'en',
+      new Date('2027-03-10T12:00:00Z'),
+      'Asia/Almaty'
+    );
     expect(days).toHaveLength(7);
     expect(days.some((day) => day.hasSession)).toBe(true);
   });

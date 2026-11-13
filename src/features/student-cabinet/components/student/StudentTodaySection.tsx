@@ -17,6 +17,7 @@ import { ParticipantScopeIndicator } from './ParticipantScopeIndicator';
 const SUBSECTION_LABEL = 'type-caption font-medium text-[var(--ink-dim)]';
 
 export const StudentTodaySection = memo<StudentTodaySectionInput>(function StudentTodaySection({
+  schoolTimeZone,
   todayProgress = { todayXP: null, todayLevelUp: null, exercises: [] },
   scopeParticipant,
   countdown,
@@ -59,8 +60,13 @@ export const StudentTodaySection = memo<StudentTodaySectionInput>(function Stude
   }, [nextSessions, nextSession]);
 
   const todayCountdown = useMemo(
-    () => (countdown === undefined ? getTodaySessionCountdown(sessionItems) : countdown),
-    [countdown, sessionItems]
+    () =>
+      countdown === undefined
+        ? schoolTimeZone
+          ? getTodaySessionCountdown(sessionItems, new Date(), schoolTimeZone)
+          : null
+        : countdown,
+    [countdown, sessionItems, schoolTimeZone]
   );
 
   const nextStepAction = useMemo(() => {

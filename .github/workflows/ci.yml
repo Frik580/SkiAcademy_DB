@@ -397,7 +397,7 @@ jobs:
       - name: Run canonical E2E suite (PR smoke or release full)
         env:
           CARVE_E2E_PROFILE: ${{ github.event_name == 'workflow_dispatch' && inputs.full_validation && 'full' || 'pr' }}
-        run: node scripts/runManifestTests.mjs --group e2e --profile "$CARVE_E2E_PROFILE"
+        run: exec node scripts/runManifestTests.mjs --group e2e --profile "$CARVE_E2E_PROFILE"
 
       - name: Upload Playwright results and failure artifacts
         if: always()
@@ -409,6 +409,7 @@ jobs:
             test-results/
             .scratch/test-manifest/**
             .scratch/test-egress/*.log
+            *-debug.log
           if-no-files-found: ignore
           retention-days: 7
 

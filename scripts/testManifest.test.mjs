@@ -153,15 +153,13 @@ describe('canonical manifest integrity', () => {
       const prText = text.split('  release-validation:')[0];
       const calls = [
         ...prText.matchAll(
-          /^        run: node scripts\/runManifestTests\.mjs --group ([\w-]+)(?: --profile [^\n]+)?\r?$/gm
+          /^        run: (?:exec )?node scripts\/runManifestTests\.mjs --group ([\w-]+)(?: --profile [^\n]+)?\r?$/gm
         ),
       ].map((match) => match[1]);
       assert.deepEqual(calls.sort(), executionGroups.map((group) => group.id).sort());
       for (const group of executionGroups)
         assert.ok(
-          jobs[group.ciGate]?.includes(
-            `        run: node scripts/runManifestTests.mjs --group ${group.id}`
-          )
+          jobs[group.ciGate]?.includes(`node scripts/runManifestTests.mjs --group ${group.id}`)
         );
       const needs = jobs.quality
         .match(/    needs:\s*\[([\s\S]*?)\]/)?.[1]

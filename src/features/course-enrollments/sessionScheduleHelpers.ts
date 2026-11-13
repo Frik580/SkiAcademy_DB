@@ -1,6 +1,6 @@
 import { getDifficultyLabel } from '../../lib/i18n/bookingLabels';
 import type { LessonBookingCabinetItem } from '../lesson-bookings/lessonBookingContracts';
-import { canonicalTimestampToLocalParts } from '../lesson-bookings/mapCalendarInput';
+import { schoolCalendarDate, schoolCalendarDays, formatCalendarDate } from './schoolCalendar';
 import { localCalendarInputToUtcDate } from '@ski-academy/shared-domain/canonical/bookingCreation';
 import { IanaTimeZoneSchema } from '@ski-academy/shared-domain/canonical/primitives';
 import { parseBookingEndTime } from '../student-cabinet/components/student/studentBookingSchedule';
@@ -58,24 +58,10 @@ export function sessionItemKey(item: CabinetSessionItem): string {
   return `course_day:${item.enrollmentId}:${item.courseDayId}`;
 }
 
-// Calendar labels use resort days; comparisons use the projected canonical instants.
-const RESORT_TIME_ZONE = 'Asia/Almaty';
-
-function dateInTimeZone(now: Date, timeZone: string): string {
-  return canonicalTimestampToLocalParts(now.getTime() / 1000, 0, timeZone).date;
-}
-
-function sessionTimeZone(item: CabinetSessionItem): string {
-  return item.kind === 'lesson' ? (item.session.timeZone ?? RESORT_TIME_ZONE) : item.timeZone;
-}
-
-function resortCalendarDays(now: Date): Date[] {
-  const first = new Date(`${dateInTimeZone(now, RESORT_TIME_ZONE)}T12:00:00Z`);
-  return Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(first);
-    date.setUTCDate(date.getUTCDate() + index);
-    return date;
-  });
+/** Group canonical instants in the school calendar; retain occurrence display fields. */
+export function sessionSchoolDate(item: CabinetSessionItem, timeZone: string): string | null {
+  const start = resolveSessionStartDateTime(item);
+  return start ? schoolCalendarDate(start, timeZone) : null;
 }
 
 export function resolveSessionStartDateTime(item: CabinetSessionItem): Date | null {
@@ -175,17 +161,21 @@ export interface TodaySessionCountdown {
 /** All active sessions tied for the closest upcoming start today (canonical instant). */
 export function getTodaySessionCountdownsFromSessions(
   items: readonly CabinetSessionItem[],
-  now = new Date()
+  now = new Date(),
+  timeZone: string
 ): TodaySessionCountdown[] {
+  const today = schoolCalendarDate(now, timeZone);
   const upcoming = items
     .filter(isActiveSessionItem)
     .map((item) => ({
       session: item,
-      window: getSessionDailyTimeWindow(item, dateInTimeZone(now, sessionTimeZone(item))),
+      window:
+        sessionSchoolDate(item, timeZone) === today
+          ? { start: resolveSessionStartDateTime(item), end: resolveSessionEndDateTime(item) }
+          : null,
     }))
-    .filter(
-      (entry): entry is { session: CabinetSessionItem; window: { start: Date; end: Date } } =>
-        Boolean(entry.window && now < entry.window.start)
+    .filter((entry): entry is { session: CabinetSessionItem; window: { start: Date; end: Date } } =>
+      Boolean(entry.window?.start && entry.window.end && now < entry.window.start)
     )
     .map(({ session, window }) => ({ session, startsAt: window.start }))
     .sort((left, right) => left.startsAt.getTime() - right.startsAt.getTime());
@@ -199,9 +189,10 @@ export function getTodaySessionCountdownsFromSessions(
 /** Compatibility selector for callers that need only the first countdown. */
 export function getTodaySessionCountdownFromSessions(
   items: readonly CabinetSessionItem[],
-  now = new Date()
+  now = new Date(),
+  timeZone: string
 ): TodaySessionCountdown | null {
-  return getTodaySessionCountdownsFromSessions(items, now)[0] ?? null;
+  return getTodaySessionCountdownsFromSessions(items, now, timeZone)[0] ?? null;
 }
 
 export interface NextSessionItem {
@@ -211,16 +202,17 @@ export interface NextSessionItem {
 
 export function getNextSessionsNext7DaysFromSessions(
   items: readonly CabinetSessionItem[],
-  fromDate = new Date()
+  fromDate = new Date(),
+  timeZone: string
 ): NextSessionItem[] {
-  const todayStr = dateInTimeZone(fromDate, RESORT_TIME_ZONE);
-  const dateRange = resortCalendarDays(fromDate).map((date) => date.toISOString().slice(0, 10));
+  const todayStr = schoolCalendarDate(fromDate, timeZone);
+  const dateRange = schoolCalendarDays(fromDate, timeZone);
 
   const rows = items
     .filter(isActiveSessionItem)
     .flatMap((item) =>
       dateRange
-        .filter((dateStr) => isSessionOnDate(item, dateStr))
+        .filter((dateStr) => sessionSchoolDate(item, timeZone) === dateStr)
         .map((dateStr) => ({ session: item, dateStr }))
     )
     .filter(({ session, dateStr }) => {
@@ -232,7 +224,8 @@ export function getNextSessionsNext7DaysFromSessions(
 
   return rows.sort((left, right) =>
     left.dateStr === right.dateStr
-      ? sessionStartSortKey(left.session).localeCompare(sessionStartSortKey(right.session))
+      ? (resolveSessionStartDateTime(left.session)?.getTime() ?? 0) -
+        (resolveSessionStartDateTime(right.session)?.getTime() ?? 0)
       : left.dateStr.localeCompare(right.dateStr)
   );
 }
@@ -248,16 +241,17 @@ export interface MiniCalendarDay {
 export function getMiniCalendarDaysFromSessions(
   items: readonly CabinetSessionItem[],
   language: 'en' | 'ru' = 'ru',
-  fromDate = new Date()
+  fromDate = new Date(),
+  timeZone: string
 ): MiniCalendarDay[] {
-  const todayStr = dateInTimeZone(fromDate, RESORT_TIME_ZONE);
+  const todayStr = schoolCalendarDate(fromDate, timeZone);
   const locale = language === 'ru' ? 'ru-RU' : 'en-US';
   const active = items.filter(isActiveSessionItem);
   const days: MiniCalendarDay[] = [];
 
-  for (const date of resortCalendarDays(fromDate)) {
-    const dateStr = date.toISOString().slice(0, 10);
-    const hasSession = active.some((item) => isSessionOnDate(item, dateStr));
+  for (const dateStr of schoolCalendarDays(fromDate, timeZone)) {
+    const date = new Date(`${dateStr}T12:00:00Z`);
+    const hasSession = active.some((item) => sessionSchoolDate(item, timeZone) === dateStr);
     days.push({
       day: date.getUTCDate(),
       dateStr,
@@ -272,12 +266,12 @@ export function getMiniCalendarDaysFromSessions(
 
 export function hasTrainingTodayFromSessions(
   items: readonly CabinetSessionItem[],
-  fromDate = new Date()
+  fromDate = new Date(),
+  timeZone: string
 ): boolean {
+  const today = schoolCalendarDate(fromDate, timeZone);
   return items.some(
-    (item) =>
-      isActiveSessionItem(item) &&
-      isSessionOnDate(item, dateInTimeZone(fromDate, sessionTimeZone(item)))
+    (item) => isActiveSessionItem(item) && sessionSchoolDate(item, timeZone) === today
   );
 }
 
@@ -312,12 +306,7 @@ export function getCabinetSessionSubtitle(item: CabinetSessionItem, language: 'e
 }
 
 export function formatSessionCalendarDateLabel(date: string, language: 'en' | 'ru'): string {
-  const parsed = new Date(`${date}T12:00:00`);
-  if (Number.isNaN(parsed.getTime())) return date;
-  return parsed.toLocaleDateString(language === 'ru' ? 'ru-RU' : 'en-US', {
-    day: 'numeric',
-    month: 'long',
-  });
+  return formatCalendarDate(date, language);
 }
 
 export function formatCourseDayDateLabel(

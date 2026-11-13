@@ -80,7 +80,6 @@ describe('countdown presentation preserves the existing lifecycle', () => {
     }
   });
 
-
   it('selects only the earliest matching canonical start today regardless of input order', () => {
     const baseLesson = input().countdown.session;
     if (baseLesson.kind !== 'lesson') throw new Error('expected lesson');
@@ -105,7 +104,8 @@ describe('countdown presentation preserves the existing lifecycle', () => {
     };
     const result = getTodaySessionCountdownsFromSessions(
       [later, simultaneous, cancelled, first],
-      new Date('2026-10-10T07:36:00Z')
+      new Date('2026-10-10T07:36:00Z'),
+      'Asia/Almaty'
     );
     expect(result).toHaveLength(2);
     expect(result.map(({ session }) => session.kind === 'lesson' && session.session.id)).toEqual([
@@ -123,7 +123,7 @@ describe('countdown presentation preserves the existing lifecycle', () => {
       session: {
         kind: 'lesson' as const,
         session: {
-          ...((first.session.kind === 'lesson' ? first.session.session : null)!),
+          ...(first.session.kind === 'lesson' ? first.session.session : null)!,
           id: 'countdown-second',
           bookingId: 'countdown-second',
           instructorName: 'Бекзат',

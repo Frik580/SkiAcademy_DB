@@ -1,3 +1,4 @@
+import { useSchoolTimeZone, retrySchoolTimeZone } from '../../../settings/schoolTimeZone';
 import {
   useStudentTodayAchievements,
   hasStudentTodayProgress,
@@ -146,10 +147,18 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     () =>
       statsHistoryLoaded && statsAccountId === userProfile.uid
         ? statsHistoryItems
-            .filter((lesson) => lesson.participantIds.some((id) => id === recommendationsParticipantId))
+            .filter((lesson) =>
+              lesson.participantIds.some((id) => id === recommendationsParticipantId)
+            )
             .map(mapLessonBookingReadModelToCabinetItem)
         : [],
-    [statsHistoryLoaded, statsAccountId, statsHistoryItems, userProfile.uid, recommendationsParticipantId]
+    [
+      statsHistoryLoaded,
+      statsAccountId,
+      statsHistoryItems,
+      userProfile.uid,
+      recommendationsParticipantId,
+    ]
   );
   const homeworkSources = useMemo(
     () =>
@@ -160,14 +169,27 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
       ),
     [nextSessionItems, recommendationsParticipantId, historicalHomeworkLessons]
   );
-  const sessionNow = useCabinetSessionNow(nextSessionItems);
+  const schoolTimeZone = useSchoolTimeZone();
+  const confirmedTimeZone = schoolTimeZone.ready ? schoolTimeZone.timeZone : undefined;
+  const sessionNow = useCabinetSessionNow(nextSessionItems, confirmedTimeZone);
   const { nextSessions, participantsBySessionKey } = useMemo(
-    () => buildNextSessionCards(nextSessionItems, props.participantProfiles ?? [], sessionNow),
-    [nextSessionItems, props.participantProfiles, sessionNow]
+    () =>
+      confirmedTimeZone
+        ? buildNextSessionCards(
+            nextSessionItems,
+            props.participantProfiles ?? [],
+            sessionNow,
+            confirmedTimeZone
+          )
+        : { nextSessions: [], participantsBySessionKey: {} },
+    [nextSessionItems, props.participantProfiles, sessionNow, confirmedTimeZone]
   );
   const countdowns = useMemo(
-    () => getTodaySessionCountdownsFromSessions(nextSessionItems, sessionNow),
-    [nextSessionItems, sessionNow]
+    () =>
+      confirmedTimeZone
+        ? getTodaySessionCountdownsFromSessions(nextSessionItems, sessionNow, confirmedTimeZone)
+        : [],
+    [nextSessionItems, sessionNow, confirmedTimeZone]
   );
   const countdown = countdowns[0] ?? null;
   const countdownParticipantsBySessionKey = useMemo(
@@ -210,8 +232,11 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
     [userProfile, lang, skillConfig, recommendationTodayTasks]
   );
   const miniDays = useMemo(
-    () => getMiniCalendarDaysFromSessions(sessionItems, lang),
-    [sessionItems, lang]
+    () =>
+      confirmedTimeZone
+        ? getMiniCalendarDaysFromSessions(sessionItems, lang, sessionNow, confirmedTimeZone)
+        : [],
+    [sessionItems, lang, sessionNow, confirmedTimeZone]
   );
   const showWeather = Boolean(resortSnapshot) && props.hasAnyParticipantSessionToday;
 
@@ -333,7 +358,7 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
         </section>
       </StudentDashboardTile>
     ) : null,
-    nextSession: (
+    nextSession: confirmedTimeZone ? (
       <StudentDashboardTile
         tileKey={STUDENT_DASHBOARD_TILES.nextSession.key}
         size={STUDENT_DASHBOARD_TILES.nextSession.defaultSize}
@@ -352,7 +377,16 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
           hasUnreadChat={props.hasUnreadChat}
         />
       </StudentDashboardTile>
-    ),
+    ) : schoolTimeZone.error ? (
+      <div role="alert">
+        {lang === 'ru'
+          ? 'Не удалось загрузить часовой пояс школы.'
+          : 'Could not load school time zone.'}
+        <button type="button" onClick={retrySchoolTimeZone}>
+          {lang === 'ru' ? 'Повторить' : 'Retry'}
+        </button>
+      </div>
+    ) : null,
     todayAchievements: showAchievements ? (
       <PresentedTodayProgressBlock
         key={`progress:${selectedParticipantId}`}

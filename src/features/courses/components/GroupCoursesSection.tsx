@@ -1,3 +1,6 @@
+import { CourseCatalogFeedback } from './CourseCatalogFeedback';
+import { useCourseEnrollmentStore } from '../../course-enrollments/courseEnrollmentStore';
+import { reloadCourseCatalog } from '../../course-enrollments/useCourseEnrollmentReadSync';
 import React from 'react';
 import { m, useReducedMotion } from 'framer-motion';
 import { useLanguage, type Language } from '../../../app/providers/LanguageContext';
@@ -36,6 +39,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
   actions: { onViewDetails, onRequireAuth },
 }) => {
   const { t } = useLanguage();
+  const catalogStatus = useCourseEnrollmentStore((state) => state.catalogStatus);
   const shouldReduceMotion = useReducedMotion();
   const visibleCourses = sortVisibleCourses(courses);
 
@@ -49,6 +53,16 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
         <p className="ui-section-eyebrow mt-2">{t('intensiveGroupCoursesSub')}</p>
       </div>
 
+      {visibleCourses.length === 0 && (
+        <CourseCatalogFeedback
+          loading={catalogStatus === 'idle' || catalogStatus === 'loading'}
+          error={catalogStatus === 'error'}
+          loadingLabel={t('loading')}
+          errorLabel={t('courseCatalogLoadError')}
+          retryLabel={t('retry')}
+          onRetry={reloadCourseCatalog}
+        />
+      )}
       <div
         className="grid gap-8 justify-center"
         style={{
@@ -79,6 +93,8 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
               rawCourse={rawCourse}
               courseEnrollments={courseEnrollments}
               selectedParticipantId={selectedParticipantId}
+              catalogStatus={catalogStatus}
+              onRetryCatalog={reloadCourseCatalog}
               catalogOperational={lookupCourseCatalogOperational(catalogByCourseId, rawCourse.id)}
               userProfile={userProfile}
               language={language}

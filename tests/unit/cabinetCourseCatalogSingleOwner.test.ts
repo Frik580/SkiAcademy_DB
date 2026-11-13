@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuthStore } from '../../src/features/auth/authStore';
 import { useCourseEnrollmentStore } from '../../src/features/course-enrollments/courseEnrollmentStore';
@@ -74,6 +74,73 @@ describe('cabinet public course catalog single owner', () => {
     expect(queryCourseCatalogReadModelsMock).toHaveBeenCalledTimes(1);
     expect(queryCourseCatalogReadModelsMock).toHaveBeenCalledWith({ scope: 'public' });
   });
+
+  it.each([null, { uid: 'account_test_actor' }])(
+    'separates failure and retry from enrollment errors (%j)',
+    async (firebaseUser) => {
+      useAuthStore.setState({ firebaseUser: firebaseUser as never });
+      queryCourseCatalogReadModelsMock.mockRejectedValueOnce(new Error('permission-denied'));
+      const { result } = renderHook(() => useCourseCatalogReadSync(true));
+      await waitFor(() => expect(useCourseEnrollmentStore.getState().catalogStatus).toBe('error'));
+      expect(useCourseEnrollmentStore.getState().error).toBeUndefined();
+      let resolve!: (value: unknown) => void;
+      queryCourseCatalogReadModelsMock.mockImplementationOnce(
+        () =>
+          new Promise((done) => {
+            resolve = done;
+          })
+      );
+      let retry!: Promise<void>;
+      act(() => {
+        retry = result.current.reloadCatalog();
+        void result.current.reloadCatalog();
+        void result.current.reloadCatalog();
+      });
+      expect(queryCourseCatalogReadModelsMock).toHaveBeenCalledTimes(2);
+      expect(useCourseEnrollmentStore.getState().catalogStatus).toBe('loading');
+      await act(async () => {
+        resolve({ items: [] });
+        await retry;
+      });
+      expect(useCourseEnrollmentStore.getState().catalogStatus).toBe('ready');
+      expect(useCourseEnrollmentStore.getState().catalogLoading).toBe(false);
+    }
+  );
+
+  it.each(['resolve', 'reject'])(
+    'ignores a late public %s after the product read starts',
+    async (outcome) => {
+      let resolveOld!: (value: unknown) => void;
+      let rejectOld!: (error: Error) => void;
+      queryCourseCatalogReadModelsMock.mockImplementationOnce(
+        () =>
+          new Promise((resolve, reject) => {
+            resolveOld = resolve;
+            rejectOld = reject;
+          })
+      );
+      renderHook(() => useCourseCatalogReadSync(true));
+      expect(useCourseEnrollmentStore.getState().catalogStatus).toBe('loading');
+      let resolveNew!: (value: unknown) => void;
+      queryCourseCatalogReadModelsMock.mockImplementationOnce(
+        () =>
+          new Promise((done) => {
+            resolveNew = done;
+          })
+      );
+      act(() =>
+        useAuthStore.setState({ firebaseUser: { uid: 'account_new' } as never, authGeneration: 1 })
+      );
+      await act(async () => {
+        if (outcome === 'resolve') resolveOld({ items: [] });
+        else rejectOld(new Error('old request failed'));
+      });
+      expect(useCourseEnrollmentStore.getState().catalogStatus).toBe('loading');
+      expect(useCourseEnrollmentStore.getState().catalogLoading).toBe(true);
+      await act(async () => resolveNew({ items: [] }));
+      expect(useCourseEnrollmentStore.getState().catalogStatus).toBe('ready');
+    }
+  );
 
   it('loads account enrollments with selectedParticipantId and skips account-wide reads', async () => {
     renderHook(() => {

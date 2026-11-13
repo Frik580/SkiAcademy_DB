@@ -1,3 +1,4 @@
+import { reloadCourseCatalog } from '../course-enrollments/useCourseEnrollmentReadSync';
 import React from 'react';
 import { useLanguage, translateCourse } from '../../app/providers/LanguageContext';
 import { useUiStore } from './uiStore';
@@ -67,6 +68,7 @@ export const ModalHost: React.FC = () => {
     (state) => state.selectedCourseDetailsEnrollmentId
   );
 
+  const catalogStatus = useCourseEnrollmentStore((state) => state.catalogStatus);
   const courses = useCoursesStore((s) => s.courses);
   const { handleBookCourse } = useCourseActions();
 
@@ -158,6 +160,8 @@ export const ModalHost: React.FC = () => {
             instructors={instructors}
             userProfile={userProfile}
             catalogOperational={selectedCatalogOperational}
+            catalogStatus={catalogStatus}
+            onRetryCatalog={reloadCourseCatalog}
             isEnrolled={Boolean(selectedEnrollment)}
             enrollmentLifecycleStatus={selectedEnrollment?.lifecycleStatus}
             courseProgress={selectedCourseProgress}

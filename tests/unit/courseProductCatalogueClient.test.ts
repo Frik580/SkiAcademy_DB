@@ -201,6 +201,35 @@ describe('product course catalogue client', () => {
     });
   });
 
+  it('restores the authenticated course list and availability together after a failed initial read', async () => {
+    useAuthStore.setState({
+      firebaseUser: { uid: 'account_test_actor' } as never,
+      authGeneration: 1,
+    });
+    queryCourseCatalogReadModels.mockRejectedValueOnce(new Error('catalog unavailable'));
+    const { result } = renderHook(
+      () => {
+        useCoursesSync();
+        return useCourseCatalogReadSync(true);
+      },
+      { wrapper }
+    );
+    await waitFor(() => expect(useCourseEnrollmentStore.getState().catalogStatus).toBe('error'));
+    expect(useCoursesStore.getState().courses).toEqual([]);
+    expect(queryCourseCatalogReadModels).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await result.current.reloadCatalog();
+    });
+    expect(queryCourseCatalogReadModels).toHaveBeenCalledTimes(2);
+    expect(useCourseEnrollmentStore.getState().catalogStatus).toBe('ready');
+    expect(useCoursesStore.getState().courses.map((course) => course.id)).toEqual([
+      'course_test_clone',
+    ]);
+    expect(useCourseEnrollmentStore.getState().catalogByCourseId.has('course_test_clone')).toBe(
+      true
+    );
+  });
+
   it('maps the enroll target to the catalogue course id', () => {
     const course = courseFromProductCatalogItem(productItem as never);
     expect(course?.id).toBe('course_test_clone');

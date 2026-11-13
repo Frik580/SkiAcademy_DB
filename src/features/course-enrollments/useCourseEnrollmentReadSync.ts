@@ -21,20 +21,56 @@ import {
   readGuestCourseEnrollmentCredential,
 } from './guestCourseEnrollmentCredentialStorage';
 
-async function loadPublicCourseCatalog(): Promise<void> {
-  useCourseEnrollmentStore.getState().setCatalogLoading(true);
-  try {
-    const result = await queryCourseCatalogReadModels({ scope: 'public' });
-    if (useAuthStore.getState().firebaseUser?.uid) return;
-    const merged = mergeCatalogRecords(new Map(), result.items);
-    useCourseEnrollmentStore.getState().replaceCatalog(merged);
-  } catch (error) {
-    useCourseEnrollmentStore
-      .getState()
-      .setError(error instanceof Error ? error.message : 'Failed to load course catalog.');
-  } finally {
-    useCourseEnrollmentStore.getState().setCatalogLoading(false);
+let catalogRequest:
+  | {
+      generation: number;
+      authGeneration: number;
+      uid?: string;
+      promise: Promise<void>;
+    }
+  | undefined;
+
+/** One in-flight catalog read per principal; retries always call the canonical source. */
+export function reloadCourseCatalog(): Promise<void> {
+  const { firebaseUser, authGeneration } = useAuthStore.getState();
+  const uid = firebaseUser?.uid;
+  const state = useCourseEnrollmentStore.getState();
+  if (
+    catalogRequest &&
+    catalogRequest.generation === state.catalogRequestGeneration &&
+    catalogRequest.authGeneration === authGeneration &&
+    catalogRequest.uid === uid
+  ) {
+    return catalogRequest.promise;
   }
+  const generation = state.catalogRequestGeneration + 1;
+  useCourseEnrollmentStore.setState({
+    catalogRequestGeneration: generation,
+    catalogLoading: true,
+    catalogStatus: 'loading',
+  });
+  const isCurrent = () =>
+    useCourseEnrollmentStore.getState().catalogRequestGeneration === generation &&
+    useAuthStore.getState().authGeneration === authGeneration &&
+    useAuthStore.getState().firebaseUser?.uid === uid;
+  const promise = (async () => {
+    try {
+      const result = await queryCourseCatalogReadModels({ scope: uid ? 'product' : 'public' });
+      if (!isCurrent()) return;
+      useCourseEnrollmentStore.setState({
+        catalogRecords: result.items,
+        catalogByCourseId: mergeCatalogRecords(new Map(), result.items),
+        catalogStatus: 'ready',
+      });
+    } catch {
+      if (isCurrent()) useCourseEnrollmentStore.setState({ catalogStatus: 'error' });
+    } finally {
+      if (isCurrent()) useCourseEnrollmentStore.getState().setCatalogLoading(false);
+      if (catalogRequest?.generation === generation) catalogRequest = undefined;
+    }
+  })();
+  catalogRequest = { generation, authGeneration, uid, promise };
+  return promise;
 }
 
 function finishScopedHotLoad(participantId: string, generation: number): boolean {
@@ -224,7 +260,7 @@ export function useCourseEnrollmentReadSync(
     void loadHistoryPage(selectedParticipantId, state.loadGeneration);
   }, [historyRequestNonce, enabled, accountId, selectedParticipantId, loadHistoryPage]);
 
-  return { reloadHot: loadHot, reloadCatalog: loadPublicCourseCatalog };
+  return { reloadHot: loadHot, reloadCatalog: reloadCourseCatalog };
 }
 
 export async function loadGuestSingleCourseEnrollment(enrollmentId: string) {
@@ -275,18 +311,7 @@ export function useCourseCatalogReadSync(enabled: boolean) {
   const authGeneration = useAuthStore((state) => state.authGeneration);
 
   const loadCatalog = useCallback(async () => {
-    if (!enabled) return;
-    const uid = useAuthStore.getState().firebaseUser?.uid;
-    if (!uid) {
-      await loadPublicCourseCatalog();
-      return;
-    }
-    useCourseEnrollmentStore.getState().replaceCatalog(new Map());
-    const result = await queryCourseCatalogReadModels({ scope: 'product' });
-    if (useAuthStore.getState().firebaseUser?.uid !== uid) return;
-    useCourseEnrollmentStore
-      .getState()
-      .replaceCatalog(mergeCatalogRecords(new Map(), result.items));
+    if (enabled) await reloadCourseCatalog();
   }, [enabled]);
 
   useEffect(() => {

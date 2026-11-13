@@ -89,7 +89,7 @@ describe('deriveGroupCourseEnrollmentCtaState', () => {
     expect(cta.label).toBe('soldOut');
   });
 
-  it('shows unavailable when seats exist but operational catalog is missing', () => {
+  it('shows loading when operational catalog has not loaded', () => {
     const cta = deriveGroupCourseEnrollmentCtaState({
       rawCourse: marketingCourse,
       isEnrolled: false,
@@ -99,7 +99,31 @@ describe('deriveGroupCourseEnrollmentCtaState', () => {
     expect(cta.isFull).toBe(false);
     expect(cta.isEnrollmentEligible).toBe(false);
     expect(cta.enrollDisabled).toBe(true);
+    expect(cta.label).toBe('loading');
+  });
+
+  it.each(['idle', 'loading', 'error'] as const)(
+    'blocks stale capacity while catalog is %s',
+    (catalogStatus) => {
+      const cta = deriveGroupCourseEnrollmentCtaState({
+        rawCourse: { availableSeats: 0, totalSeats: 8 },
+        catalogOperational: mapCourseCatalogReadModelToOperationalState(catalogReadModel),
+        catalogStatus,
+        isEnrolled: false,
+      });
+      expect(cta.enrollDisabled).toBe(true);
+      expect(cta.label).toBe(catalogStatus === 'error' ? 'error' : 'loading');
+    }
+  );
+
+  it('only declares a missing catalog course unavailable after a successful read', () => {
+    const cta = deriveGroupCourseEnrollmentCtaState({
+      rawCourse: marketingCourse,
+      catalogStatus: 'ready',
+      isEnrolled: false,
+    });
     expect(cta.label).toBe('unavailable');
+    expect(cta.enrollDisabled).toBe(true);
   });
 
   it('shows unavailable when seats exist but operational eligibility is false', () => {

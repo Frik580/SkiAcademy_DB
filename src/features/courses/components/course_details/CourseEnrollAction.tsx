@@ -1,3 +1,5 @@
+import { CourseCatalogFeedback } from '../CourseCatalogFeedback';
+import type { CourseCatalogLoadInput } from '../../groupCourseEnrollmentCta';
 import React from 'react';
 import { Calendar, Clock, ShieldCheck } from 'lucide-react';
 import { Course, UserProfile } from '../../../../types';
@@ -7,7 +9,7 @@ import type { CourseCatalogOperationalState } from '../../../course-enrollments'
 import type { CourseEnrollmentLifecycleStatus } from '@ski-academy/shared-domain';
 import { deriveGroupCourseEnrollmentCtaState } from '../../groupCourseEnrollmentCta';
 
-interface CourseEnrollActionProps {
+interface CourseEnrollActionProps extends CourseCatalogLoadInput {
   course: Course;
   datePart: string;
   timePart: string;
@@ -25,6 +27,8 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
   timePart,
   seatsPercentage,
   catalogOperational,
+  catalogStatus,
+  onRetryCatalog,
   userProfile,
   isEnrolled,
   enrollmentLifecycleStatus,
@@ -37,6 +41,7 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
   const cta = deriveGroupCourseEnrollmentCtaState({
     rawCourse: course,
     catalogOperational,
+    catalogStatus,
     isEnrolled,
     enrollmentLifecycleStatus,
     isClientActive: userProfile?.isClientActive,
@@ -83,9 +88,11 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
             <span
               className={`font-bold ${cta.isFull ? 'text-rose-500' : availableSeats <= 3 ? 'text-amber-500' : 'text-emerald-500'}`}
             >
-              {cta.isFull
-                ? t('courseSoldOutUpper')
-                : `${availableSeats} ${t('courseSeatsOf')} ${totalSeats} ${t('courseSeatsLeft')}`}
+              {cta.label === 'loading' || cta.label === 'error'
+                ? '—'
+                : cta.isFull
+                  ? t('courseSoldOutUpper')
+                  : `${availableSeats} ${t('courseSeatsOf')} ${totalSeats} ${t('courseSeatsLeft')}`}
             </span>
           </div>
 
@@ -94,7 +101,9 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
               className={`h-full transition-all duration-500 ${
                 cta.isFull ? 'bg-rose-500' : availableSeats <= 3 ? 'bg-amber-500' : 'bg-emerald-500'
               }`}
-              style={{ width: `${Math.max(0, Math.min(100, seatsPercentage))}%` }}
+              style={{
+                width: `${cta.label === 'loading' || cta.label === 'error' ? 0 : Math.max(0, Math.min(100, seatsPercentage))}%`,
+              }}
             />
           </div>
         </div>
@@ -145,6 +154,16 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
               </span>
             ) : cta.label === 'accessSuspended' ? (
               t('accessSuspended')
+            ) : cta.label === 'loading' ? (
+              <CourseCatalogFeedback
+                loading
+                error={false}
+                loadingLabel={t('loading')}
+                errorLabel={t('courseCatalogLoadError')}
+                retryLabel={t('retry')}
+              />
+            ) : cta.label === 'error' ? (
+              t('courseCatalogLoadError')
             ) : cta.label === 'soldOut' ? (
               t('courseSoldOut')
             ) : cta.label === 'unavailable' ? (
@@ -154,6 +173,14 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
             )}
           </button>
 
+          <CourseCatalogFeedback
+            loading={false}
+            error={cta.label === 'error'}
+            loadingLabel={t('loading')}
+            errorLabel={t('courseCatalogLoadError')}
+            retryLabel={t('retry')}
+            onRetry={onRetryCatalog}
+          />
           <div className="flex items-center justify-center gap-2 type-caption text-[var(--ink-dim)] uppercase">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
             <span>{t('courseFreeCancellation')}</span>

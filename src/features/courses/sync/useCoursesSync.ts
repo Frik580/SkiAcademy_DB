@@ -8,8 +8,9 @@ import {
   OperationType,
   query,
 } from '../../../infrastructure/firebase';
-import { QUERY_LIMITS, logger } from '../../../shared';
-import { queryCourseCatalogReadModels } from '../../../lib/canonical/canonicalReadModelClient';
+import { QUERY_LIMITS } from '../../../shared';
+import { useCourseEnrollmentStore } from '../../course-enrollments/courseEnrollmentStore';
+import { reloadCourseCatalog } from '../../course-enrollments/useCourseEnrollmentReadSync';
 import { useAuthStore } from '../../auth/authStore';
 import { useProfileStore } from '../../profile/profileStore';
 import { useDataSyncScope } from '../../../store/useDataSyncScope';
@@ -31,27 +32,35 @@ export const useCoursesSync = () => {
     }
 
     if (catalogueScope !== 'instructor' && firebaseUserId) {
-      let cancelled = false;
       useCoursesStore.getState().setCourses([]);
-      void queryCourseCatalogReadModels({ scope: 'product' })
-        .then((result) => {
-          if (cancelled || useAuthStore.getState().firebaseUser?.uid !== firebaseUserId) return;
-          useCoursesStore.getState().setCourses(
-            result.items.flatMap((item) => {
-              const course = courseFromProductCatalogItem(item);
-              return course ? [course] : [];
-            })
-          );
-        })
-        .catch((error) => {
-          logger.error('Product course catalogue read failed', error);
-          if (!cancelled && useAuthStore.getState().firebaseUser?.uid === firebaseUserId) {
-            useCoursesStore.getState().setCourses([]);
-          }
-        });
-      return () => {
-        cancelled = true;
+      // The canonical catalog owns both availability and product presentation.
+      // Subscribe before loading so mount and manual retry publish the same response.
+      const publishProductCourses = (
+        state: ReturnType<typeof useCourseEnrollmentStore.getState>
+      ) => {
+        if (
+          state.catalogStatus !== 'ready' ||
+          useAuthStore.getState().firebaseUser?.uid !== firebaseUserId
+        )
+          return;
+        useCoursesStore.getState().setCourses(
+          state.catalogRecords.flatMap((item) => {
+            const course = courseFromProductCatalogItem(item);
+            return course ? [course] : [];
+          })
+        );
       };
+      const unsubscribe = useCourseEnrollmentStore.subscribe((state, previous) => {
+        if (
+          state.catalogRecords !== previous.catalogRecords ||
+          state.catalogStatus !== previous.catalogStatus
+        ) {
+          publishProductCourses(state);
+        }
+      });
+      publishProductCourses(useCourseEnrollmentStore.getState());
+      void reloadCourseCatalog();
+      return unsubscribe;
     }
 
     let courseDocs: Array<{ id: string; data: Record<string, unknown> }> = [];

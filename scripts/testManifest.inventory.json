@@ -492,6 +492,7 @@
   "tests/unit/studentCoachSubscriptions.test.tsx": "app-unit",
   "tests/unit/useInstructorHomeworkHistory.test.tsx": "app-unit",
   "tests/unit/courseCatalogDisplaySchedule.test.ts": "app-unit",
+  "tests/unit/courseCatalogLoadingSurface.test.tsx": "app-unit",
   "tests/unit/courseClone.test.ts": "app-unit",
   "tests/unit/courseDayScheduling.test.ts": "app-unit",
   "tests/unit/courseDisplay.test.ts": "app-unit",

@@ -1,8 +1,9 @@
+import { useCourseEnrollmentStore as useCatalogStore } from '../../src/features/course-enrollments/courseEnrollmentStore';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { StrictMode } from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ManagedParticipantOption } from '../../src/features/lesson-bookings/lessonBookingContracts';
 import { CourseEnrollmentModal } from '../../src/features/courses/components/CourseEnrollmentModal';
 import { GroupCourseCard } from '../../src/features/courses/components/GroupCourseCard';
@@ -11,6 +12,7 @@ import { persistGuestCourseEnrollmentCredential } from '../../src/features/cours
 
 const mocks = vi.hoisted(() => ({
   language: 'en' as 'ru' | 'en',
+  realAvailability: false,
   participants: [] as ManagedParticipantOption[],
   selectedParticipantIds: [] as string[],
   loading: false,
@@ -75,13 +77,19 @@ vi.mock('../../src/app/providers/LanguageContext', () => ({
   translateCourse: (course: unknown) => course,
   formatCourseCardDuration: (duration: string) => duration,
 }));
-vi.mock('../../src/features/courses/groupCourseEnrollmentCta', () => ({
-  deriveGroupCourseEnrollmentCtaState: () => ({
-    label: 'enroll',
-    enrollDisabled: false,
-    isFull: false,
-  }),
-}));
+vi.mock('../../src/features/courses/groupCourseEnrollmentCta', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../../src/features/courses/groupCourseEnrollmentCta')>();
+  return {
+    ...actual,
+    deriveGroupCourseEnrollmentCtaState: (
+      input: Parameters<typeof actual.deriveGroupCourseEnrollmentCtaState>[0]
+    ) =>
+      mocks.realAvailability
+        ? actual.deriveGroupCourseEnrollmentCtaState(input)
+        : { label: 'enroll', enrollDisabled: false, isFull: false },
+  };
+});
 vi.mock('../../src/features/courses/courseCatalogDisplaySchedule', () => ({
   resolveCourseCatalogDisplaySchedule: () => ({ datePart: '2026-10-01', timePart: '08:00' }),
   formatCourseCatalogCardDate: (date: string) => date,
@@ -118,6 +126,7 @@ vi.mock('../../src/features/course-enrollments', () => ({
 }));
 
 vi.mock('../../src/features/course-enrollments/useCourseEnrollmentReadSync', () => ({
+  reloadCourseCatalog: vi.fn(),
   loadGuestSingleCourseEnrollment: (...args: unknown[]) =>
     mocks.loadGuestSingleCourseEnrollment(...args),
 }));
@@ -1271,4 +1280,48 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     expect(screen.getByRole('button', { name: /courseEnrolled/i })).toBeDisabled();
     expect(screen.queryByRole('button', { name: /Send request/i })).not.toBeInTheDocument();
   });
+});
+
+describe('CourseEnrollmentModal unconfirmed availability guard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.realAvailability = true;
+    mocks.language = 'en';
+    mocks.participants = [selfOnly];
+    mocks.selectedParticipantIds = ['participant_self'];
+    mocks.loading = false;
+    mocks.error = undefined;
+    mocks.selectActiveGuestCourseEnrollment.mockReturnValue(undefined);
+    useCatalogStore.getState().reset();
+  });
+
+  it.each(['loading', 'error', 'idle'] as const)(
+    'blocks guest and authenticated form submission while %s',
+    (catalogStatus) => {
+      useCatalogStore.setState({ catalogStatus });
+      for (const profile of [null, userProfile]) {
+        const onEnroll = vi.fn();
+        const view = render(
+          <CourseEnrollmentModal
+            isOpen
+            onClose={vi.fn()}
+            course={course}
+            userProfile={profile}
+            onEnroll={onEnroll}
+          />
+        );
+        const button = screen.getByRole('button', { name: profile ? /^enroll$/i : 'Send request' });
+        expect(button).toBeDisabled();
+        fireEvent.submit(button.closest('form')!);
+        expect(onEnroll).not.toHaveBeenCalled();
+        expect(mocks.createGuestEnrollment).not.toHaveBeenCalled();
+        expect(screen.queryByText('courseEnrollmentUnavailable')).not.toBeInTheDocument();
+        view.unmount();
+      }
+    }
+  );
+});
+
+afterEach(() => {
+  mocks.realAvailability = false;
 });

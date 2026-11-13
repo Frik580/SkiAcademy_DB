@@ -585,6 +585,7 @@
   "tests/unit/lessonBookingReadSync.test.ts": "app-unit",
   "tests/unit/lessonBookingStore.test.ts": "app-unit",
   "tests/unit/lessonBookingViewModel.test.ts": "app-unit",
+  "tests/unit/lessonLevelLogo.test.ts": "app-unit",
   "tests/unit/lessonLevelsAdmin.test.tsx": "app-unit",
   "tests/unit/lessonLevelsCabinet.test.tsx": "app-unit",
   "tests/unit/lessonLevelsSelectors.test.tsx": "app-unit",

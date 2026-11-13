@@ -104,6 +104,39 @@ describe('canonical lesson level commands', () => {
       effects: [{ kind: 'lesson_levels_changed' }],
     });
   });
+  it('persists, replaces and removes optional logo/color through the canonical command', async () => {
+    const { tx, commands } = setup();
+    const path = 'lesson-levels/beginner/admin/12345678-1234-4123-8123-123456789abc';
+    const levels = DEFAULT_LESSON_LEVELS.map((level) =>
+      level.id === 'beginner' ? { ...level, markerColor: '#112233', logoStoragePath: path } : level
+    );
+    const request = envelope(levels, 0, 'visual-create');
+    expect((await commands.execute(request)).status).toBe('success');
+    expect((await commands.execute(request)).status).toBe('success');
+    expect(tx.snapshot().docs.get('settings/lesson_levels')?.data).toMatchObject({
+      revision: 1,
+      levels,
+    });
+    const replaced = levels.map((level) =>
+      level.id === 'beginner'
+        ? { ...level, logoStoragePath: path.replace('/12345678-', '/22345678-') }
+        : level
+    );
+    expect((await commands.execute(envelope(replaced, 1, 'visual-replace'))).status).toBe(
+      'success'
+    );
+    expect(
+      (await commands.execute(envelope(DEFAULT_LESSON_LEVELS, 2, 'visual-remove'))).status
+    ).toBe('success');
+    expect(tx.snapshot().docs.get('settings/lesson_levels')?.data).toMatchObject({
+      revision: 3,
+      levels: DEFAULT_LESSON_LEVELS,
+    });
+    expect(tx.snapshot().docs.get('bookings/historical')?.data).toEqual({
+      difficulty: 'ADVANCED',
+      notes: 'Historical lesson',
+    });
+  });
   it('replays idempotently and rejects stale writes', async () => {
     const { tx, commands } = setup();
     const request = envelope(DEFAULT_LESSON_LEVELS, 0, 'levels-replay');

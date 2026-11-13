@@ -45,6 +45,11 @@ export async function uploadImage(blob: Blob, path: string): Promise<string> {
   return sdk.getDownloadURL(storageRef);
 }
 
+export async function getImageUrl(path: string): Promise<string> {
+  const { sdk, storage } = await getStorageRuntime();
+  return sdk.getDownloadURL(sdk.ref(storage, path));
+}
+
 export async function deleteImage(path: string): Promise<void> {
   try {
     const { sdk, storage } = await getStorageRuntime();

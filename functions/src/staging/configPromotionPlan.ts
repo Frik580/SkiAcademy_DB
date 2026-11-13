@@ -85,6 +85,16 @@ export function planConfigPromotion(
         const existing = raw ? parseLessonLevels(raw) : undefined;
         if (raw && !existing) throw new Error('Invalid target catalog');
         assertLessonLevelsRetained(existing?.levels ?? DEFAULT_LESSON_LEVELS, sourceLevels);
+        // The promotion media pipeline currently supports resort slides only.
+        // Never copy a bucket-local logo reference or erase a production logo.
+        if ([...sourceLevels, ...(existing?.levels ?? [])].some((level) => level.logoStoragePath)) {
+          operations.push(buildOperation({
+            kind: record.kind, logicalKey: record.logicalKey, targetPath,
+            status: 'CONFLICT', changedFields: [], sourceHash: stableHash(source),
+            reason: 'lesson_level_logos_require_target_upload', dependencyOrder: 50,
+          }));
+          continue;
+        }
       } catch { targetShapeConflict = true; }
     }
     const comparable = current

@@ -461,3 +461,66 @@ describe('storage TEST namespace isolation', () => {
     await assertFails(uploadImage(studentStorage, 'chat/booking-course-star/photo.jpg'));
   });
 });
+
+describe('lesson level immutable logos', () => {
+  const path = () => `lesson-levels/beginner/${STORAGE_ADMIN_ID}/${randomUUID()}`;
+  async function admin() {
+    await seedStorageFirestore(testEnv, async (db) => {
+      await setDoc(
+        doc(db, 'users', STORAGE_ADMIN_ID),
+        userProfile(STORAGE_ADMIN_ID, 'admin@example.com', 'admin', {
+          lifecycle: { status: 'active' },
+        })
+      );
+    });
+    return testEnv.authenticatedContext(STORAGE_ADMIN_ID).storage();
+  }
+  it('allows active administrators to create supported images and everyone to read, but denies mutations', async () => {
+    const storage = await admin();
+    for (const contentType of ['image/png', 'image/jpeg', 'image/webp']) {
+      const target = ref(storage, path());
+      await assertSucceeds(uploadBytes(target, imageBytes(2097152), { contentType }));
+      await assertSucceeds(
+        getBytes(ref(testEnv.unauthenticatedContext().storage(), target.fullPath))
+      );
+      await assertFails(uploadBytes(target, imageBytes(10), { contentType }));
+      await assertFails(updateMetadata(target, { contentType: 'image/png' }));
+      await assertFails(deleteObject(target));
+    }
+  });
+  it('rejects users, anonymous, inactive administrators, test actors and forged uploader paths', async () => {
+    const storage = await admin();
+    await assertFails(uploadImage(testEnv.authenticatedContext(STORAGE_USER_ID).storage(), path()));
+    await assertFails(uploadImage(testEnv.unauthenticatedContext().storage(), path()));
+    await assertFails(uploadImage(storage, `lesson-levels/beginner/another-admin/${randomUUID()}`));
+    await seedStorageFirestore(testEnv, async (db) => {
+      await setDoc(
+        doc(db, 'users', STORAGE_ADMIN_ID),
+        userProfile(STORAGE_ADMIN_ID, 'admin@example.com', 'admin', {
+          lifecycle: { status: 'suspended' },
+        })
+      );
+    });
+    await assertFails(uploadImage(storage, path()));
+    await admin();
+    await seedStorageFirestore(testEnv, async (db) => {
+      await setDoc(doc(db, 'test_actors', STORAGE_ADMIN_ID), { allowed: true });
+    });
+    await assertFails(uploadImage(storage, path()));
+  });
+  it('rejects SVG, invalid types, empty/oversize files and invalid paths', async () => {
+    const storage = await admin();
+    for (const [contentType, size] of [
+      ['image/svg+xml', 10],
+      ['text/plain', 10],
+      ['image/png', 0],
+      ['image/png', 2097153],
+    ] as const) {
+      await assertFails(uploadBytes(ref(storage, path()), imageBytes(size), { contentType }));
+    }
+    await assertFails(
+      uploadImage(storage, `lesson-levels/BAD/${STORAGE_ADMIN_ID}/${randomUUID()}`)
+    );
+    await assertFails(uploadImage(storage, `lesson-levels/beginner/${STORAGE_ADMIN_ID}/bad-file`));
+  });
+});

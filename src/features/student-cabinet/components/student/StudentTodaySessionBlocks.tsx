@@ -1,3 +1,4 @@
+import { LessonLevelLabel } from '../../../settings/LessonLevelLabel';
 import { StudentDashboardTileHeader, StudentDashboardTileBody } from './StudentDashboardTile';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import type { CabinetSessionItem } from '../../../../features/course-enrollments';
@@ -144,7 +145,13 @@ export const SessionCountdownBlock = memo<SessionCountdownBlockInput>(
               {visibleSessions.map(({ session }) => (
                 <div className="sc-countdown-session" key={sessionItemKey(session)}>
                   <div className="sc-countdown-meta">
-                    <p className="sc-countdown-title">{getCabinetSessionTitle(session, lang)}</p>
+                    <p className="sc-countdown-title">
+                      <LessonLevelLabel
+                        levelId={session.kind === 'lesson' ? session.session.difficulty : undefined}
+                        language={lang}
+                        fallback={getCabinetSessionTitle(session, lang)}
+                      />
+                    </p>
                     <p className="sc-countdown-time">{formatCabinetSessionTimeRange(session)}</p>
                   </div>
                   <p className="sc-countdown-subtitle">
@@ -207,7 +214,13 @@ const SessionCard = memo<
   return (
     <article className="sc-current-session">
       <h3 className="sc-current-session-title type-card-title">
-        <span>{getCabinetSessionTitle(session, lang)}</span>
+        <span>
+          <LessonLevelLabel
+            levelId={session.kind === 'lesson' ? session.session.difficulty : undefined}
+            language={lang}
+            fallback={getCabinetSessionTitle(session, lang)}
+          />
+        </span>
         {session.kind === 'lesson' && (
           <LessonFeedbackIndicator lessonBookingId={session.session.id} />
         )}
@@ -409,7 +422,15 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
                         </p>
                       </div>
                       <h3 className="sc-next-session-title type-card-title">
-                        <span>{getCabinetSessionTitle(session, lang)}</span>
+                        <span>
+                          <LessonLevelLabel
+                            levelId={
+                              session.kind === 'lesson' ? session.session.difficulty : undefined
+                            }
+                            language={lang}
+                            fallback={getCabinetSessionTitle(session, lang)}
+                          />
+                        </span>
                         {session.kind === 'lesson' && (
                           <LessonFeedbackIndicator lessonBookingId={session.session.id} />
                         )}

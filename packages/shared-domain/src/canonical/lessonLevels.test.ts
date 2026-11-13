@@ -72,3 +72,25 @@ describe('lesson level catalog', () => {
     ).toThrow();
   });
 });
+
+it('accepts optional visual settings and rejects malformed colors and unsafe/cross-level paths', () => {
+  const level = DEFAULT_LESSON_LEVELS[0];
+  const valid = {
+    ...level,
+    markerColor: '#12AbEF',
+    logoStoragePath: 'lesson-levels/beginner/admin/12345678-1234-4123-8123-123456789abc',
+  };
+  expect(LessonLevelsPayloadSchema.parse({ levels: [valid] }).levels[0]).toEqual(valid);
+  for (const patch of [
+    { markerColor: '#abc' },
+    { markerColor: 'red' },
+    { markerColor: '#gg0000' },
+    { logoStoragePath: 'https://evil.invalid/logo.svg' },
+    { logoStoragePath: valid.logoStoragePath.replace('/beginner/', '/advanced/') },
+    { logoStoragePath: 'lesson-levels/../admin/file' },
+  ]) {
+    expect(LessonLevelsPayloadSchema.safeParse({ levels: [{ ...valid, ...patch }] }).success).toBe(
+      false
+    );
+  }
+});

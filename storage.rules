@@ -102,6 +102,19 @@ service firebase.storage {
       allow list, update, delete: if false;
     }
 
+    // Catalog logos are immutable: replacements always create a new object.
+    // Keep unused/replaced objects for safe manual cleanup after reconciliation;
+    // clients cannot delete an object referenced by an in-flight command.
+    match /lesson-levels/{levelId}/{uploaderId}/{assetId} {
+      allow get: if true;
+      allow create: if resource == null && !isAllowedTestActor() && isOwner(uploaderId) && isAdmin() &&
+        levelId.matches('[a-z][a-z0-9_-]{0,79}') &&
+        assetId.matches('[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}') &&
+        request.resource.size > 0 && request.resource.size <= 2 * 1024 * 1024 &&
+        request.resource.contentType in ['image/png', 'image/jpeg', 'image/webp'];
+      allow list, update, delete: if false;
+    }
+
     match /instructors/{instructorId} {
       allow read: if true;
       allow write: if !isAllowedTestActor() && isAdmin() && isValidImageUpload();

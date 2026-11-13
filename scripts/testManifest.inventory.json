@@ -254,6 +254,7 @@
   "packages/shared-domain/src/canonical/emailDeliverySettings.test.ts": "shared-domain",
   "packages/shared-domain/src/canonical/financialOverviewPolicy.test.ts": "shared-domain",
   "packages/shared-domain/src/canonical/guestBooking.test.ts": "shared-domain",
+  "packages/shared-domain/src/canonical/guestContact.test.ts": "shared-domain",
   "packages/shared-domain/src/canonical/guestCourseEnrollmentTransport.test.ts": "shared-domain",
   "packages/shared-domain/src/canonical/identityAdministration.test.ts": "shared-domain",
   "packages/shared-domain/src/canonical/instructorReview.test.ts": "shared-domain",

@@ -623,6 +623,7 @@
   "tests/unit/presentCancellationError.test.ts": "app-unit",
   "tests/unit/presentCanonicalCommandErrorLessonBooking.test.ts": "app-unit",
   "tests/unit/profileService.identity.test.ts": "app-unit",
+  "tests/unit/publicCourseReviews.test.tsx": "app-unit",
   "tests/unit/rescheduleBookingAvailability.test.ts": "app-unit",
   "tests/unit/rescheduleBookingModal.test.tsx": "app-unit",
   "tests/unit/resolveChatId.test.ts": "app-unit",

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { Firestore } from 'firebase-admin/firestore';
+import { Timestamp, type Firestore } from 'firebase-admin/firestore';
 import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
 import { admitRequest, requestPrincipalKey } from './requestAdmission';
 
@@ -49,6 +49,7 @@ export function createReportClientErrorsHandler(firestore: Firestore, secret: st
     }
     const entries = request.data.entries.map(sanitizeClientError);
     const uid = request.auth.uid;
+    const createdAt = Date.now();
     await firestore.runTransaction(async (tx) => {
       const refs = entries.map((entry) =>
         firestore.doc(
@@ -58,7 +59,12 @@ export function createReportClientErrorsHandler(firestore: Firestore, secret: st
       const snaps = await tx.getAll(...refs);
       entries.forEach((entry, i) => {
         if (!snaps[i].exists)
-          tx.set(refs[i], { ...entry, userId: uid, timestamp: new Date().toISOString() });
+          tx.set(refs[i], {
+            ...entry,
+            userId: uid,
+            timestamp: new Date(createdAt).toISOString(),
+            deleteAt: Timestamp.fromMillis(createdAt + 30 * 24 * 60 * 60 * 1000),
+          });
       });
     });
     return { accepted: entries.length };

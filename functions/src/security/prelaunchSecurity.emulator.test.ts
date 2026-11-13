@@ -6,6 +6,7 @@ import type { CallableRequest } from 'firebase-functions/v2/https';
 import { createClaimGuestProfileHandler } from './claimGuestProfile';
 import { admitRequest, requestPrincipalKey } from './requestAdmission';
 import { createReportClientErrorsHandler } from './reportClientErrors';
+import { createHash } from 'node:crypto';
 import { isRetryableClosedFirestoreTransactionError } from '../canonical/transactions/firestoreTransactionExecutor';
 
 const app = initializeApp({ projectId: 'demo-prelaunch-security' }, 'prelaunch-security');
@@ -199,6 +200,12 @@ describe('prelaunch server security', () => {
     await report(req);
     const logs = await db.collection('error_logs').get();
     expect(logs.size).toBe(1);
+    expect(logs.docs[0].id).toBe(
+      createHash('sha256').update('verified-user:same-error').digest('hex')
+    );
+    expect(logs.docs[0].data().deleteAt.toMillis()).toBe(
+      Date.parse(logs.docs[0].data().timestamp) + 30 * 24 * 60 * 60 * 1000
+    );
     expect(logs.docs[0].data().userId).toBe('verified-user');
     expect(JSON.stringify(logs.docs[0].data())).not.toContain('SECRET');
     expect(JSON.stringify(logs.docs[0].data())).not.toContain('victim@example.com');

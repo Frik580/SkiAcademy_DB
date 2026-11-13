@@ -1903,6 +1903,32 @@ describe('T32.8A identity authority containment', () => {
 });
 
 describe('resort configuration and error logs', () => {
+  it('restricts log reads and deletes to active administrators and owners', async () => {
+    await seedData(async (context) => {
+      await setDoc(doc(context.firestore(), 'error_logs', 'legacy-log'), {
+        id: 'wrong-id',
+        userId: USER_ID,
+      });
+      await setDoc(
+        doc(context.firestore(), 'users', ADMIN_ID),
+        userProfile(ADMIN_ID, 'admin@example.com', 'admin')
+      );
+    });
+    for (const uid of [null, USER_ID, OTHER_USER_ID]) {
+      const db = (
+        uid ? testEnv.authenticatedContext(uid) : testEnv.unauthenticatedContext()
+      ).firestore();
+      await assertFails(getDoc(doc(db, 'error_logs', 'legacy-log')));
+      await assertFails(deleteDoc(doc(db, 'error_logs', 'legacy-log')));
+    }
+    const adminDb = testEnv.authenticatedContext(ADMIN_ID).firestore();
+    await assertSucceeds(getDoc(doc(adminDb, 'error_logs', 'legacy-log')));
+    await assertFails(updateDoc(doc(adminDb, 'error_logs', 'legacy-log'), { id: 'edited' }));
+    await assertFails(setDoc(doc(adminDb, 'error_logs', 'new-log'), { id: 'new-log' }));
+    await assertSucceeds(deleteDoc(doc(adminDb, 'error_logs', 'legacy-log')));
+    const ownerDb = testEnv.authenticatedContext(OWNER_ID).firestore();
+    await assertSucceeds(deleteDoc(doc(ownerDb, 'error_logs', 'already-missing')));
+  });
   it('allows only admins to write resort configuration', async () => {
     const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();
     const ownerDb = testEnv

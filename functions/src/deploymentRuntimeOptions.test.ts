@@ -36,6 +36,8 @@ const eventDocuments: Record<string, string> = {
 const maxTwenty = [
   'claimGuestProfile',
   'reportClientErrors',
+  'deleteErrorLog',
+  'clearErrorLogs',
   'executeCanonicalCommand',
   'executeGuestCanonicalCommand',
   'executeTestSessionLifecycle',
@@ -95,7 +97,7 @@ function deploymentSpec(): Record<string, Record<string, unknown>> {
 describe('reviewed Functions deployment configuration', () => {
   it('requires the exact scaling map and export inventory in the generated specification', () => {
     const spec = deploymentSpec();
-    expect(Object.keys(spec)).toHaveLength(53);
+    expect(Object.keys(spec)).toHaveLength(55);
     expect(
       Object.fromEntries(Object.entries(spec).map(([name, e]) => [name, e.maxInstances]))
     ).toEqual(expectedCaps);
@@ -121,7 +123,8 @@ describe('reviewed Functions deployment configuration', () => {
             : lowCpuScheduler || eventDocument
               ? 256
               : null,
-        timeoutSeconds: chatMedia ? 120 : name === 'optimizeImage' ? 60 : null,
+        timeoutSeconds:
+          chatMedia || name === 'clearErrorLogs' ? 120 : name === 'optimizeImage' ? 60 : null,
         minInstances: null,
         maxInstances: expectedCaps[name],
         ingressSettings: null,

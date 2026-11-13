@@ -1,19 +1,17 @@
-import { LessonLevelLabel } from '../../../settings/LessonLevelLabel';
 import { StudentDashboardTileHeader, StudentDashboardTileBody } from './StudentDashboardTile';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import type { CabinetSessionItem } from '../../../../features/course-enrollments';
 import {
   formatCabinetSessionTimeRange,
-  formatCourseDayDateLabel,
-  getCabinetSessionSubtitle,
+  sessionDisplayDate,
   getCabinetSessionTitle,
   sessionItemKey,
 } from '../../../../features/course-enrollments/sessionScheduleHelpers';
 import { formatCountdownRemaining, formatSessionDayLabel } from './studentCabinetUtils';
 import { ScDivider, ScTextButton } from './StudentCabinetUI';
-import { BookingCallCoachButton } from './BookingCallCoachButton';
-import { LessonFeedbackIndicator } from '../LessonFeedbackIndicator';
-import { ChatUnreadIndicator } from '../../../../features/chat';
+import { StudentSessionCard } from './StudentSessionCard';
+import { normalizeTelHref, resolveBookingCoachPhone } from './coachUtils';
+import { translateCourse } from '../../../../lib/i18n/contentTranslation';
 import type {
   CurrentSessionsBlockInput,
   NextSessionBlockInput,
@@ -21,7 +19,6 @@ import type {
   SessionParticipantInput,
 } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
-import { SessionParticipants } from './SessionParticipants';
 import { cabinetItemToLegacyPresentation } from '../../../../features/lesson-bookings/mergeCabinetBookings';
 import { StudentDashboardTile } from './StudentDashboardTile';
 import { STUDENT_DASHBOARD_TILES } from '../../../settings/studentDashboardLayout';
@@ -143,45 +140,18 @@ export const SessionCountdownBlock = memo<SessionCountdownBlockInput>(
                 }}
               />
               {visibleSessions.map(({ session }) => (
-                <div className="sc-countdown-session" key={sessionItemKey(session)}>
-                  <div className="sc-countdown-meta">
-                    <p className="sc-countdown-title">
-                      <LessonLevelLabel
-                        levelId={session.kind === 'lesson' ? session.session.difficulty : undefined}
-                        language={lang}
-                        fallback={getCabinetSessionTitle(session, lang)}
-                      />
-                    </p>
-                    <p className="sc-countdown-time">{formatCabinetSessionTimeRange(session)}</p>
-                  </div>
-                  <p className="sc-countdown-subtitle">
-                    {session.kind === 'course_day'
-                      ? formatCourseDayDateLabel(session, lang)
-                      : getCabinetSessionSubtitle(session, lang)}
-                  </p>
-                  <SessionParticipants
-                    participants={
-                      session.kind === 'course_day'
-                        ? [...(courseParticipants.get(session.courseId)?.values() ?? [])]
-                        : (participantsBySessionKey?.[sessionItemKey(session)] ?? participants)
-                    }
-                  />
-                  {session.kind === 'lesson' && (
-                    <div className="sc-countdown-actions">
-                      <BookingCallCoachButton
-                        booking={cabinetItemToLegacyPresentation(
-                          session.session,
-                          usersList[0]?.uid ?? ''
-                        )}
-                        courses={courses}
-                        instructors={instructors}
-                        usersList={usersList}
-                        variant="outline"
-                        className="sc-countdown-contact"
-                      />
-                    </div>
-                  )}
-                </div>
+                <SessionCard
+                  key={sessionItemKey(session)}
+                  session={session}
+                  participants={
+                    session.kind === 'course_day'
+                      ? [...(courseParticipants.get(session.courseId)?.values() ?? [])]
+                      : (participantsBySessionKey?.[sessionItemKey(session)] ?? participants)
+                  }
+                  courses={courses}
+                  instructors={instructors}
+                  usersList={usersList}
+                />
               ))}
             </div>
           </StudentDashboardTileBody>
@@ -192,12 +162,8 @@ export const SessionCountdownBlock = memo<SessionCountdownBlockInput>(
   }
 );
 
-const SessionCard = memo<
-  Omit<CurrentSessionsBlockInput, 'sessions' | 'participantsBySessionKey'> & {
-    session: CabinetSessionItem;
-    participants: readonly SessionParticipantInput[];
-  }
->(function SessionCard({
+// Container adapter: domain entities and legacy modal conversion stay outside the card.
+function SessionCard({
   session,
   participants,
   courses,
@@ -207,77 +173,76 @@ const SessionCard = memo<
   onOpenSession,
   onViewCourseDetails,
   hasUnreadChat,
+  dayLabel,
+  accountCourse = false,
+}: Omit<
+  CurrentSessionsBlockInput,
+  'sessions' | 'participantsBySessionKey' | 'onOpenLesson' | 'onOpenSession'
+> & {
+  session: CabinetSessionItem;
+  participants: readonly SessionParticipantInput[];
+  onOpenLesson?: CurrentSessionsBlockInput['onOpenLesson'];
+  onOpenSession?: CurrentSessionsBlockInput['onOpenSession'];
+  dayLabel?: string;
+  accountCourse?: boolean;
 }) {
   const { t, lang } = useStudentCabinetTranslations();
-  const isCourseDay = session.kind === 'course_day';
-
+  const booking =
+    session.kind === 'lesson'
+      ? cabinetItemToLegacyPresentation(session.session, usersList[0]?.uid ?? '')
+      : undefined;
+  const course =
+    session.kind === 'course_day'
+      ? courses.find((entry) => entry.id === session.courseId)
+      : undefined;
+  const discipline = session.kind === 'lesson' ? session.session.discipline : course?.discipline;
+  const coaches =
+    session.kind === 'lesson'
+      ? [{ name: session.session.instructorName, avatarUrl: session.session.instructorAvatar }]
+      : (course?.instructorIds ?? []).flatMap((id) => {
+          const coach = instructors.find((entry) => entry.id === id);
+          return coach ? [{ name: coach.name, avatarUrl: coach.avatarUrl }] : [];
+        });
+  const phone = booking
+    ? resolveBookingCoachPhone(booking, courses, usersList, instructors)
+    : undefined;
   return (
-    <article className="sc-current-session">
-      <h3 className="sc-current-session-title type-card-title">
-        <span>
-          <LessonLevelLabel
-            levelId={session.kind === 'lesson' ? session.session.difficulty : undefined}
-            language={lang}
-            fallback={getCabinetSessionTitle(session, lang)}
-          />
-        </span>
-        {session.kind === 'lesson' && (
-          <LessonFeedbackIndicator lessonBookingId={session.session.id} />
-        )}
-      </h3>
-      <div className="sc-current-session-meta">
-        <p className="sc-current-session-time">{formatCabinetSessionTimeRange(session)}</p>
-        <p className="sc-current-session-subtitle">
-          {isCourseDay
-            ? formatCourseDayDateLabel(session, lang)
-            : getCabinetSessionSubtitle(session, lang)}
-        </p>
-      </div>
-      <SessionParticipants participants={participants} />
-      <div className="sc-current-session-actions">
-        {session.kind === 'lesson' ? (
-          <>
-            <ScTextButton
-              onClick={() =>
-                onOpenLesson(
-                  cabinetItemToLegacyPresentation(session.session, usersList[0]?.uid ?? '')
-                )
-              }
-            >
-              {t('scMoreDetails')}
-            </ScTextButton>
-            <ScTextButton
-              onClick={() =>
-                onOpenSession(
-                  cabinetItemToLegacyPresentation(session.session, usersList[0]?.uid ?? '')
-                )
-              }
-              title={hasUnreadChat?.(session.session.id) ? t('chatNewMessages') : t('chat')}
-            >
-              {t('chat')}
-              <ChatUnreadIndicator show={hasUnreadChat?.(session.session.id) ?? false} />
-            </ScTextButton>
-            <BookingCallCoachButton
-              booking={cabinetItemToLegacyPresentation(session.session, usersList[0]?.uid ?? '')}
-              courses={courses}
-              instructors={instructors}
-              usersList={usersList}
-              className="sc-current-session-contact"
-            />
-          </>
-        ) : (
-          onViewCourseDetails && (
-            <ScTextButton
-              onClick={() => onViewCourseDetails(session.courseId, session.enrollmentId)}
-            >
-              {t('scMoreDetails')}
-            </ScTextButton>
-          )
-        )}
-      </div>
-    </article>
+    <StudentSessionCard
+      sessionId={
+        session.kind === 'lesson'
+          ? `lesson:${session.session.id}`
+          : `course_day:${session.courseId}:${session.courseDayId}`
+      }
+      levelId={session.kind === 'lesson' ? session.session.difficulty : undefined}
+      title={course ? translateCourse(course, lang).title : getCabinetSessionTitle(session, lang)}
+      dayLabel={dayLabel ?? formatSessionDayLabel(sessionDisplayDate(session), lang, t, undefined)}
+      timeRange={formatCabinetSessionTimeRange(session)}
+      disciplineLabel={
+        discipline
+          ? t(
+              discipline === 'ski' ? 'participantsDisciplineSki' : 'participantsDisciplineSnowboard'
+            )
+          : undefined
+      }
+      coaches={coaches}
+      participants={participants}
+      feedbackLessonId={booking && onOpenLesson ? booking.id : undefined}
+      onDetails={
+        booking && onOpenLesson
+          ? () => onOpenLesson(booking)
+          : session.kind === 'course_day' && onViewCourseDetails
+            ? () =>
+                accountCourse
+                  ? onViewCourseDetails(session.courseId)
+                  : onViewCourseDetails(session.courseId, session.enrollmentId)
+            : undefined
+      }
+      onChat={booking && onOpenSession ? () => onOpenSession(booking) : undefined}
+      unreadChat={booking ? (hasUnreadChat?.(booking.id) ?? false) : false}
+      phoneHref={phone ? normalizeTelHref(phone) : undefined}
+    />
   );
-});
+}
 
 export const CurrentSessionsBlock = memo<CurrentSessionsBlockInput>(function CurrentSessionsBlock({
   sessions,
@@ -400,108 +365,22 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
 
           {nextSessions.length > 0 ? (
             <div className="sc-next-session-list">
-              {nextSessions.map(({ session, dateStr }, index) => {
-                const isCourseDay = session.kind === 'course_day';
-                return (
-                  <article
-                    key={`${sessionItemKey(session)}_${dateStr}_${index}`}
-                    data-session-id={
-                      session.kind === 'lesson'
-                        ? `lesson:${session.session.id}`
-                        : `course_day:${session.courseId}:${session.courseDayId}`
-                    }
-                    className="sc-next-session-card"
-                  >
-                    <div className="sc-next-session-heading">
-                      <div className="sc-next-session-meta">
-                        <p className="sc-next-session-time">
-                          {formatCabinetSessionTimeRange(session)}
-                        </p>
-                        <p className="sc-next-session-day-label">
-                          {formatSessionDayLabel(dateStr, lang, t, miniDays[0]?.dateStr)}
-                        </p>
-                      </div>
-                      <h3 className="sc-next-session-title type-card-title">
-                        <span>
-                          <LessonLevelLabel
-                            levelId={
-                              session.kind === 'lesson' ? session.session.difficulty : undefined
-                            }
-                            language={lang}
-                            fallback={getCabinetSessionTitle(session, lang)}
-                          />
-                        </span>
-                        {session.kind === 'lesson' && (
-                          <LessonFeedbackIndicator lessonBookingId={session.session.id} />
-                        )}
-                      </h3>
-                    </div>
-                    <p className="sc-next-session-subtitle">
-                      {isCourseDay
-                        ? formatCourseDayDateLabel(session, lang)
-                        : getCabinetSessionSubtitle(session, lang)}
-                    </p>
-                    <SessionParticipants
-                      participants={participantsBySessionKey[sessionItemKey(session)] ?? []}
-                    />
-                    <div className="sc-next-session-actions">
-                      {session.kind === 'lesson' ? (
-                        <>
-                          <ScTextButton
-                            onClick={() =>
-                              onOpenLesson(
-                                cabinetItemToLegacyPresentation(
-                                  session.session,
-                                  usersList[0]?.uid ?? ''
-                                )
-                              )
-                            }
-                          >
-                            {t('scMoreDetails')}
-                          </ScTextButton>
-                          <ScTextButton
-                            onClick={() =>
-                              onOpenSession(
-                                cabinetItemToLegacyPresentation(
-                                  session.session,
-                                  usersList[0]?.uid ?? ''
-                                )
-                              )
-                            }
-                            title={
-                              hasUnreadChat?.(session.session.id) ? t('chatNewMessages') : t('chat')
-                            }
-                          >
-                            {t('chat')}
-                            <ChatUnreadIndicator
-                              show={hasUnreadChat?.(session.session.id) ?? false}
-                            />
-                          </ScTextButton>
-                          <BookingCallCoachButton
-                            className="sc-next-session-contact"
-                            booking={cabinetItemToLegacyPresentation(
-                              session.session,
-                              usersList[0]?.uid ?? ''
-                            )}
-                            courses={courses}
-                            instructors={instructors}
-                            usersList={usersList}
-                          />
-                        </>
-                      ) : (
-                        onViewCourseDetails && (
-                          <ScTextButton
-                            // Account-level course card: let details resolve the selected participant.
-                            onClick={() => onViewCourseDetails(session.courseId)}
-                          >
-                            {t('scMoreDetails')}
-                          </ScTextButton>
-                        )
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
+              {nextSessions.map(({ session, dateStr }, index) => (
+                <SessionCard
+                  key={`${sessionItemKey(session)}_${dateStr}_${index}`}
+                  session={session}
+                  participants={participantsBySessionKey[sessionItemKey(session)] ?? []}
+                  courses={courses}
+                  instructors={instructors}
+                  usersList={usersList}
+                  onOpenLesson={onOpenLesson}
+                  onOpenSession={onOpenSession}
+                  onViewCourseDetails={onViewCourseDetails}
+                  hasUnreadChat={hasUnreadChat}
+                  dayLabel={formatSessionDayLabel(dateStr, lang, t, miniDays[0]?.dateStr)}
+                  accountCourse
+                />
+              ))}
             </div>
           ) : (
             <p className="sc-next-session-empty">{t('scNoUpcomingSession')}</p>

@@ -70,8 +70,8 @@ describe('countdown presentation preserves the existing lifecycle', () => {
     const { container } = render(<SessionCountdownBlock {...input()} />);
     expect(container.querySelector('[aria-live]')).toHaveTextContent('1ч 24м 00с');
     expect(screen.getByText('Арман')).toBeInTheDocument();
-    expect(screen.getByText('Айгерим')).toBeInTheDocument();
-    expect(screen.getByText('Тимур')).toBeInTheDocument();
+    expect(screen.getByLabelText('Айгерим')).toBeInTheDocument();
+    expect(screen.getByLabelText('Тимур')).toBeInTheDocument();
     expect(screen.getByRole('link')).toHaveAttribute('href', 'tel:+77001234567');
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
     if (process.env.STUDENT_COUNTDOWN_VISUAL_DIR) {
@@ -143,11 +143,11 @@ describe('countdown presentation preserves the existing lifecycle', () => {
       />
     );
     expect(container.querySelectorAll('.sc-countdown-digits')).toHaveLength(1);
-    expect(container.querySelectorAll('.sc-countdown-session')).toHaveLength(2);
+    expect(container.querySelectorAll('.sc-session-card')).toHaveLength(2);
     expect(screen.getByText('Арман')).toBeInTheDocument();
     expect(screen.getByText('Бекзат')).toBeInTheDocument();
-    expect(screen.getByText('Айгерим')).toBeInTheDocument();
-    expect(screen.getByText('Саша')).toBeInTheDocument();
+    expect(screen.getByLabelText('Айгерим')).toBeInTheDocument();
+    expect(screen.getByLabelText('Саша')).toBeInTheDocument();
     expect(screen.getAllByRole('link')).toHaveLength(2);
   });
 

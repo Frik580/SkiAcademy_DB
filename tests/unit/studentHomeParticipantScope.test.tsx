@@ -1193,7 +1193,7 @@ describe('Student Home participant scope', () => {
     expect(
       within(people)
         .getAllByRole('listitem')
-        .map((item) => item.textContent)
+        .map((item) => item.getAttribute('aria-label'))
     ).toEqual(['Alice Student', 'Bob Student']);
     view.rerender(
       <MemoryRouter>
@@ -1201,7 +1201,7 @@ describe('Student Home participant scope', () => {
       </MemoryRouter>
     );
     expect(screen.getByRole('list', { name: 'bookingParticipantsLabel' })).toBe(people);
-    expect(people).not.toHaveTextContent('Other Student');
+    expect(within(people).queryByRole('listitem', { name: 'Other Student' })).not.toBeInTheDocument();
     expect(people.querySelectorAll('img')).toHaveLength(2);
   });
 
@@ -1270,11 +1270,11 @@ describe('B6 Home school calendar readiness and scope', () => {
     schoolZone.ready = true;
     view.rerender(calendarHome());
     expect(view.container.querySelector('[aria-current="date"]')).toHaveTextContent('13');
-    expect(view.container.querySelector('.sc-next-session-day-label')).toHaveTextContent('scToday');
+    expect(view.container.querySelector('.sc-next-session .sc-session-card-day')).toHaveTextContent('scToday');
     schoolZone.timeZone = 'America/New_York';
     view.rerender(calendarHome());
     expect(view.container.querySelector('[aria-current="date"]')).toHaveTextContent('12');
-    expect(view.container.querySelector('.sc-next-session-day-label')).toHaveTextContent('scToday');
+    expect(view.container.querySelector('.sc-next-session .sc-session-card-day')).toHaveTextContent('scToday');
     schoolZone.ready = false;
     view.rerender(calendarHome());
     expect(view.container.querySelector('.sc-next-session')).toBeNull();
@@ -1302,11 +1302,11 @@ describe('B6 Home school calendar readiness and scope', () => {
     vi.setSystemTime(new Date('2026-11-12T18:59:59Z'));
     const view = render(calendarHome());
     expect(view.container.querySelector('[aria-current="date"]')).toHaveTextContent('12');
-    expect(view.container.querySelector('.sc-next-session-day-label')).toHaveTextContent(
+    expect(view.container.querySelector('.sc-next-session .sc-session-card-day')).toHaveTextContent(
       'scTomorrow'
     );
     act(() => vi.advanceTimersByTime(1000));
     expect(view.container.querySelector('[aria-current="date"]')).toHaveTextContent('13');
-    expect(view.container.querySelector('.sc-next-session-day-label')).toHaveTextContent('scToday');
+    expect(view.container.querySelector('.sc-next-session .sc-session-card-day')).toHaveTextContent('scToday');
   });
 });

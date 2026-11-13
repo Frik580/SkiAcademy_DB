@@ -1,3 +1,4 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_LESSON_LEVELS } from '@ski-academy/shared-domain';
@@ -11,7 +12,10 @@ import {
 import { getDifficultyLabel } from '../../src/lib/i18n/bookingLabels';
 import { getDifficultyShort } from '../../src/features/student-cabinet/components/student/studentSessionPresentation';
 import { getRecentLessonTitle } from '../../src/features/student-cabinet/components/student/studentLessonPresentation';
-import { getCabinetSessionTitle } from '../../src/features/course-enrollments/sessionScheduleHelpers';
+import {
+  getCabinetSessionTitle,
+  getMiniCalendarDaysFromSessions,
+} from '../../src/features/course-enrollments/sessionScheduleHelpers';
 import type { CabinetSessionItem } from '../../src/features/course-enrollments';
 import type { Booking } from '../../src/types';
 
@@ -157,6 +161,69 @@ describe('Student Cabinet lesson levels', () => {
     fireEvent.error(image);
     expect(image).not.toBeInTheDocument();
     expect(container.textContent).toContain('🔴');
+  });
+  it('uses the same five rows, avatars only and discipline in every tile', () => {
+    const lesson = { ...session, session: { ...session.session, discipline: 'ski' as const } };
+    const participants = Array.from({ length: 9 }, (_, index) => ({
+      participantId: `person-${index}`,
+      displayName: `Participant ${index}`,
+      avatarUrl: undefined,
+    }));
+    const common = {
+      courses: [],
+      instructors: [
+        { id: 'coach', phoneNumber: '+77001234567' },
+      ] as import('../../src/types').Instructor[],
+      usersList: [],
+      participantsBySessionKey: { 'lesson:booking_levels': participants },
+      onOpenLesson: vi.fn(),
+      onOpenSession: vi.fn(),
+    };
+    const { container } = render(
+      <LanguageProvider>
+        <div className="sc-dashboard">
+          <div className="sc-dashboard-card" data-dashboard-tile="currentSessions">
+            <CurrentSessionsBlock {...common} sessions={[lesson]} />
+          </div>
+          <SessionCountdownBlock
+            {...common}
+            dashboardSize="small"
+            countdown={{ session: lesson, startsAt: new Date('2099-01-02T10:00:00Z') }}
+          />
+          <NextSessionBlock
+            {...common}
+            nextSessions={[{ session: lesson, dateStr: '2099-01-02' }]}
+            miniDays={getMiniCalendarDaysFromSessions(
+              [lesson],
+              'ru',
+              new Date('2099-01-02T10:00:00Z'),
+              'Asia/Almaty'
+            )}
+            onGoToTab={vi.fn()}
+          />
+        </div>
+      </LanguageProvider>
+    );
+    const cards = container.querySelectorAll('.sc-session-card');
+    expect(cards).toHaveLength(3);
+    expect(container.querySelectorAll('.sc-next-session-day')).toHaveLength(7);
+    for (const card of cards) {
+      expect(Array.from(card.children).map((row) => row.className)).toEqual([
+        'sc-session-card-heading',
+        'sc-session-card-schedule',
+        'sc-session-card-coaches',
+        'sc-session-participants',
+        'sc-session-card-actions',
+      ]);
+      expect(card.querySelector('.sc-session-card-discipline')).toHaveTextContent('Лыжи');
+      expect(card.querySelector('ul')).not.toHaveTextContent('Participant');
+      expect(card.querySelectorAll('ul .ui-avatar')).toHaveLength(4);
+      expect(card.querySelector('ul')).toHaveTextContent('+5');
+    }
+    if (process.env.STUDENT_SESSION_VISUAL_DIR) {
+      mkdirSync(process.env.STUDENT_SESSION_VISUAL_DIR, { recursive: true });
+      writeFileSync(process.env.STUDENT_SESSION_VISUAL_DIR + '/tiles.html', container.innerHTML);
+    }
   });
   it('uses the same formatter for list, details, history and recent lesson helpers', () => {
     const booking = { difficulty: 'ADVANCED', instructorId: 'coach' } as Booking;

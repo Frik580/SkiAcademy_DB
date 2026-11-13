@@ -1,0 +1,108 @@
+@reference '../../../../index.css';
+
+.sc-session-card {
+  display: grid;
+  font-family: var(--font-sans);
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.875rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--card-bg) 80%, transparent);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.sc-session-card-heading,
+.sc-session-card-schedule {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  min-width: 0;
+}
+.sc-session-card-title {
+  @apply type-card-title;
+  min-width: 0;
+  margin: 0;
+}
+.sc-session-card :is(p, ul) {
+  margin: 0;
+}
+.sc-session-card-day,
+.sc-session-card-discipline {
+  @apply type-caption;
+  color: var(--ink-dim);
+  text-align: right;
+}
+.sc-session-card-day {
+  flex: 0 0 auto;
+  max-width: 45%;
+}
+.sc-session-card-time {
+  font-size: 1.5rem;
+  font-weight: 650;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+}
+.sc-session-card-coaches {
+  display: grid;
+  gap: 0.5rem;
+}
+.sc-session-card-coach {
+  @apply type-compact;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.sc-session-card .ui-avatar {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 2rem;
+  overflow: hidden;
+  border-radius: 50%;
+}
+.sc-session-participants {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0;
+  list-style: none;
+}
+.sc-session-participants > li {
+  flex-shrink: 0;
+}
+.sc-session-participants-overflow {
+  @apply type-caption;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--profile-bg);
+}
+.sc-session-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 0.875rem;
+}
+.sc-session-card-actions :is(button, a) {
+  @apply type-button;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2.75rem;
+  max-width: 100%;
+  color: var(--accent);
+  white-space: normal;
+}
+.sc-session-card-actions :is(button, a):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}

@@ -377,12 +377,7 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
                   onOpenSession={onOpenSession}
                   onViewCourseDetails={onViewCourseDetails}
                   hasUnreadChat={hasUnreadChat}
-                  dayLabel={formatSessionDayLabel(
-                    sessionDisplayDate(session),
-                    lang,
-                    t,
-                    miniDays[0]?.dateStr
-                  )}
+                  dayLabel={formatSessionDayLabel(dateStr, lang, t, miniDays[0]?.dateStr)}
                   accountCourse
                 />
               ))}

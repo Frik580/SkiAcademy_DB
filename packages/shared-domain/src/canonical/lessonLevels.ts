@@ -4,6 +4,14 @@ import { AggregateRevisionSchema, CanonicalTimestampSchema } from './primitives'
 
 export const LESSON_LEVELS_SETTING_ID = 'lesson_levels';
 export const LESSON_LEVELS_DOCUMENT_PATH = 'settings/lesson_levels';
+export const LESSON_LEVEL_LOGO_MAX_BYTES = 2 * 1024 * 1024;
+export const LESSON_LEVEL_LOGO_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
+export const LessonLevelLogoPathSchema = z
+  .string()
+  .max(240)
+  .regex(
+    /^lesson-levels\/[a-z][a-z0-9_-]{0,79}\/[A-Za-z0-9_-]{1,128}\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+  );
 export const LessonLevelIdSchema = z
   .string()
   .min(1)
@@ -15,6 +23,11 @@ export const LessonLevelDefinitionSchema = z
     id: LessonLevelIdSchema,
     nameRu: z.string().trim().min(1).max(120),
     nameEn: z.string().trim().min(1).max(120),
+    markerColor: z
+      .string()
+      .regex(/^#[0-9a-fA-F]{6}$/)
+      .optional(),
+    logoStoragePath: LessonLevelLogoPathSchema.optional(),
     marker: z
       .string()
       .trim()
@@ -27,7 +40,11 @@ export const LessonLevelDefinitionSchema = z
     order: z.number().int().min(0).max(100_000),
     isActive: z.boolean(),
   })
-  .strict();
+  .strict()
+  .refine((level) => !level.logoStoragePath || level.logoStoragePath.split('/')[1] === level.id, {
+    message: 'Logo must belong to this lesson level',
+    path: ['logoStoragePath'],
+  });
 export type LessonLevelDefinition = Readonly<z.output<typeof LessonLevelDefinitionSchema>>;
 
 export const LessonLevelsPayloadSchema = z

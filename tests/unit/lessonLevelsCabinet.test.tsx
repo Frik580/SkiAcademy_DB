@@ -15,6 +15,9 @@ import { getCabinetSessionTitle } from '../../src/features/course-enrollments/se
 import type { CabinetSessionItem } from '../../src/features/course-enrollments';
 import type { Booking } from '../../src/types';
 
+vi.mock('../../src/features/settings/lessonLevelLogo', () => ({
+  getLessonLevelLogoUrl: vi.fn(async () => 'https://example.invalid/logo.webp'),
+}));
 vi.mock('../../src/features/student-cabinet/components/LessonFeedbackIndicator', () => ({
   LessonFeedbackIndicator: () => null,
 }));
@@ -96,6 +99,64 @@ describe('Student Cabinet lesson levels', () => {
     );
     expect(screen.getAllByText('🔴 Expert lesson')).toHaveLength(3);
     expect(session.session.difficulty).toBe('ADVANCED');
+  });
+  it('renders logos and colors in all three tiles and keeps course titles independent', async () => {
+    useLessonLevelsStore.setState({
+      levels: DEFAULT_LESSON_LEVELS.map((level) =>
+        level.id === 'advanced'
+          ? {
+              ...level,
+              markerColor: '#123abc',
+              logoStoragePath: 'lesson-levels/advanced/admin/12345678-1234-4123-8123-123456789abc',
+              isActive: false,
+            }
+          : level
+      ),
+    });
+    const common = {
+      courses: [],
+      instructors: [],
+      usersList: [],
+      onOpenLesson: vi.fn(),
+      onOpenSession: vi.fn(),
+    };
+    const course = {
+      kind: 'course_day',
+      courseTitle: 'BASE course',
+      courseId: 'course_base',
+      courseDayId: 'day1',
+      enrollmentId: 'enrollment1',
+      date: '2099-01-02',
+      time: '10:00',
+      endTime: '11:00',
+      timeZone: 'Asia/Almaty',
+    } as CabinetSessionItem;
+    const { container } = render(
+      <LanguageProvider>
+        <CurrentSessionsBlock {...common} sessions={[session]} />
+        <SessionCountdownBlock
+          {...common}
+          countdown={{ session, startsAt: new Date('2099-01-02T10:00:00Z') }}
+        />
+        <NextSessionBlock
+          {...common}
+          nextSessions={[{ session, dateStr: '2099-01-02' }]}
+          miniDays={[]}
+          onGoToTab={vi.fn()}
+        />
+        <CurrentSessionsBlock {...common} sessions={[course]} />
+      </LanguageProvider>
+    );
+    await act(async () => undefined);
+    expect(container.querySelectorAll('img[src="https://example.invalid/logo.webp"]')).toHaveLength(
+      3
+    );
+    expect(container.querySelectorAll('[data-lesson-marker-color="#123abc"]')).toHaveLength(3);
+    expect(screen.getByText('BASE course').closest('article')!.querySelector('img')).toBeNull();
+    const image = container.querySelector('img')!;
+    fireEvent.error(image);
+    expect(image).not.toBeInTheDocument();
+    expect(container.textContent).toContain('🔴');
   });
   it('uses the same formatter for list, details, history and recent lesson helpers', () => {
     const booking = { difficulty: 'ADVANCED', instructorId: 'coach' } as Booking;

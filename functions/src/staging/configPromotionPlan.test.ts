@@ -187,6 +187,15 @@ describe('lesson catalog promotion', () => {
     const changed = manifest([record('lesson_levels', { levels: renamed })]);
     expect(planConfigPromotion(changed, { documents: { 'settings/lesson_levels': catalog }, mediaHashes: {} }).operations[0]?.status).toBe('UPDATE');
   });
+  it('blocks copying bucket-local staging logos or erasing production logos', () => {
+    const withLogo = DEFAULT_LESSON_LEVELS.map((level) => level.id === 'beginner' ? { ...level, logoStoragePath: 'lesson-levels/beginner/admin/12345678-1234-4123-8123-123456789abc' } : level);
+    const source = manifest([record('lesson_levels', { levels: withLogo })]);
+    const stagingLogoPlan = planConfigPromotion(source, { documents: {}, mediaHashes: {} });
+    expect(stagingLogoPlan.operations[0]).toMatchObject({ status: 'CONFLICT', reason: 'lesson_level_logos_require_target_upload' });
+    const noLogoSource = manifest([record('lesson_levels', { levels: DEFAULT_LESSON_LEVELS })]);
+    const productionLogoPlan = planConfigPromotion(noLogoSource, { documents: { 'settings/lesson_levels': { ...catalog, levels: withLogo } }, mediaHashes: {} });
+    expect(productionLogoPlan.operations[0]).toMatchObject({ status: 'CONFLICT', reason: 'lesson_level_logos_require_target_upload' });
+  });
   it('blocks promotion that would drop production or initial stable IDs', () => {
     const source = manifest([record('lesson_levels', { levels: DEFAULT_LESSON_LEVELS })]);
     const target = { ...catalog, levels: [...DEFAULT_LESSON_LEVELS, { ...DEFAULT_LESSON_LEVELS[0], id: 'race', order: 5 }] };

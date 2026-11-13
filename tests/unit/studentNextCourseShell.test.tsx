@@ -332,13 +332,18 @@ function setup(props = shellProps(), managedParticipants = participants) {
     </MemoryRouter>
   );
 }
+function avatarParticipantNames(list: HTMLElement) {
+  return within(list)
+    .getAllByRole('listitem')
+    .map((item) => item.getAttribute('aria-label'));
+}
+
 function assertCourseCard() {
   const lists = screen.getAllByRole('list', { name: 'bookingParticipantsLabel' });
   expect(lists).toHaveLength(1);
   const people = within(lists[0]).getAllByRole('listitem');
   expect(people).toHaveLength(2);
-  expect(within(lists[0]).getByText('Alice Full Name')).toBeInTheDocument();
-  expect(within(lists[0]).getByText('Bob Full Name')).toBeInTheDocument();
+  expect(avatarParticipantNames(lists[0])).toEqual(['Alice Full Name', 'Bob Full Name']);
   expect(people.map((person) => person.querySelector('img')?.getAttribute('src'))).toEqual([
     '/a.png',
     '/b.png',
@@ -959,9 +964,10 @@ describe('live account session boundaries without reload', () => {
       expect(screen.queryByText('scCurrentSessions')).not.toBeInTheDocument();
       act(() => vi.advanceTimersByTime(1000));
       expect(currentCards()).toHaveLength(1);
-      expect(currentPeople(currentCards()[0] as HTMLElement).textContent).toBe(
-        'Alice Full NameBob Full Name'
-      );
+      expect(avatarParticipantNames(currentPeople(currentCards()[0] as HTMLElement))).toEqual([
+        'Alice Full Name',
+        'Bob Full Name',
+      ]);
       expect(screen.getByText('scCountdownToSession')).toBeInTheDocument();
       act(() => vi.advanceTimersByTime(3_600_000));
       expect(currentCards()).toHaveLength(1);
@@ -1009,7 +1015,7 @@ describe('account-level current sessions through the real header', () => {
       expect(
         within(people)
           .getAllByRole('listitem')
-          .map((item) => item.textContent)
+          .map((item) => item.getAttribute('aria-label'))
       ).toEqual(['Bob Full Name']);
       expect(people.querySelector('img')).toHaveAttribute('src', '/b.png');
       expect(within(card).getByText('Coach current_b')).toBeInTheDocument();
@@ -1039,7 +1045,7 @@ describe('account-level current sessions through the real header', () => {
     expect(
       within(people)
         .getAllByRole('listitem')
-        .map((item) => item.textContent)
+        .map((item) => item.getAttribute('aria-label'))
     ).toEqual(['Alice Full Name', 'Bob Full Name']);
     expect([...people.querySelectorAll('img')].map((img) => img.getAttribute('src'))).toEqual([
       '/a.png',
@@ -1047,7 +1053,10 @@ describe('account-level current sessions through the real header', () => {
     ]);
     fireEvent.click(screen.getByRole('button', { name: 'Select Alice Full Name' }));
     expect(currentCards()[0]).toBe(card);
-    expect(currentPeople(card)).toHaveTextContent('Alice Full NameBob Full Name');
+    expect(avatarParticipantNames(currentPeople(card))).toEqual([
+      'Alice Full Name',
+      'Bob Full Name',
+    ]);
   });
 
   it('uses the existing avatar fallback for a participant without an image', () => {
@@ -1064,7 +1073,7 @@ describe('account-level current sessions through the real header', () => {
     const people = currentPeople(currentCards()[0] as HTMLElement);
     expect(people.querySelector('img')).toBeNull();
     expect(people.querySelector('[data-participant-avatar-face]')).toHaveTextContent('B');
-    expect(within(people).getByText('Bob Full Name')).toBeInTheDocument();
+    expect(within(people).getByRole('listitem', { name: 'Bob Full Name' })).toBeInTheDocument();
   });
 
   it('keeps active enrollment B scoped to B and its actions while header A is selected', () => {
@@ -1092,7 +1101,7 @@ describe('account-level current sessions through the real header', () => {
     expect(
       within(currentPeople(card))
         .getAllByRole('listitem')
-        .map((item) => item.textContent)
+        .map((item) => item.getAttribute('aria-label'))
     ).toEqual(['Bob Full Name']);
     for (const name of ['Select Bob Full Name', 'Select Alice Full Name']) {
       fireEvent.click(screen.getByRole('button', { name }));
@@ -1113,15 +1122,19 @@ describe('account-level current sessions through the real header', () => {
     expect(getCurrentSessionItems(props.sessionItems!, new Date())).toHaveLength(2);
     setup(props);
     expect(currentCards()).toHaveLength(2);
+    const seenEnrollmentIds = new Set<string>();
     for (const element of currentCards()) {
       const card = element as HTMLElement;
       const people = currentPeople(card);
       expect(within(people).getAllByRole('listitem')).toHaveLength(1);
-      const enrollmentId = people.textContent === 'Alice Full Name' ? 'ea' : 'eb';
-      expect(people.textContent).toBe(enrollmentId === 'ea' ? 'Alice Full Name' : 'Bob Full Name');
+      const name = avatarParticipantNames(people)[0];
+      expect(['Alice Full Name', 'Bob Full Name']).toContain(name);
+      const enrollmentId = name === 'Alice Full Name' ? 'ea' : 'eb';
+      seenEnrollmentIds.add(enrollmentId);
       fireEvent.click(within(card).getByRole('button', { name: 'scMoreDetails' }));
       expect(props.onViewCourseDetails).toHaveBeenLastCalledWith(props.courses[0], enrollmentId);
     }
+    expect(seenEnrollmentIds).toEqual(new Set(['ea', 'eb']));
   });
 });
 
@@ -1141,7 +1154,7 @@ describe('account-level countdown through the real header', () => {
     expect(within(card).getByText(/Coach nearest_b/)).toBeInTheDocument();
     expect(within(card).queryByText(/Coach later_a/)).not.toBeInTheDocument();
     const people = within(card).getByRole('list', { name: 'bookingParticipantsLabel' });
-    expect(within(people).getByText('Bob Full Name')).toBeInTheDocument();
+    expect(within(people).getByRole('listitem', { name: 'Bob Full Name' })).toBeInTheDocument();
     expect(people.querySelector('img')).toHaveAttribute('src', '/b.png');
     const timer = card.querySelector('[aria-live="polite"]')!;
     const initialText = timer.textContent;
@@ -1157,7 +1170,7 @@ describe('account-level countdown through the real header', () => {
     expect(intervals.mock.calls.filter((call) => call[1] === 1000)).toHaveLength(intervalCount);
     fireEvent.click(screen.getByRole('button', { name: 'Select Charlie Full Name' }));
     expect(countdownCard()).toBe(card);
-    expect(within(card).getByText('Bob Full Name')).toBeInTheDocument();
+    expect(within(people).getByRole('listitem', { name: 'Bob Full Name' })).toBeInTheDocument();
     act(() => vi.advanceTimersByTime(1000));
     expect(timer.textContent).not.toBe(elapsedText);
     // The original expiry transition remains hidden even after a header switch.
@@ -1174,7 +1187,7 @@ describe('account-level countdown through the real header', () => {
     expect(
       within(people)
         .getAllByRole('listitem')
-        .map((item) => item.textContent)
+        .map((item) => item.getAttribute('aria-label'))
     ).toEqual(['Alice Full Name', 'Bob Full Name']);
     expect([...people.querySelectorAll('img')].map((img) => img.getAttribute('src'))).toEqual([
       '/a.png',
@@ -1201,10 +1214,10 @@ describe('account-level countdown through the real header', () => {
     expect(within(card).getByText('Shared Alpine Course')).toBeInTheDocument();
     const people = within(card).getByRole('list', { name: 'bookingParticipantsLabel' });
     expect(within(people).getAllByRole('listitem')).toHaveLength(1);
-    expect(within(people).getByText('Bob Full Name')).toBeInTheDocument();
+    expect(within(people).getByRole('listitem', { name: 'Bob Full Name' })).toBeInTheDocument();
     expect(people.querySelector('img')).toHaveAttribute('src', '/b.png');
     await user.click(screen.getByRole('button', { name: 'Select Bob Full Name' }));
     expect(countdownCard()).toBe(card);
-    expect(within(card).getByText('Bob Full Name')).toBeInTheDocument();
+    expect(within(people).getByRole('listitem', { name: 'Bob Full Name' })).toBeInTheDocument();
   });
 });

@@ -1270,11 +1270,11 @@ describe('B6 Home school calendar readiness and scope', () => {
     schoolZone.ready = true;
     view.rerender(calendarHome());
     expect(view.container.querySelector('[aria-current="date"]')).toHaveTextContent('13');
-    expect(view.container.querySelector('.sc-session-card-day')).toHaveTextContent('scToday');
+    expect(view.container.querySelector('.sc-next-session .sc-session-card-day')).toHaveTextContent('scToday');
     schoolZone.timeZone = 'America/New_York';
     view.rerender(calendarHome());
     expect(view.container.querySelector('[aria-current="date"]')).toHaveTextContent('12');
-    expect(view.container.querySelector('.sc-session-card-day')).toHaveTextContent('scToday');
+    expect(view.container.querySelector('.sc-next-session .sc-session-card-day')).toHaveTextContent('scToday');
     schoolZone.ready = false;
     view.rerender(calendarHome());
     expect(view.container.querySelector('.sc-next-session')).toBeNull();
@@ -1302,11 +1302,11 @@ describe('B6 Home school calendar readiness and scope', () => {
     vi.setSystemTime(new Date('2026-11-12T18:59:59Z'));
     const view = render(calendarHome());
     expect(view.container.querySelector('[aria-current="date"]')).toHaveTextContent('12');
-    expect(view.container.querySelector('.sc-session-card-day')).toHaveTextContent(
+    expect(view.container.querySelector('.sc-next-session .sc-session-card-day')).toHaveTextContent(
       'scTomorrow'
     );
     act(() => vi.advanceTimersByTime(1000));
     expect(view.container.querySelector('[aria-current="date"]')).toHaveTextContent('13');
-    expect(view.container.querySelector('.sc-session-card-day')).toHaveTextContent('scToday');
+    expect(view.container.querySelector('.sc-next-session .sc-session-card-day')).toHaveTextContent('scToday');
   });
 });

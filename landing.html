@@ -598,62 +598,6 @@
       color: var(--ink-dim);
     }
 
-    /* ── Testimonials ── */
-    .testimonials {
-      padding: var(--section-gap) 0;
-    }
-    .testimonials-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 2rem;
-    }
-    .testimonial-card {
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      padding: 2rem;
-      box-shadow: var(--shadow-soft);
-      transition: transform 0.25s;
-    }
-    .testimonial-card:hover { transform: translateY(-3px); }
-    .stars {
-      color: #f59e0b;
-      font-size: 1rem;
-      margin-bottom: 1rem;
-      letter-spacing: 2px;
-    }
-    .testimonial-card blockquote {
-      font-style: italic;
-      color: var(--ink-dim);
-      font-size: 0.95rem;
-      line-height: 1.7;
-      margin-bottom: 1.25rem;
-    }
-    .testimonial-author {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-    .testimonial-avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: var(--accent-muted);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 600;
-      font-size: 0.88rem;
-      color: var(--accent);
-    }
-    .testimonial-author .name {
-      font-weight: 600;
-      font-size: 0.92rem;
-    }
-    .testimonial-author .date {
-      font-size: 0.78rem;
-      color: var(--ink-dim);
-    }
-
     /* ── CTA Banner ── */
     .cta-banner {
       padding: var(--section-gap) 0;
@@ -807,7 +751,6 @@
       .features-grid { grid-template-columns: repeat(2, 1fr); }
       .instructors-grid { grid-template-columns: repeat(2, 1fr); }
       .courses-grid { grid-template-columns: repeat(2, 1fr); }
-      .testimonials-grid { grid-template-columns: repeat(2, 1fr); }
       .footer-inner { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 768px) {
@@ -817,7 +760,6 @@
       .instructors-grid { grid-template-columns: 1fr; }
       .courses-grid { grid-template-columns: 1fr; }
       .conditions-grid { grid-template-columns: 1fr; }
-      .testimonials-grid { grid-template-columns: 1fr; }
       .hero h1 { font-size: 2.5rem; }
       .hero-stats { gap: 1.5rem; flex-wrap: wrap; }
       .cta-inner { padding: 3rem 1.5rem; }
@@ -859,7 +801,6 @@
         <li><a href="#instructors">Инструкторы</a></li>
         <li><a href="#courses">Курсы</a></li>
         <li><a href="#conditions">Условия на склоне</a></li>
-        <li><a href="#reviews">Отзывы</a></li>
         <li>
           <button class="theme-toggle" onclick="toggleTheme()" aria-label="Переключить тему">🌙</button>
         </li>
@@ -877,7 +818,6 @@
     <a href="#instructors" onclick="toggleMenu()">Инструкторы</a>
     <a href="#courses" onclick="toggleMenu()">Курсы</a>
     <a href="#conditions" onclick="toggleMenu()">Условия на склоне</a>
-    <a href="#reviews" onclick="toggleMenu()">Отзывы</a>
     <a href="#book" onclick="toggleMenu()" style="color: var(--accent); font-weight: 700;">Забронировать →</a>
   </div>
 
@@ -1094,55 +1034,6 @@
     </div>
   </section>
 
-  <!-- ── Testimonials ── -->
-  <section class="testimonials" id="reviews">
-    <div class="container">
-      <h2 class="section-title">Отзывы учеников</h2>
-      <p class="section-subtitle">Более 300 довольных клиентов каждый сезон</p>
-      <div class="testimonials-grid">
-        <div class="testimonial-card">
-          <div class="stars">★★★★★</div>
-          <blockquote>
-            «Дочь за 4 занятия поехала самостоятельно! Елена — фантастический педагог, ребёнок не хотел уходить со склона.»
-          </blockquote>
-          <div class="testimonial-author">
-            <div class="testimonial-avatar">АК</div>
-            <div>
-              <div class="name">Анна К.</div>
-              <div class="date">Декабрь 2025</div>
-            </div>
-          </div>
-        </div>
-        <div class="testimonial-card">
-          <div class="stars">★★★★★</div>
-          <blockquote>
-            «Карвинговый курс полностью изменил моё катание. Наконец-то понял, что значит «резаный поворот». Стоит каждого тенге!»
-          </blockquote>
-          <div class="testimonial-author">
-            <div class="testimonial-avatar">ДМ</div>
-            <div>
-              <div class="name">Дамир М.</div>
-              <div class="date">Январь 2026</div>
-            </div>
-          </div>
-        </div>
-        <div class="testimonial-card">
-          <div class="stars">★★★★★</div>
-          <blockquote>
-            «Удобное приложение, всё в одном месте: бронирование, прогресс, чат с инструктором. Так должно быть везде.»
-          </blockquote>
-          <div class="testimonial-author">
-            <div class="testimonial-avatar">СТ</div>
-            <div>
-              <div class="name">Саида Т.</div>
-              <div class="date">Февраль 2026</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
   <!-- ── CTA ── -->
   <section class="cta-banner" id="book">
     <div class="container">
@@ -1239,7 +1130,7 @@
       });
     }, { threshold: 0.15 });
 
-    document.querySelectorAll('.feature-item, .instructor-card, .course-card, .testimonial-card, .conditions-hero, .lift-card').forEach(el => {
+    document.querySelectorAll('.feature-item, .instructor-card, .course-card, .conditions-hero, .lift-card').forEach(el => {
       el.style.opacity = '0';
       observer.observe(el);
     });

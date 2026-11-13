@@ -2060,7 +2060,16 @@ export const translations = {
     logDeletedDesc: 'The error log has been removed.',
     clearLogsConfirm: 'Are you sure you want to clear all error logs?',
     logsCleared: 'Logs Cleared',
-    logsClearedDesc: 'All error logs have been deleted.',
+    logsClearedDesc:
+      'Logs that existed when cleanup started have been deleted. Newer logs may remain.',
+    errorLogsReadFailed: 'Could not load error logs.',
+    errorLogDeleteFailed:
+      'Could not delete the log. It may already have been removed. Refresh and retry.',
+    errorLogsClearFailed:
+      'Cleanup is incomplete. Some logs may have been deleted. Continue cleanup to finish.',
+    errorLogsCleanupProgress: 'Cleanup. Confirmed deletions:',
+    errorLogsResumeCleanup: 'Continue cleanup',
+    errorLogsLoadMore: 'Load more logs',
     enterNameAndEmail: 'Please enter name and email.',
     saveClientFailed: 'Failed to save client profile.',
     fillCourseDetails: 'Please fill in all course details.',
@@ -4739,7 +4748,16 @@ export const translations = {
     logDeletedDesc: 'Запись об ошибке удалена.',
     clearLogsConfirm: 'Вы уверены, что хотите удалить все логи ошибок?',
     logsCleared: 'Логи очищены',
-    logsClearedDesc: 'Все логи ошибок успешно удалены.',
+    logsClearedDesc:
+      'Удалены логи, существовавшие на момент начала очистки. Более новые записи могут остаться.',
+    errorLogsReadFailed: 'Не удалось загрузить логи ошибок.',
+    errorLogDeleteFailed:
+      'Не удалось удалить запись. Возможно, она уже удалена. Обновите список и повторите попытку.',
+    errorLogsClearFailed:
+      'Очистка не завершена. Часть записей могла быть удалена. Продолжите очистку для завершения.',
+    errorLogsCleanupProgress: 'Очистка. Подтверждённые удаления:',
+    errorLogsResumeCleanup: 'Продолжить очистку',
+    errorLogsLoadMore: 'Загрузить ещё',
     enterNameAndEmail: 'Пожалуйста, укажите имя и email.',
     saveClientFailed: 'Не удалось сохранить профиль клиента.',
     fillCourseDetails: 'Пожалуйста, заполните все данные о курсе.',

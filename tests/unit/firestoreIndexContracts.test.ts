@@ -251,6 +251,20 @@ describe('Firestore composite index contracts', () => {
 });
 
 describe('Firestore single-field index contracts', () => {
+  it('enables error log TTL and preserves existing retention policies', () => {
+    for (const collectionGroup of [
+      'error_logs',
+      'security_request_limits',
+      'guest_reservation_admission',
+    ]) {
+      expect(firestoreIndexes.fieldOverrides).toContainEqual({
+        collectionGroup,
+        fieldPath: 'deleteAt',
+        ttl: true,
+        indexes: [],
+      });
+    }
+  });
   it('supports participant course-day occupancy without removing collection-group ordering', () => {
     const overrides = firestoreIndexes.fieldOverrides.filter(
       (override) =>

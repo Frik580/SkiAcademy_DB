@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Trash2, Search } from 'lucide-react';
 import { ErrorLog } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
@@ -10,7 +10,7 @@ import { logger } from '../../../../shared';
 import { QUERY_LIMITS } from '../../../../shared';
 import {
   deleteErrorLog,
-  deleteErrorLogs,
+  clearErrorLogs,
   subscribeErrorLogs,
 } from '../../../../features/admin/adminService';
 
@@ -29,6 +29,14 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
   const [selectedLog, setSelectedLog] = useState<ErrorLog | null>(null);
   const [pageSize, setPageSize] = useState<number>(QUERY_LIMITS.errorLogs);
   const [hasMoreLogs, setHasMoreLogs] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+  const cleanupCursor = useRef<string | undefined>(undefined);
+  const [cleanupCount, setCleanupCount] = useState(0);
+  const [cleanupPending, setCleanupPending] = useState(false);
+  const [operationError, setOperationError] = useState<
+    '' | 'errorLogsReadFailed' | 'errorLogDeleteFailed' | 'errorLogsClearFailed'
+  >('');
 
   useEffect(() => {
     setErrorLogsLoading(true);
@@ -40,6 +48,7 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
       },
       (error) => {
         logger.error('Error fetching logs:', error);
+        setOperationError('errorLogsReadFailed');
         setErrorLogsLoading(false);
       },
       pageSize
@@ -49,22 +58,48 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
   }, [pageSize]);
 
   const handleDeleteLog = async (logId: string) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    setOperationError('');
     try {
       await deleteErrorLog(logId);
+      setErrorLogs((logs) => logs.filter((log) => log.id !== logId));
+      setSelectedLog((log) => (log?.id === logId ? null : log));
       addNotification('success', t('logDeleted'), t('logDeletedDesc'));
     } catch (error) {
       logger.error('Failed to delete error log:', error);
+      setOperationError('errorLogDeleteFailed');
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
     }
   };
 
   const handleClearAllLogs = () => {
     const confirmMsg = t('clearLogsConfirm');
     onRequestConfirm(confirmMsg, async () => {
+      if (busyRef.current) return;
+      busyRef.current = true;
+      setBusy(true);
+      setCleanupPending(true);
+      setOperationError('');
       try {
-        await deleteErrorLogs(errorLogs.map((log) => log.id));
+        while (true) {
+          const result = await clearErrorLogs(cleanupCursor.current);
+          cleanupCursor.current = result.cursor ?? undefined;
+          setCleanupCount((count) => count + result.deleted);
+          if (result.done) break;
+        }
+        setCleanupPending(false);
+        setSelectedLog(null);
         addNotification('success', t('logsCleared'), t('logsClearedDesc'));
       } catch (error) {
         logger.error('Failed to clear error logs:', error);
+        setOperationError('errorLogsClearFailed');
+      } finally {
+        busyRef.current = false;
+        setBusy(false);
       }
     });
   };
@@ -87,11 +122,26 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
 
   return (
     <div className="space-y-4 transition-colors duration-300 w-full min-w-0 overflow-hidden">
-      {errorLogs.length > 0 && (
+      {operationError && <p role="alert">{t(operationError)}</p>}
+      {cleanupPending && (
+        <p role="status">
+          {t('errorLogsCleanupProgress')} {cleanupCount}
+        </p>
+      )}
+      {(errorLogs.length > 0 || cleanupPending) && (
         <div className="flex items-center justify-end border-b border-[var(--border)] pb-3">
-          <ActionButton onClick={handleClearAllLogs} variant="danger" size="sm">
+          <ActionButton
+            onClick={() => {
+              if (!cleanupPending) setCleanupCount(0);
+              handleClearAllLogs();
+            }}
+            pending={busy && cleanupPending}
+            disabled={busy}
+            variant="danger"
+            size="sm"
+          >
             <Trash2 className="w-3.5 h-3.5" />
-            {t('clearAllLogs')}
+            {t(cleanupPending ? 'errorLogsResumeCleanup' : 'clearAllLogs')}
           </ActionButton>
         </div>
       )}
@@ -102,7 +152,7 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
             onClick={() => setPageSize((current) => current + QUERY_LIMITS.errorLogs)}
             size="sm"
           >
-            Load more logs
+            {t('errorLogsLoadMore')}
           </ActionButton>
         </div>
       )}
@@ -168,6 +218,7 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
                   </span>
                 </div>
                 <button
+                  disabled={busy || cleanupPending}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDeleteLog(log.id);

@@ -9,6 +9,10 @@ import {
 import { admitRequest, requestPrincipalKey } from './security/requestAdmission';
 import { createClaimGuestProfileHandler } from './security/claimGuestProfile';
 import { createReportClientErrorsHandler } from './security/reportClientErrors';
+import {
+  createClearErrorLogsHandler,
+  createDeleteErrorLogHandler,
+} from './security/manageErrorLogs';
 import { createQueryAccountWalletHistoryHandler } from './canonical/readModels/queryAccountWalletHistoryCallable';
 import { createResolveInstructorLessonRevenueHandler } from './canonical/readModels/resolveInstructorLessonRevenueCallable';
 import {
@@ -131,6 +135,19 @@ export const reportClientErrors = onCall(
   CANONICAL_CALLABLE_OPTIONS,
   async (request) =>
     createReportClientErrorsHandler(getAdminFirestore(), guestActionTokenSecret.value())(request)
+);
+
+export const deleteErrorLog = onCall(
+  'deleteErrorLog',
+  CANONICAL_CALLABLE_OPTIONS,
+  async (request) => createDeleteErrorLogHandler(getAdminFirestore())(request)
+);
+
+export const clearErrorLogs = onCall(
+  'clearErrorLogs',
+  { ...CANONICAL_CALLABLE_OPTIONS, timeoutSeconds: 120 },
+  async (request) =>
+    createClearErrorLogsHandler(getAdminFirestore(), guestActionTokenSecret.value())(request)
 );
 
 export const executeCanonicalCommand = onCall(

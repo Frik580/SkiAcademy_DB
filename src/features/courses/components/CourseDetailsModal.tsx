@@ -8,7 +8,7 @@ import type {
 } from '@ski-academy/shared-domain';
 import { Course, Instructor, UserProfile } from '../../../types';
 import { useLanguage, translateInstructorName } from '../../../app/providers/LanguageContext';
-import { BodyScrollLock } from '../../../ui/BodyScrollLock';
+import { ModalLayer } from '../../../ui/ModalLayer';
 import { getCourseEnrichedData } from './course_details/courseEnrichedData';
 import { CourseHeader } from './course_details/CourseHeader';
 import { CourseProgram } from './course_details/CourseProgram';
@@ -88,120 +88,124 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
-        <BodyScrollLock />
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="ui-modal-overlay fixed inset-0 z-40"
-        />
+      <ModalLayer onClose={onClose}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="ui-modal-overlay fixed inset-0 z-40"
+          />
 
-        <motion.div
-          initial={{ opacity: 0, scale: 0.98, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.98, y: 20 }}
-          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="ui-modal relative shadow-2xl w-full max-w-4xl lg:max-w-5xl overflow-hidden transition-colors duration-300 flex flex-col m-auto z-50 max-h-[80vh] rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]"
-        >
-          <CourseHeader course={course} onClose={onClose} />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.98, y: 20 }}
+            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            role="dialog"
+            aria-modal="true"
+            aria-label={course.title}
+            className="ui-modal relative shadow-2xl w-full max-w-4xl lg:max-w-5xl overflow-hidden transition-colors duration-300 flex flex-col m-auto z-50 max-h-[80vh] rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]"
+          >
+            <CourseHeader course={course} onClose={onClose} />
 
-          <div className="overflow-y-auto flex-1 bg-[var(--bg)]">
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8 p-6 sm:p-8">
-              <div className="space-y-10">
-                {enrollmentSchedule ? (
-                  <CourseEnrollmentScheduleList
-                    lines={buildCourseEnrollmentScheduleLines(
-                      enrollmentSchedule,
-                      language === 'ru' ? 'ru' : 'en'
-                    )}
-                  />
-                ) : null}
-                <CourseProgram course={course} benefits={benefits} program={program} />
+            <div className="overflow-y-auto flex-1 bg-[var(--bg)]">
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8 p-6 sm:p-8">
+                <div className="space-y-10">
+                  {enrollmentSchedule ? (
+                    <CourseEnrollmentScheduleList
+                      lines={buildCourseEnrollmentScheduleLines(
+                        enrollmentSchedule,
+                        language === 'ru' ? 'ru' : 'en'
+                      )}
+                    />
+                  ) : null}
+                  <CourseProgram course={course} benefits={benefits} program={program} />
 
-                <CourseGallery photos={photos} videoUrl={videoUrl} courseTitle={course.title} />
+                  <CourseGallery photos={photos} videoUrl={videoUrl} courseTitle={course.title} />
 
-                {rawCourse.instructorIds && rawCourse.instructorIds.length > 0 && (
-                  <section className="space-y-4">
-                    <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
-                      <Users className="w-4 h-4 text-violet-500" />
-                      <h3 className="type-section-title uppercase text-[var(--ink)]">
-                        {t('courseYourInstructors')}
-                      </h3>
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      {rawCourse.instructorIds.map((insId) => {
-                        const ins = instructors.find((i) => i.id === insId);
-                        if (!ins) return null;
-                        return (
-                          <div
-                            key={insId}
-                            className="flex items-center gap-3.5 bg-black/5 dark:bg-white/5 border border-[var(--border)] p-3 transition hover:border-[var(--ink)] duration-300"
-                          >
-                            <img
-                              src={ins.avatarUrl}
-                              referrerPolicy="no-referrer"
-                              alt={ins.name}
-                              className="w-14 h-14 object-cover border border-[var(--border)] grayscale shrink-0"
-                            />
-                            <div className="min-w-0 leading-tight">
-                              <p className="type-caption font-medium text-[var(--ink)] truncate">
-                                {translateInstructorName(ins.name, language)}
-                              </p>
-                              <p className="type-caption text-[var(--ink-dim)] mt-0.5 uppercase">
-                                {ins.specialty === 'both'
-                                  ? t('bothSpecialties')
-                                  : ins.specialty === 'ski'
-                                    ? t('courseSkiSpecialist')
-                                    : t('courseSnowboardSpecialist')}
-                              </p>
-                              <div className="flex items-center gap-2 mt-1.5">
-                                <span className="type-caption text-sky-500 bg-sky-500/10 dark:bg-sky-500/20 px-1.5 py-0.5 font-medium">
-                                  {ins.experienceYears} {t('courseYearsExperienceShort')}
-                                </span>
-                                {ins.rating !== null && ins.reviewsCount > 0 ? (
-                                  <span className="flex items-center gap-0.5 type-caption text-amber-500 font-medium">
-                                    <Star className="w-2.5 h-2.5 fill-amber-500 text-transparent" />
-                                    {ins.rating.toFixed(1)}
+                  {rawCourse.instructorIds && rawCourse.instructorIds.length > 0 && (
+                    <section className="space-y-4">
+                      <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
+                        <Users className="w-4 h-4 text-violet-500" />
+                        <h3 className="type-section-title uppercase text-[var(--ink)]">
+                          {t('courseYourInstructors')}
+                        </h3>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        {rawCourse.instructorIds.map((insId) => {
+                          const ins = instructors.find((i) => i.id === insId);
+                          if (!ins) return null;
+                          return (
+                            <div
+                              key={insId}
+                              className="flex items-center gap-3.5 bg-black/5 dark:bg-white/5 border border-[var(--border)] p-3 transition hover:border-[var(--ink)] duration-300"
+                            >
+                              <img
+                                src={ins.avatarUrl}
+                                referrerPolicy="no-referrer"
+                                alt={ins.name}
+                                className="w-14 h-14 object-cover border border-[var(--border)] grayscale shrink-0"
+                              />
+                              <div className="min-w-0 leading-tight">
+                                <p className="type-caption font-medium text-[var(--ink)] truncate">
+                                  {translateInstructorName(ins.name, language)}
+                                </p>
+                                <p className="type-caption text-[var(--ink-dim)] mt-0.5 uppercase">
+                                  {ins.specialty === 'both'
+                                    ? t('bothSpecialties')
+                                    : ins.specialty === 'ski'
+                                      ? t('courseSkiSpecialist')
+                                      : t('courseSnowboardSpecialist')}
+                                </p>
+                                <div className="flex items-center gap-2 mt-1.5">
+                                  <span className="type-caption text-sky-500 bg-sky-500/10 dark:bg-sky-500/20 px-1.5 py-0.5 font-medium">
+                                    {ins.experienceYears} {t('courseYearsExperienceShort')}
                                   </span>
-                                ) : (
-                                  <span className="type-caption text-[var(--ink-dim)]">
-                                    {t('instructorNoReviews')}
-                                  </span>
-                                )}
+                                  {ins.rating !== null && ins.reviewsCount > 0 ? (
+                                    <span className="flex items-center gap-0.5 type-caption text-amber-500 font-medium">
+                                      <Star className="w-2.5 h-2.5 fill-amber-500 text-transparent" />
+                                      {ins.rating.toFixed(1)}
+                                    </span>
+                                  ) : (
+                                    <span className="type-caption text-[var(--ink-dim)]">
+                                      {t('instructorNoReviews')}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-                )}
+                          );
+                        })}
+                      </div>
+                    </section>
+                  )}
 
-                <CourseFAQ faq={faq} />
-              </div>
+                  <CourseFAQ faq={faq} />
+                </div>
 
-              <div className="space-y-6">
-                {courseProgress && <StudentCourseProgressSummary {...courseProgress} />}
-                <CourseEnrollAction
-                  course={course}
-                  datePart={datePart}
-                  timePart={timePart}
-                  seatsPercentage={seatsPercentage}
-                  catalogOperational={catalogOperational}
-                  catalogStatus={catalogStatus}
-                  onRetryCatalog={onRetryCatalog}
-                  userProfile={userProfile}
-                  isEnrolled={isEnrolled}
-                  enrollmentLifecycleStatus={enrollmentLifecycleStatus}
-                  onEnroll={onEnroll}
-                />
+                <div className="space-y-6">
+                  {courseProgress && <StudentCourseProgressSummary {...courseProgress} />}
+                  <CourseEnrollAction
+                    course={course}
+                    datePart={datePart}
+                    timePart={timePart}
+                    seatsPercentage={seatsPercentage}
+                    catalogOperational={catalogOperational}
+                    catalogStatus={catalogStatus}
+                    onRetryCatalog={onRetryCatalog}
+                    userProfile={userProfile}
+                    isEnrolled={isEnrolled}
+                    enrollmentLifecycleStatus={enrollmentLifecycleStatus}
+                    onEnroll={onEnroll}
+                  />
+                </div>
               </div>
             </div>
-          </div>
-        </motion.div>
-      </div>
+          </motion.div>
+        </div>
+      </ModalLayer>
     </AnimatePresence>
   );
 };

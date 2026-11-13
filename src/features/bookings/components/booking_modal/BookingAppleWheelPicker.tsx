@@ -53,14 +53,17 @@ export const BookingAppleWheelPicker: React.FC<BookingAppleWheelPickerProps> = (
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsOpen(false);
+      if (event.key !== 'Escape' || rootRef.current?.closest('[inert]')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setIsOpen(false);
     };
 
     document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown, true);
     return () => {
       document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', handleKeyDown, true);
     };
   }, [isOpen]);
 

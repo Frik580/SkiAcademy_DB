@@ -28,6 +28,7 @@ export const CourseHeader: React.FC<CourseHeaderProps> = ({ course, onClose }) =
       <button
         type="button"
         onClick={onClose}
+        aria-label={t('closeBtn')}
         className="absolute top-4 right-4 p-2 rounded-full border border-white/20 bg-black/50 hover:bg-black/90 text-white/80 hover:text-white transition cursor-pointer z-30"
       >
         <X className="w-5 h-5" />

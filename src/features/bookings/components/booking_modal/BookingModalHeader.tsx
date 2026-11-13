@@ -7,12 +7,14 @@ interface BookingModalHeaderProps {
   targetInstructor: Instructor;
   t: (key: TranslationKey) => string;
   onClose: () => void;
+  closeDisabled?: boolean;
 }
 
 export const BookingModalHeader: React.FC<BookingModalHeaderProps> = ({
   targetInstructor,
   t,
   onClose,
+  closeDisabled = false,
 }) => {
   return (
     <div className="flex shrink-0 items-center justify-between border-b border-[var(--border)] bg-black/5 p-4 dark:bg-white/5">
@@ -28,6 +30,7 @@ export const BookingModalHeader: React.FC<BookingModalHeaderProps> = ({
       <button
         type="button"
         onClick={onClose}
+        disabled={closeDisabled}
         className="p-2 rounded-full hover:bg-[var(--profile-bg)] transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
         aria-label={t('cancel')}
       >

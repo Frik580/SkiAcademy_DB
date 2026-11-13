@@ -1279,11 +1279,16 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     expect(mocks.confetti).not.toHaveBeenCalled();
   });
 
-  it('keeps unrelated canonical failures in the existing toast path', async () => {
-    mocks.createGuestEnrollment.mockRejectedValueOnce(
-      new CanonicalCommandClientError('course_full', { correlationId: 'correlation_full' })
+  it('blocks dismissal while submitting and exposes canonical failures inside the dialog', async () => {
+    let rejectRequest!: (error: unknown) => void;
+    mocks.createGuestEnrollment.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          rejectRequest = reject;
+        })
     );
-    render(<CourseEnrollmentModal isOpen onClose={vi.fn()} course={course} onEnroll={vi.fn()} />);
+    const onClose = vi.fn();
+    render(<CourseEnrollmentModal isOpen onClose={onClose} course={course} onEnroll={vi.fn()} />);
     fireEvent.change(screen.getByPlaceholderText('guestNamePlaceholder'), {
       target: { value: 'Guest One' },
     });
@@ -1291,6 +1296,16 @@ describe('CourseEnrollmentModal guest enrollment', () => {
       target: { value: '+77001234567' },
     });
     fireEvent.click(screen.getByRole('button', { name: /Send request/i }));
+    await waitFor(() => expect(mocks.createGuestEnrollment).toHaveBeenCalledTimes(1));
+    await userEvent.keyboard('{Escape}');
+    expect(screen.getByRole('button', { name: 'closeBtn' })).toBeDisabled();
+    fireEvent.click(document.querySelector('[aria-hidden="true"].ui-modal-overlay')!);
+    expect(onClose).not.toHaveBeenCalled();
+    await act(async () =>
+      rejectRequest(
+        new CanonicalCommandClientError('course_full', { correlationId: 'correlation_full' })
+      )
+    );
     await waitFor(() =>
       expect(mocks.addNotification).toHaveBeenCalledWith(
         'error',
@@ -1298,7 +1313,11 @@ describe('CourseEnrollmentModal guest enrollment', () => {
         expect.any(String)
       )
     );
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      mocks.addNotification.mock.calls.at(-1)![2]
+    );
+    expect(screen.getByPlaceholderText('guestNamePlaceholder')).toHaveValue('Guest One');
+    expect(screen.getByRole('button', { name: 'closeBtn' })).toBeEnabled();
   });
 
   it('hides the enroll CTA when the same guest already has a pending enrollment', () => {

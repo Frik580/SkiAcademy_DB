@@ -19,7 +19,7 @@ import { useCabinetProgressParticipantSelectionStore } from '../student-cabinet/
 import { NotificationsPanel } from '../notifications/NotificationsPanel';
 import { LazyLoad } from '../../ui/LazyLoad';
 import { ModalSkeleton } from '../../ui/Skeleton';
-import { BodyScrollLock } from '../../ui/BodyScrollLock';
+import { ModalLayer } from '../../ui/ModalLayer';
 import { loadMoreCanonicalInstructorReviews } from '../reviews';
 import { logger } from '../../shared';
 
@@ -48,10 +48,13 @@ const InstructorReviewsModal = React.lazy(() =>
 );
 
 const ModalLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
-  <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
-    <BodyScrollLock />
-    <ModalSkeleton title={label} />
-  </div>
+  <ModalLayer onClose={() => {}} closeDisabled>
+    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div role="dialog" aria-modal="true" aria-label={label} aria-busy="true">
+        <ModalSkeleton title={label} />
+      </div>
+    </div>
+  </ModalLayer>
 );
 
 export const ModalHost: React.FC = () => {

@@ -6,7 +6,6 @@ import { useCourseEnrollmentStore as useCatalogStore } from '../../course-enroll
 import { reloadCourseCatalog } from '../../course-enrollments/useCourseEnrollmentReadSync';
 import { GUEST_COURSE_COMMENT_MAX_LENGTH } from '@ski-academy/shared-domain/canonical/courseEnrollmentAttendanceAdminIssue';
 import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { X, User, Phone, Mail, Send } from 'lucide-react';
 import { ActionButton } from '../../../ui/ActionButton';
@@ -16,7 +15,7 @@ import { useLanguage, getGroupCourseLabel } from '../../../app/providers/Languag
 import { useCurrency } from '../../../app/providers/CurrencyContext';
 import { useNotifications } from '../../../features/notifications';
 import { Auth } from '../../../features/auth';
-import { BodyScrollLock } from '../../../ui/BodyScrollLock';
+import { ModalLayer } from '../../../ui/ModalLayer';
 import {
   createLogicalEnrollmentAttemptId,
   deriveGuestCreateEnrollmentIdempotencyKey,
@@ -106,6 +105,8 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   const [guestProfileSkillLevel, setGuestProfileSkillLevel] = useState('');
   const [showGuestProfileCompletion, setShowGuestProfileCompletion] = useState(false);
   const [isCompletingGuestProfile, setIsCompletingGuestProfile] = useState(false);
+  const [submissionError, setSubmissionError] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [guestQuotaErrorCourseId, setGuestQuotaErrorCourseId] = useState<string | null>(null);
   const [guestCreatedEnrollmentId, setGuestCreatedEnrollmentId] = useState<string | null>(null);
@@ -214,6 +215,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
 
   useEffect(() => {
     guestEnrollmentAttemptKeyRef.current = null;
+    setSubmissionError('');
     setGuestQuotaErrorCourseId(null);
     setGuestCreatedEnrollmentId(null);
     setGuestReservation(undefined);
@@ -284,6 +286,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     }
 
     isSubmittingRef.current = true;
+    setSubmissionError('');
     setIsSubmitting(true);
     setGuestQuotaErrorCourseId(null);
     const stableEnrollmentId =
@@ -328,6 +331,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
         guestEnrollmentAttemptKeyRef.current = null;
         setGuestQuotaErrorCourseId(course.id);
       } else {
+        setSubmissionError(presented.message || t('bookingRecordFailed'));
         addNotification('error', t('bookingError'), presented.message || t('bookingRecordFailed'));
       }
     } finally {
@@ -356,6 +360,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   };
 
   const closeGuestStatus = () => {
+    if (isSubmittingRef.current || isCompletingGuestProfile || authBusy) return;
     if (guestReservation?.lifecycle.status === 'cancelled') {
       forgetGuestReservation('course', course.id, guestCreatedEnrollmentId ?? undefined);
     }
@@ -497,6 +502,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     }
 
     isSubmittingRef.current = true;
+    setSubmissionError('');
     setIsSubmitting(true);
     try {
       const selection = resolveSelectedParticipantCommand(participants, effectiveParticipantIds);
@@ -507,6 +513,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
       const presented = presentCanonicalCommandErrorWithContext(err, {
         t: t as (key: string) => string,
       });
+      setSubmissionError(presented.message || t('bookingRecordFailed'));
       addNotification('error', t('bookingError'), presented.message || t('bookingRecordFailed'));
     } finally {
       isSubmittingRef.current = false;
@@ -541,505 +548,527 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     (guestReservation.guestPaymentSummary?.outstandingAmount ?? 0) > 0
   );
 
-  return createPortal(
+  return (
     <AnimatePresence>
       {isOpen && (
-        <div
-          data-course-enrollment-modal="true"
-          className="fixed inset-0 z-[70] overflow-hidden"
-          role="presentation"
+        <ModalLayer
+          onClose={closeGuestStatus}
+          closeDisabled={isSubmitting || isCompletingGuestProfile || authBusy}
         >
-          <BodyScrollLock />
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={closeGuestStatus}
-            className="ui-modal-overlay fixed inset-0 h-[100dvh] w-screen max-w-none !rounded-none border-0"
-            aria-hidden="true"
-          />
-
-          <div className="pointer-events-none fixed inset-0 z-10 flex items-end justify-center p-0 sm:items-center sm:p-6">
+          <div
+            data-course-enrollment-modal="true"
+            className="fixed inset-0 z-[70] overflow-hidden"
+            role="presentation"
+          >
             <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 24 }}
-              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="course-enrollment-modal-title"
-              className="ui-modal pointer-events-auto relative z-10 flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-[var(--border)] bg-[var(--card-bg)] text-[var(--ink)] shadow-2xl transition-colors duration-300 rounded-t-[var(--radius)] rounded-b-none sm:rounded-2xl sm:rounded-[var(--radius)]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div
-                className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-[var(--border)] sm:hidden"
-                aria-hidden="true"
-              />
-              <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
-                <div>
-                  <h3
-                    id="course-enrollment-modal-title"
-                    className="type-section-title text-[var(--ink)]"
-                  >
-                    {t('courseEnrollment')}
-                  </h3>
-                  {courseSubtitle && (
-                    <p className="type-caption text-[var(--ink-dim)] mt-0.5">{courseSubtitle}</p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={closeGuestStatus}
-                  className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeGuestStatus}
+              className="ui-modal-overlay fixed inset-0 h-[100dvh] w-screen max-w-none !rounded-none border-0"
+              aria-hidden="true"
+            />
 
-              {!showAuthenticatedEnrollment && !guestCreatedEnrollmentId && (
-                <div className="px-5 pt-3 shrink-0">
+            <div className="pointer-events-none fixed inset-0 z-10 flex items-end justify-center p-0 sm:items-center sm:p-6">
+              <motion.div
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 24 }}
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="course-enrollment-modal-title"
+                className="ui-modal pointer-events-auto relative z-10 flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl rounded-b-none border border-[var(--border)] bg-[var(--card-bg)] text-[var(--ink)] shadow-2xl transition-colors duration-300 rounded-t-[var(--radius)] rounded-b-none sm:rounded-2xl sm:rounded-[var(--radius)]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div
+                  className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-[var(--border)] sm:hidden"
+                  aria-hidden="true"
+                />
+                <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
+                  <div>
+                    <h3
+                      id="course-enrollment-modal-title"
+                      className="type-section-title text-[var(--ink)]"
+                    >
+                      {t('courseEnrollment')}
+                    </h3>
+                    {courseSubtitle && (
+                      <p className="type-caption text-[var(--ink-dim)] mt-0.5">{courseSubtitle}</p>
+                    )}
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setUnauthTab(unauthTab === 'guest' ? 'auth' : 'guest')}
-                    className="type-button text-[var(--ink-dim)] underline underline-offset-4 hover:text-[var(--ink)]"
+                    onClick={closeGuestStatus}
+                    disabled={isSubmitting || isCompletingGuestProfile || authBusy}
+                    aria-label={t('closeBtn')}
+                    className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
                   >
-                    {t(unauthTab === 'guest' ? 'guestCourseSignIn' : 'guestBookingTab')}
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
-              )}
 
-              <div className="p-5 md:p-6 overflow-y-auto space-y-4 flex-1 min-h-0">
-                {guestCreatedEnrollmentId ? (
-                  <GuestReservationStatus
-                    kind="course"
-                    paymentActions={
-                      <KaspiPaymentPanel
-                        guest={{
-                          type: 'guest_course_payment',
-                          subjectId: guestCreatedEnrollmentId,
-                        }}
-                        canCreate={canCreateGuestPayment}
-                      />
-                    }
-                    reservationDetails={guestReservationDetails}
-                    lifecycleStatus={guestReservation?.lifecycle.status ?? 'pending'}
-                    reasonCode={guestReservation?.lifecycle.reasonCode}
-                    reservationExpiresAt={guestReservation?.lifecycle.reservationExpiresAt}
-                    payment={
-                      guestReservation && 'guestPaymentSummary' in guestReservation
-                        ? guestReservation.guestPaymentSummary
-                        : undefined
-                    }
-                    language={language}
-                    t={t}
-                    onRefresh={refreshGuestStatus}
-                    refreshing={guestRefreshing}
-                    refreshError={guestRefreshError}
-                    statusHydrated={Boolean(guestReservation)}
-                    onClose={closeGuestStatus}
-                    onNewBooking={startNewGuestBooking}
-                    onCancelPending={
-                      readGuestCourseEnrollmentCredential(guestCreatedEnrollmentId).credential
-                        ?.cancellationCredential
-                        ? cancelPendingGuestEnrollment
-                        : undefined
-                    }
-                    profileCompletion={
-                      guestProfileIncomplete &&
-                      guestReservation?.lifecycle.status !== 'cancelled' ? (
-                        <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--accent-muted)] p-3">
-                          {!showGuestProfileCompletion ? (
-                            <div className="space-y-2">
-                              <p className="type-compact text-[var(--ink)]">
-                                {language === 'ru'
-                                  ? 'Дополните данные участника: возраст и текущий уровень.'
-                                  : 'Complete the participant profile with age and current skill level.'}
-                              </p>
-                              <button
-                                type="button"
-                                className="btn-secondary px-4 py-2 type-button"
-                                onClick={() => setShowGuestProfileCompletion(true)}
-                              >
-                                {language === 'ru' ? 'Дополнить профиль' : 'Complete profile'}
-                              </button>
-                            </div>
-                          ) : (
-                            <form onSubmit={completeGuestProfile} className="space-y-3">
-                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                <label className="space-y-1 type-caption text-[var(--ink-dim)]">
-                                  <span>{t('participantsAgeLabel')} *</span>
-                                  <input
-                                    type="number"
-                                    required
-                                    min={0}
-                                    max={125}
-                                    step={1}
-                                    value={guestProfileAgeYears}
-                                    onChange={(event) =>
-                                      setGuestProfileAgeYears(event.target.value)
-                                    }
-                                    className="ui-field-plain type-body"
-                                  />
-                                </label>
-                                <label className="space-y-1 type-caption text-[var(--ink-dim)]">
-                                  <span>{t('participantsSkillLabel')} *</span>
-                                  <select
-                                    required
-                                    value={guestProfileSkillLevel}
-                                    onChange={(event) =>
-                                      setGuestProfileSkillLevel(event.target.value)
-                                    }
-                                    className="ui-field-plain type-body"
-                                  >
-                                    <option value="" disabled>
-                                      —
-                                    </option>
-                                    {guestSkillOptions.map((option) => (
-                                      <option key={option.value} value={option.value}>
-                                        {option.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </label>
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                <ActionButton
-                                  type="submit"
-                                  pending={isCompletingGuestProfile}
-                                  pendingLabel={t('processing')}
-                                  className="btn-primary px-4 py-2 type-button"
-                                >
-                                  {language === 'ru' ? 'Сохранить данные' : 'Save profile'}
-                                </ActionButton>
+                {!showAuthenticatedEnrollment && !guestCreatedEnrollmentId && (
+                  <div className="px-5 pt-3 shrink-0">
+                    <button
+                      type="button"
+                      disabled={isSubmitting || authBusy}
+                      onClick={() => setUnauthTab(unauthTab === 'guest' ? 'auth' : 'guest')}
+                      className="type-button text-[var(--ink-dim)] underline underline-offset-4 hover:text-[var(--ink)]"
+                    >
+                      {t(unauthTab === 'guest' ? 'guestCourseSignIn' : 'guestBookingTab')}
+                    </button>
+                  </div>
+                )}
+
+                <div className="p-5 md:p-6 overflow-y-auto space-y-4 flex-1 min-h-0">
+                  {submissionError && <p role="alert">{submissionError}</p>}
+                  {guestCreatedEnrollmentId ? (
+                    <GuestReservationStatus
+                      kind="course"
+                      paymentActions={
+                        <KaspiPaymentPanel
+                          guest={{
+                            type: 'guest_course_payment',
+                            subjectId: guestCreatedEnrollmentId,
+                          }}
+                          canCreate={canCreateGuestPayment}
+                        />
+                      }
+                      reservationDetails={guestReservationDetails}
+                      lifecycleStatus={guestReservation?.lifecycle.status ?? 'pending'}
+                      reasonCode={guestReservation?.lifecycle.reasonCode}
+                      reservationExpiresAt={guestReservation?.lifecycle.reservationExpiresAt}
+                      payment={
+                        guestReservation && 'guestPaymentSummary' in guestReservation
+                          ? guestReservation.guestPaymentSummary
+                          : undefined
+                      }
+                      language={language}
+                      t={t}
+                      onRefresh={refreshGuestStatus}
+                      refreshing={guestRefreshing}
+                      refreshError={guestRefreshError}
+                      statusHydrated={Boolean(guestReservation)}
+                      onClose={closeGuestStatus}
+                      onNewBooking={startNewGuestBooking}
+                      onCancelPending={
+                        readGuestCourseEnrollmentCredential(guestCreatedEnrollmentId).credential
+                          ?.cancellationCredential
+                          ? cancelPendingGuestEnrollment
+                          : undefined
+                      }
+                      profileCompletion={
+                        guestProfileIncomplete &&
+                        guestReservation?.lifecycle.status !== 'cancelled' ? (
+                          <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--accent-muted)] p-3">
+                            {!showGuestProfileCompletion ? (
+                              <div className="space-y-2">
+                                <p className="type-compact text-[var(--ink)]">
+                                  {language === 'ru'
+                                    ? 'Дополните данные участника: возраст и текущий уровень.'
+                                    : 'Complete the participant profile with age and current skill level.'}
+                                </p>
                                 <button
                                   type="button"
                                   className="btn-secondary px-4 py-2 type-button"
-                                  disabled={isCompletingGuestProfile}
-                                  onClick={() => setShowGuestProfileCompletion(false)}
+                                  onClick={() => setShowGuestProfileCompletion(true)}
                                 >
-                                  {t('cancel')}
+                                  {language === 'ru' ? 'Дополнить профиль' : 'Complete profile'}
                                 </button>
                               </div>
-                            </form>
-                          )}
-                        </div>
-                      ) : undefined
-                    }
-                  />
-                ) : guestRefreshing && !showAuthenticatedEnrollment ? (
-                  <p role="status">{t('processing')}</p>
-                ) : showAuthenticatedEnrollment ? (
-                  <form onSubmit={handleSubmitAuthenticated} className="space-y-4">
-                    {showParticipantPicker && (
-                      <>
-                        {requiresExplicitParticipantSelection(participants) && (
-                          <p className="type-caption text-[var(--ink-dim)]">
-                            {t('courseEnrollmentParticipantPrompt')}
-                          </p>
-                        )}
-
-                        <ParticipantPicker
-                          participants={participants}
-                          selectedParticipantIds={selectedParticipantIds}
-                          onToggleParticipant={toggleParticipant}
-                          loading={participantsLoading}
-                          error={participantsError}
-                          onRetry={() => void reloadParticipants()}
-                          maxParticipants={COURSE_ENROLLMENT_SELECTION_MAX}
-                          t={t as (key: string) => string}
-                        />
-                      </>
-                    )}
-
-                    <div className="p-3.5 border border-[var(--border)] bg-black/5 dark:bg-white/5 rounded-none rounded-[var(--radius-md)] space-y-1">
-                      <div className="flex justify-between items-baseline">
-                        <span className="type-caption text-[var(--ink)] normal-case">
-                          {t('courseTotalTuition')}
-                        </span>
-                        <span className="type-metric text-[var(--accent)]">
-                          {authenticatedDisplayTotalKZT !== undefined
-                            ? formatPrice(authenticatedDisplayTotalKZT)
-                            : '—'}
-                        </span>
-                      </div>
-                      {selectedParticipantCount > 1 && course.priceKZT != null && (
-                        <div className="type-caption text-[var(--ink-dim)]">
-                          {formatPrice(course.priceKZT)} × {selectedParticipantCount}
-                        </div>
-                      )}
-                      <div className="type-caption text-[var(--ink-dim)]">📅 {course.dates}</div>
-                    </div>
-
-                    <CourseCatalogFeedback
-                      loading={availability?.label === 'loading'}
-                      error={availability?.label === 'error'}
-                      loadingLabel={t('loading')}
-                      errorLabel={t('courseCatalogLoadError')}
-                      retryLabel={t('retry')}
-                      onRetry={reloadCourseCatalog}
-                    />
-                    {availability?.label === 'soldOut' && <p role="status">{t('courseSoldOut')}</p>}
-                    {availability?.label === 'unavailable' && (
-                      <p role="status">{t('courseEnrollmentUnavailable')}</p>
-                    )}
-                    <ActionButton
-                      type="submit"
-                      pending={isSubmitting}
-                      pendingLabel={t('submitting')}
-                      disabled={
-                        enrollmentBlocked ||
-                        participantsLoading ||
-                        effectiveParticipantIds.length === 0 ||
-                        selectedAlreadyEnrolled ||
-                        authenticatedProfile?.isClientActive === false
+                            ) : (
+                              <form onSubmit={completeGuestProfile} className="space-y-3">
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                  <label className="space-y-1 type-caption text-[var(--ink-dim)]">
+                                    <span>{t('participantsAgeLabel')} *</span>
+                                    <input
+                                      type="number"
+                                      required
+                                      min={0}
+                                      max={125}
+                                      step={1}
+                                      value={guestProfileAgeYears}
+                                      onChange={(event) =>
+                                        setGuestProfileAgeYears(event.target.value)
+                                      }
+                                      className="ui-field-plain type-body"
+                                    />
+                                  </label>
+                                  <label className="space-y-1 type-caption text-[var(--ink-dim)]">
+                                    <span>{t('participantsSkillLabel')} *</span>
+                                    <select
+                                      required
+                                      value={guestProfileSkillLevel}
+                                      onChange={(event) =>
+                                        setGuestProfileSkillLevel(event.target.value)
+                                      }
+                                      className="ui-field-plain type-body"
+                                    >
+                                      <option value="" disabled>
+                                        —
+                                      </option>
+                                      {guestSkillOptions.map((option) => (
+                                        <option key={option.value} value={option.value}>
+                                          {option.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  <ActionButton
+                                    type="submit"
+                                    pending={isCompletingGuestProfile}
+                                    pendingLabel={t('processing')}
+                                    className="btn-primary px-4 py-2 type-button"
+                                  >
+                                    {language === 'ru' ? 'Сохранить данные' : 'Save profile'}
+                                  </ActionButton>
+                                  <button
+                                    type="button"
+                                    className="btn-secondary px-4 py-2 type-button"
+                                    disabled={isCompletingGuestProfile}
+                                    onClick={() => setShowGuestProfileCompletion(false)}
+                                  >
+                                    {t('cancel')}
+                                  </button>
+                                </div>
+                              </form>
+                            )}
+                          </div>
+                        ) : undefined
                       }
-                      className="btn-primary w-full py-3"
+                    />
+                  ) : guestRefreshing && !showAuthenticatedEnrollment ? (
+                    <p role="status">{t('processing')}</p>
+                  ) : showAuthenticatedEnrollment ? (
+                    <form
+                      aria-busy={isSubmitting}
+                      onSubmit={handleSubmitAuthenticated}
+                      className="space-y-4"
                     >
-                      {selectedAlreadyEnrolled ? (
+                      {showParticipantPicker && (
                         <>
-                          <span className="text-emerald-500 font-medium type-caption">✔</span>
-                          {t('courseEnrolled')}
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-3.5 h-3.5" />
-                          {t('enroll')}
-                        </>
-                      )}
-                    </ActionButton>
-                  </form>
-                ) : unauthTab === 'auth' ? (
-                  <div className="space-y-4">
-                    <p className="type-caption text-[var(--ink-dim)] text-center">
-                      {t('courseEnrollmentAuthPrompt')}
-                    </p>
-
-                    <div className="border border-[var(--border)] p-4 bg-transparent rounded-none rounded-[var(--radius-md)]">
-                      <Auth
-                        onSuccess={(profile) => {
-                          onAuthSuccess?.(profile);
-                          setAuthenticatedProfile(profile);
-                          resetSelection();
-                        }}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <form onSubmit={handleSubmitGuest} className="space-y-4">
-                    {previousGuestEnrollmentId && (
-                      <button
-                        type="button"
-                        onClick={() => void checkPreviousGuestStatus()}
-                        disabled={guestRefreshing}
-                        className="btn-secondary w-full px-4 py-2 type-button"
-                      >
-                        {guestRefreshing ? t('processing') : t('guestCheckPreviousStatus')}
-                      </button>
-                    )}
-                    {guestLookupError && (
-                      <p role="status" className="type-compact text-[var(--ink)]">
-                        {t(
-                          guestLookupError === 'stale'
-                            ? 'guestPreviousUnavailable'
-                            : 'guestStatusRefreshFailed'
-                        )}
-                      </p>
-                    )}
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 items-end">
-                        <div className="flex flex-col justify-end">
-                          <label
-                            htmlFor="course-guest-name"
-                            className="text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 type-caption min-h-[20px]"
-                          >
-                            <User className="w-3.5 h-3.5 shrink-0" />{' '}
-                            <span className="truncate">{t('guestCourseNameLabel')} *</span>
-                          </label>
-                          <input
-                            id="course-guest-name"
-                            type="text"
-                            required
-                            value={guestName}
-                            onChange={(e) => setGuestName(e.target.value)}
-                            placeholder={t('guestNamePlaceholder')}
-                            className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)] type-body"
-                          />
-                        </div>
-                        <div className="flex flex-col justify-end">
-                          <label
-                            htmlFor="course-guest-phone"
-                            className="text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 type-caption min-h-[20px]"
-                          >
-                            <Phone className="w-3.5 h-3.5 shrink-0" />{' '}
-                            <span className="truncate">{t('guestCoursePhoneLabel')} *</span>
-                          </label>
-                          <input
-                            id="course-guest-phone"
-                            type="tel"
-                            required
-                            value={guestPhone}
-                            onChange={(e) => {
-                              setGuestPhone(e.target.value);
-                              if (guestPhoneError)
-                                setGuestPhoneError(!normalizeGuestPhone(e.target.value));
-                            }}
-                            onInvalid={() => setGuestPhoneError(true)}
-                            autoComplete="tel"
-                            inputMode="tel"
-                            aria-invalid={guestPhoneError || undefined}
-                            aria-describedby={
-                              guestPhoneError ? 'course-guest-phone-error' : undefined
-                            }
-                            placeholder={t('guestPhonePlaceholder')}
-                            className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)] type-body"
-                          />
-                          {guestPhoneError && (
-                            <p
-                              id="course-guest-phone-error"
-                              role="alert"
-                              className="type-caption text-[var(--ink)]"
-                            >
-                              {t('guestPhoneInvalid')}
+                          {requiresExplicitParticipantSelection(participants) && (
+                            <p className="type-caption text-[var(--ink-dim)]">
+                              {t('courseEnrollmentParticipantPrompt')}
                             </p>
                           )}
+
+                          <ParticipantPicker
+                            participants={participants}
+                            selectedParticipantIds={selectedParticipantIds}
+                            onToggleParticipant={toggleParticipant}
+                            loading={participantsLoading}
+                            error={participantsError}
+                            onRetry={() => void reloadParticipants()}
+                            maxParticipants={COURSE_ENROLLMENT_SELECTION_MAX}
+                            t={t as (key: string) => string}
+                          />
+                        </>
+                      )}
+
+                      <div className="p-3.5 border border-[var(--border)] bg-black/5 dark:bg-white/5 rounded-none rounded-[var(--radius-md)] space-y-1">
+                        <div className="flex justify-between items-baseline">
+                          <span className="type-caption text-[var(--ink)] normal-case">
+                            {t('courseTotalTuition')}
+                          </span>
+                          <span className="type-metric text-[var(--accent)]">
+                            {authenticatedDisplayTotalKZT !== undefined
+                              ? formatPrice(authenticatedDisplayTotalKZT)
+                              : '—'}
+                          </span>
                         </div>
+                        {selectedParticipantCount > 1 && course.priceKZT != null && (
+                          <div className="type-caption text-[var(--ink-dim)]">
+                            {formatPrice(course.priceKZT)} × {selectedParticipantCount}
+                          </div>
+                        )}
+                        <div className="type-caption text-[var(--ink-dim)]">📅 {course.dates}</div>
                       </div>
 
-                      {!showGuestOptionalDetails ? (
+                      <CourseCatalogFeedback
+                        loading={availability?.label === 'loading'}
+                        error={availability?.label === 'error'}
+                        loadingLabel={t('loading')}
+                        errorLabel={t('courseCatalogLoadError')}
+                        retryLabel={t('retry')}
+                        onRetry={reloadCourseCatalog}
+                      />
+                      {availability?.label === 'soldOut' && (
+                        <p role="status">{t('courseSoldOut')}</p>
+                      )}
+                      {availability?.label === 'unavailable' && (
+                        <p role="status">{t('courseEnrollmentUnavailable')}</p>
+                      )}
+                      <ActionButton
+                        type="submit"
+                        pending={isSubmitting}
+                        pendingLabel={t('submitting')}
+                        disabled={
+                          enrollmentBlocked ||
+                          participantsLoading ||
+                          effectiveParticipantIds.length === 0 ||
+                          selectedAlreadyEnrolled ||
+                          authenticatedProfile?.isClientActive === false
+                        }
+                        className="btn-primary w-full py-3"
+                      >
+                        {selectedAlreadyEnrolled ? (
+                          <>
+                            <span className="text-emerald-500 font-medium type-caption">✔</span>
+                            {t('courseEnrolled')}
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-3.5 h-3.5" />
+                            {t('enroll')}
+                          </>
+                        )}
+                      </ActionButton>
+                    </form>
+                  ) : unauthTab === 'auth' ? (
+                    <div className="space-y-4">
+                      <p className="type-caption text-[var(--ink-dim)] text-center">
+                        {t('courseEnrollmentAuthPrompt')}
+                      </p>
+
+                      <div className="border border-[var(--border)] p-4 bg-transparent rounded-none rounded-[var(--radius-md)]">
+                        <Auth
+                          onBusyChange={setAuthBusy}
+                          onSuccess={(profile) => {
+                            onAuthSuccess?.(profile);
+                            setAuthenticatedProfile(profile);
+                            resetSelection();
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <form
+                      aria-busy={isSubmitting}
+                      onSubmit={handleSubmitGuest}
+                      className="space-y-4"
+                    >
+                      {previousGuestEnrollmentId && (
                         <button
                           type="button"
-                          aria-expanded={false}
-                          aria-controls="course-guest-optional-details"
-                          onClick={() => setShowGuestOptionalDetails(true)}
-                          className="type-button text-[var(--ink-dim)] hover:text-[var(--ink)]"
+                          onClick={() => void checkPreviousGuestStatus()}
+                          disabled={guestRefreshing}
+                          className="btn-secondary w-full px-4 py-2 type-button"
                         >
-                          {t('guestCourseAddOptionalDetails')}
+                          {guestRefreshing ? t('processing') : t('guestCheckPreviousStatus')}
                         </button>
-                      ) : (
-                        <div id="course-guest-optional-details" className="space-y-3">
-                          <div>
+                      )}
+                      {guestLookupError && (
+                        <p role="status" className="type-compact text-[var(--ink)]">
+                          {t(
+                            guestLookupError === 'stale'
+                              ? 'guestPreviousUnavailable'
+                              : 'guestStatusRefreshFailed'
+                          )}
+                        </p>
+                      )}
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 items-end">
+                          <div className="flex flex-col justify-end">
                             <label
-                              htmlFor="course-guest-email"
-                              className="text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 type-caption"
+                              htmlFor="course-guest-name"
+                              className="text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 type-caption min-h-[20px]"
                             >
-                              <Mail className="w-3.5 h-3.5" /> {t('guestCourseEmailLabel')}
+                              <User className="w-3.5 h-3.5 shrink-0" />{' '}
+                              <span className="truncate">{t('guestCourseNameLabel')} *</span>
                             </label>
                             <input
-                              id="course-guest-email"
-                              type="email"
-                              value={guestEmail}
-                              onChange={(e) => setGuestEmail(e.target.value)}
-                              placeholder={t('guestEmailPlaceholder')}
+                              id="course-guest-name"
+                              type="text"
+                              required
+                              value={guestName}
+                              onChange={(e) => setGuestName(e.target.value)}
+                              placeholder={t('guestNamePlaceholder')}
                               className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)] type-body"
                             />
                           </div>
-
-                          <div>
+                          <div className="flex flex-col justify-end">
                             <label
-                              htmlFor="course-guest-comment"
-                              className="text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 type-caption"
+                              htmlFor="course-guest-phone"
+                              className="text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 type-caption min-h-[20px]"
                             >
-                              {t('guestCourseCommentLabel')}
+                              <Phone className="w-3.5 h-3.5 shrink-0" />{' '}
+                              <span className="truncate">{t('guestCoursePhoneLabel')} *</span>
                             </label>
-                            <textarea
-                              id="course-guest-comment"
-                              maxLength={GUEST_COURSE_COMMENT_MAX_LENGTH}
-                              value={guestNotes}
-                              onChange={(e) => setGuestNotes(e.target.value)}
-                              placeholder={t('personalGoalsPlaceholder')}
-                              className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)] h-16 resize-none type-body"
+                            <input
+                              id="course-guest-phone"
+                              type="tel"
+                              required
+                              value={guestPhone}
+                              onChange={(e) => {
+                                setGuestPhone(e.target.value);
+                                if (guestPhoneError)
+                                  setGuestPhoneError(!normalizeGuestPhone(e.target.value));
+                              }}
+                              onInvalid={() => setGuestPhoneError(true)}
+                              autoComplete="tel"
+                              inputMode="tel"
+                              aria-invalid={guestPhoneError || undefined}
+                              aria-describedby={
+                                guestPhoneError ? 'course-guest-phone-error' : undefined
+                              }
+                              placeholder={t('guestPhonePlaceholder')}
+                              className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)] type-body"
                             />
+                            {guestPhoneError && (
+                              <p
+                                id="course-guest-phone-error"
+                                role="alert"
+                                className="type-caption text-[var(--ink)]"
+                              >
+                                {t('guestPhoneInvalid')}
+                              </p>
+                            )}
                           </div>
                         </div>
-                      )}
-                    </div>
 
-                    {!course.discipline && (
-                      <label className="space-y-1 type-caption text-[var(--ink-dim)]">
-                        <span>{t('participantsDisciplineLabel')} *</span>
-                        <select
-                          required
-                          value={guestDiscipline}
-                          onChange={(event) =>
-                            setGuestDiscipline(event.target.value as '' | 'ski' | 'snowboard')
-                          }
-                          className="ui-field-plain type-body"
-                        >
-                          <option value="" disabled>
-                            —
-                          </option>
-                          <option value="ski">{t('participantsDisciplineSki')}</option>
-                          <option value="snowboard">{t('participantsDisciplineSnowboard')}</option>
-                        </select>
-                        <span className="block type-caption">
-                          {language === 'ru'
-                            ? 'Для старого курса дисциплина ещё не указана в каталоге.'
-                            : 'This legacy course does not yet have a catalog discipline.'}
+                        {!showGuestOptionalDetails ? (
+                          <button
+                            type="button"
+                            aria-expanded={false}
+                            aria-controls="course-guest-optional-details"
+                            onClick={() => setShowGuestOptionalDetails(true)}
+                            className="type-button text-[var(--ink-dim)] hover:text-[var(--ink)]"
+                          >
+                            {t('guestCourseAddOptionalDetails')}
+                          </button>
+                        ) : (
+                          <div id="course-guest-optional-details" className="space-y-3">
+                            <div>
+                              <label
+                                htmlFor="course-guest-email"
+                                className="text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 type-caption"
+                              >
+                                <Mail className="w-3.5 h-3.5" /> {t('guestCourseEmailLabel')}
+                              </label>
+                              <input
+                                id="course-guest-email"
+                                type="email"
+                                value={guestEmail}
+                                onChange={(e) => setGuestEmail(e.target.value)}
+                                placeholder={t('guestEmailPlaceholder')}
+                                className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)] type-body"
+                              />
+                            </div>
+
+                            <div>
+                              <label
+                                htmlFor="course-guest-comment"
+                                className="text-[var(--ink-dim)] flex items-center gap-1.5 mb-1 type-caption"
+                              >
+                                {t('guestCourseCommentLabel')}
+                              </label>
+                              <textarea
+                                id="course-guest-comment"
+                                maxLength={GUEST_COURSE_COMMENT_MAX_LENGTH}
+                                value={guestNotes}
+                                onChange={(e) => setGuestNotes(e.target.value)}
+                                placeholder={t('personalGoalsPlaceholder')}
+                                className="ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)] h-16 resize-none type-body"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {!course.discipline && (
+                        <label className="space-y-1 type-caption text-[var(--ink-dim)]">
+                          <span>{t('participantsDisciplineLabel')} *</span>
+                          <select
+                            required
+                            value={guestDiscipline}
+                            onChange={(event) =>
+                              setGuestDiscipline(event.target.value as '' | 'ski' | 'snowboard')
+                            }
+                            className="ui-field-plain type-body"
+                          >
+                            <option value="" disabled>
+                              —
+                            </option>
+                            <option value="ski">{t('participantsDisciplineSki')}</option>
+                            <option value="snowboard">
+                              {t('participantsDisciplineSnowboard')}
+                            </option>
+                          </select>
+                          <span className="block type-caption">
+                            {language === 'ru'
+                              ? 'Для старого курса дисциплина ещё не указана в каталоге.'
+                              : 'This legacy course does not yet have a catalog discipline.'}
+                          </span>
+                        </label>
+                      )}
+
+                      <div className="flex items-center justify-between gap-3 py-2 border-t border-[var(--border)]">
+                        <span className="type-caption text-[var(--ink-dim)]">{course.dates}</span>
+                        <span className="shrink-0 type-body font-bold text-[var(--ink)]">
+                          {course.priceKZT != null ? formatPrice(course.priceKZT) : '—'}
                         </span>
-                      </label>
-                    )}
+                      </div>
 
-                    <div className="flex items-center justify-between gap-3 py-2 border-t border-[var(--border)]">
-                      <span className="type-caption text-[var(--ink-dim)]">{course.dates}</span>
-                      <span className="shrink-0 type-body font-bold text-[var(--ink)]">
-                        {course.priceKZT != null ? formatPrice(course.priceKZT) : '—'}
-                      </span>
-                    </div>
-
-                    {guestQuotaErrorCourseId === course.id && (
-                      <GuestReservationLimitAlert
-                        title={t('guestReservationLimitTitle')}
-                        description={t('guestReservationLimit')}
-                      />
-                    )}
-
-                    <CourseCatalogFeedback
-                      loading={availability?.label === 'loading'}
-                      error={availability?.label === 'error'}
-                      loadingLabel={t('loading')}
-                      errorLabel={t('courseCatalogLoadError')}
-                      retryLabel={t('retry')}
-                      onRetry={reloadCourseCatalog}
-                    />
-                    {availability?.label === 'soldOut' && <p role="status">{t('courseSoldOut')}</p>}
-                    {availability?.label === 'unavailable' && (
-                      <p role="status">{t('courseEnrollmentUnavailable')}</p>
-                    )}
-                    <ActionButton
-                      type="submit"
-                      pending={isSubmitting}
-                      pendingLabel={t('submitting')}
-                      disabled={enrollmentBlocked || Boolean(guestActiveEnrollment)}
-                      className="btn-primary w-full py-3"
-                    >
-                      {guestActiveEnrollment?.lifecycleStatus === 'pending' ? (
-                        <>
-                          <span className="text-amber-500 font-medium type-caption">✔</span>
-                          {t('courseAwaitingPayment')}
-                        </>
-                      ) : guestActiveEnrollment ? (
-                        <>
-                          <span className="text-emerald-500 font-medium type-caption">✔</span>
-                          {t('courseEnrolled')}
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-3.5 h-3.5" />
-                          {t('submitGuestCourseApplicationShort')}
-                        </>
+                      {guestQuotaErrorCourseId === course.id && (
+                        <GuestReservationLimitAlert
+                          title={t('guestReservationLimitTitle')}
+                          description={t('guestReservationLimit')}
+                        />
                       )}
-                    </ActionButton>
-                    <p className="text-center type-caption text-[var(--ink-dim)]">
-                      {t('guestCoursePaymentNote')}
-                    </p>
-                  </form>
-                )}
-              </div>
-            </motion.div>
+
+                      <CourseCatalogFeedback
+                        loading={availability?.label === 'loading'}
+                        error={availability?.label === 'error'}
+                        loadingLabel={t('loading')}
+                        errorLabel={t('courseCatalogLoadError')}
+                        retryLabel={t('retry')}
+                        onRetry={reloadCourseCatalog}
+                      />
+                      {availability?.label === 'soldOut' && (
+                        <p role="status">{t('courseSoldOut')}</p>
+                      )}
+                      {availability?.label === 'unavailable' && (
+                        <p role="status">{t('courseEnrollmentUnavailable')}</p>
+                      )}
+                      <ActionButton
+                        type="submit"
+                        pending={isSubmitting}
+                        pendingLabel={t('submitting')}
+                        disabled={enrollmentBlocked || Boolean(guestActiveEnrollment)}
+                        className="btn-primary w-full py-3"
+                      >
+                        {guestActiveEnrollment?.lifecycleStatus === 'pending' ? (
+                          <>
+                            <span className="text-amber-500 font-medium type-caption">✔</span>
+                            {t('courseAwaitingPayment')}
+                          </>
+                        ) : guestActiveEnrollment ? (
+                          <>
+                            <span className="text-emerald-500 font-medium type-caption">✔</span>
+                            {t('courseEnrolled')}
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-3.5 h-3.5" />
+                            {t('submitGuestCourseApplicationShort')}
+                          </>
+                        )}
+                      </ActionButton>
+                      <p className="text-center type-caption text-[var(--ink-dim)]">
+                        {t('guestCoursePaymentNote')}
+                      </p>
+                    </form>
+                  )}
+                </div>
+              </motion.div>
+            </div>
           </div>
-        </div>
+        </ModalLayer>
       )}
-    </AnimatePresence>,
-    document.body
+    </AnimatePresence>
   );
 };

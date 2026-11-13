@@ -42,12 +42,16 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
         targetInstructor={targetInstructor}
         t={t}
         onClose={workspace.closeGuestStatus}
+        closeDisabled={
+          workspace.isSubmitting || workspace.isCompletingGuestProfile || workspace.authBusy
+        }
       />
 
       {!workspace.guestCreatedBookingId && (
         <div className="shrink-0 px-4 pt-3 sm:px-5">
           <button
             type="button"
+            disabled={workspace.isSubmitting || workspace.authBusy}
             onClick={() => setUnauthTab(unauthTab === 'guest' ? 'auth' : 'guest')}
             className="type-button text-[var(--ink-dim)] underline-offset-2 hover:underline"
           >
@@ -173,7 +177,7 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
               {t('bookingSignInPrompt')}
             </p>
             <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-transparent p-4">
-              <Auth onSuccess={onAuthSuccess || (() => {})} />
+              <Auth onBusyChange={workspace.setAuthBusy} onSuccess={onAuthSuccess || (() => {})} />
             </div>
           </div>
         ) : (

@@ -68,7 +68,12 @@ export const GuestBookingForm: React.FC<GuestBookingFormProps> = ({ workspace })
   const totalFormatted = hourlyRateKzt === undefined ? '—' : formatPrice(hourlyRateKzt * duration);
 
   return (
-    <form onSubmit={handleSubmitGuest} className="flex min-h-0 flex-1 flex-col">
+    <form
+      onSubmit={handleSubmitGuest}
+      aria-busy={isSubmitting}
+      className="flex min-h-0 flex-1 flex-col"
+    >
+      {workspace.submissionError && <p role="alert">{workspace.submissionError}</p>}
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
         {previousGuestReservationId && (
           <button

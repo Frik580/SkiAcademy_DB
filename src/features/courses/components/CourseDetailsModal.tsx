@@ -1,3 +1,4 @@
+import type { CourseCatalogLoadInput } from '../groupCourseEnrollmentCta';
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Users, Star } from 'lucide-react';
@@ -24,7 +25,7 @@ import {
   resolveCourseCatalogDisplaySchedule,
 } from '../courseCatalogDisplaySchedule';
 
-interface CourseDetailsModalProps {
+interface CourseDetailsModalProps extends CourseCatalogLoadInput {
   isOpen: boolean;
   onClose: () => void;
   rawCourse: Course | null;
@@ -47,6 +48,8 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
   instructors,
   userProfile,
   catalogOperational,
+  catalogStatus,
+  onRetryCatalog,
   isEnrolled,
   enrollmentLifecycleStatus,
   courseProgress,
@@ -187,6 +190,8 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                   timePart={timePart}
                   seatsPercentage={seatsPercentage}
                   catalogOperational={catalogOperational}
+                  catalogStatus={catalogStatus}
+                  onRetryCatalog={onRetryCatalog}
                   userProfile={userProfile}
                   isEnrolled={isEnrolled}
                   enrollmentLifecycleStatus={enrollmentLifecycleStatus}

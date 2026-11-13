@@ -1,3 +1,8 @@
+import { deriveGroupCourseEnrollmentCtaState } from '../groupCourseEnrollmentCta';
+import { lookupCourseCatalogOperational } from '../../course-enrollments/courseEnrollmentViewModel';
+import { CourseCatalogFeedback } from './CourseCatalogFeedback';
+import { useCourseEnrollmentStore as useCatalogStore } from '../../course-enrollments/courseEnrollmentStore';
+import { reloadCourseCatalog } from '../../course-enrollments/useCourseEnrollmentReadSync';
 import { GUEST_COURSE_COMMENT_MAX_LENGTH } from '@ski-academy/shared-domain/canonical/courseEnrollmentAttendanceAdminIssue';
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -149,6 +154,20 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     course != null && !authenticatedProfile
       ? selectActiveGuestCourseEnrollment(courseEnrollments, course.id)
       : undefined;
+  const catalogStatus = useCatalogStore((state) => state.catalogStatus);
+  const catalogOperational = useCatalogStore((state) =>
+    course ? lookupCourseCatalogOperational(state.catalogByCourseId, course.id) : undefined
+  );
+  const availability = course
+    ? deriveGroupCourseEnrollmentCtaState({
+        rawCourse: course,
+        catalogOperational,
+        catalogStatus,
+        isEnrolled: false,
+        isClientActive: authenticatedProfile?.isClientActive,
+      })
+    : undefined;
+  const enrollmentBlocked = !availability || availability.enrollDisabled;
   const courseId = course?.id;
   const previousGuestEnrollmentId = course
     ? (rememberedGuestReservation('course', course.id) ?? guestActiveEnrollment?.enrollmentId)
@@ -240,7 +259,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
 
   const handleSubmitGuest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmittingRef.current || isSubmitting) return;
+    if (isSubmittingRef.current || isSubmitting || enrollmentBlocked) return;
     if (guestActiveEnrollment) {
       addNotification('warning', t('alreadyEnrolled'), t('alreadyEnrolledDesc'));
       onClose();
@@ -452,7 +471,8 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
 
   const handleSubmitAuthenticated = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmittingRef.current || isSubmitting || !authenticatedProfile) return;
+    if (isSubmittingRef.current || isSubmitting || !authenticatedProfile || enrollmentBlocked)
+      return;
     if (authenticatedProfile.isClientActive === false) {
       addNotification('error', t('accessSuspended'), t('bookingSuspendedDesc'));
       return;
@@ -512,9 +532,9 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
 
   const canCreateGuestPayment = Boolean(
     guestReservation?.lifecycle.status === 'pending' &&
-      (guestReservation.lifecycle.reservationExpiresAt?.seconds ?? 0) * 1000 > Date.now() &&
-      'guestPaymentSummary' in guestReservation &&
-      (guestReservation.guestPaymentSummary?.outstandingAmount ?? 0) > 0
+    (guestReservation.lifecycle.reservationExpiresAt?.seconds ?? 0) * 1000 > Date.now() &&
+    'guestPaymentSummary' in guestReservation &&
+    (guestReservation.guestPaymentSummary?.outstandingAmount ?? 0) > 0
   );
 
   return createPortal(
@@ -746,11 +766,24 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                       <div className="type-caption text-[var(--ink-dim)]">📅 {course.dates}</div>
                     </div>
 
+                    <CourseCatalogFeedback
+                      loading={availability?.label === 'loading'}
+                      error={availability?.label === 'error'}
+                      loadingLabel={t('loading')}
+                      errorLabel={t('courseCatalogLoadError')}
+                      retryLabel={t('retry')}
+                      onRetry={reloadCourseCatalog}
+                    />
+                    {availability?.label === 'soldOut' && <p role="status">{t('courseSoldOut')}</p>}
+                    {availability?.label === 'unavailable' && (
+                      <p role="status">{t('courseEnrollmentUnavailable')}</p>
+                    )}
                     <ActionButton
                       type="submit"
                       pending={isSubmitting}
                       pendingLabel={t('submitting')}
                       disabled={
+                        enrollmentBlocked ||
                         participantsLoading ||
                         effectiveParticipantIds.length === 0 ||
                         selectedAlreadyEnrolled ||
@@ -936,11 +969,23 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                       />
                     )}
 
+                    <CourseCatalogFeedback
+                      loading={availability?.label === 'loading'}
+                      error={availability?.label === 'error'}
+                      loadingLabel={t('loading')}
+                      errorLabel={t('courseCatalogLoadError')}
+                      retryLabel={t('retry')}
+                      onRetry={reloadCourseCatalog}
+                    />
+                    {availability?.label === 'soldOut' && <p role="status">{t('courseSoldOut')}</p>}
+                    {availability?.label === 'unavailable' && (
+                      <p role="status">{t('courseEnrollmentUnavailable')}</p>
+                    )}
                     <ActionButton
                       type="submit"
                       pending={isSubmitting}
                       pendingLabel={t('submitting')}
-                      disabled={Boolean(guestActiveEnrollment)}
+                      disabled={enrollmentBlocked || Boolean(guestActiveEnrollment)}
                       className="btn-primary w-full py-3"
                     >
                       {guestActiveEnrollment?.lifecycleStatus === 'pending' ? (

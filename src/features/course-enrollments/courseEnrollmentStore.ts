@@ -1,3 +1,4 @@
+import type { CourseCatalogReadModel } from '@ski-academy/shared-domain';
 import { create } from 'zustand';
 import type {
   CourseCatalogOperationalState,
@@ -12,7 +13,10 @@ interface CourseEnrollmentStoreState {
   readonly historyLoading: boolean;
   readonly historyHasMore: boolean;
   readonly historyCursor?: string;
+  readonly catalogRecords: readonly CourseCatalogReadModel[];
   readonly catalogLoading: boolean;
+  readonly catalogStatus: 'idle' | 'loading' | 'ready' | 'error';
+  readonly catalogRequestGeneration: number;
   readonly loaded: boolean;
   readonly error?: string;
   readonly historyRequestNonce: number;
@@ -97,7 +101,10 @@ const initialState = {
   historyLoading: false,
   historyHasMore: true,
   historyCursor: undefined,
+  catalogRecords: [] as readonly CourseCatalogReadModel[],
   catalogLoading: false,
+  catalogStatus: 'idle' as const,
+  catalogRequestGeneration: 0,
   loaded: false,
   error: undefined,
   historyRequestNonce: 0,
@@ -226,6 +233,7 @@ export const useCourseEnrollmentStore = create<CourseEnrollmentStoreState>((set,
       itemsList: EMPTY_ENROLLMENT_LIST,
       catalogByCourseId: new Map(),
       loadGeneration: state.loadGeneration + 1,
+      catalogRequestGeneration: state.catalogRequestGeneration + 1,
     })),
 }));
 

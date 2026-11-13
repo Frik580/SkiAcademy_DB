@@ -1,3 +1,5 @@
+import { CourseCatalogFeedback } from './CourseCatalogFeedback';
+import type { CourseCatalogLoadInput } from '../groupCourseEnrollmentCta';
 import React from 'react';
 import { Calendar, Clock } from 'lucide-react';
 import {
@@ -37,7 +39,7 @@ const metaChipClass = (enrolled: boolean) =>
       : 'border-[var(--border)]/50 bg-[var(--profile-bg)]'
   }`;
 
-export interface GroupCourseCardProps {
+export interface GroupCourseCardProps extends CourseCatalogLoadInput {
   rawCourse: Course;
   courseEnrollments: readonly CourseEnrollmentCabinetItem[];
   /** Sole auto-selected participant, or explicit picker selection. Omit for multi without selection. */
@@ -55,6 +57,8 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
   courseEnrollments,
   selectedParticipantId,
   catalogOperational,
+  catalogStatus,
+  onRetryCatalog,
   userProfile,
   language,
   onViewDetails,
@@ -88,6 +92,7 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
   const cta = deriveGroupCourseEnrollmentCtaState({
     rawCourse,
     catalogOperational,
+    catalogStatus,
     isEnrolled,
     enrollmentLifecycleStatus: enrollment?.lifecycleStatus,
     isClientActive: userProfile?.isClientActive,
@@ -217,6 +222,16 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
                 </span>
               ) : cta.label === 'accessSuspended' ? (
                 t('accessSuspended')
+              ) : cta.label === 'loading' ? (
+                <CourseCatalogFeedback
+                  loading
+                  error={false}
+                  loadingLabel={t('loading')}
+                  errorLabel={t('courseCatalogLoadError')}
+                  retryLabel={t('retry')}
+                />
+              ) : cta.label === 'error' ? (
+                t('courseCatalogLoadError')
               ) : cta.label === 'soldOut' ? (
                 t('courseSoldOut')
               ) : cta.label === 'unavailable' ? (
@@ -233,6 +248,14 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
               {t('courseDetails')}
             </button>
           </div>
+          <CourseCatalogFeedback
+            loading={false}
+            error={cta.label === 'error'}
+            loadingLabel={t('loading')}
+            errorLabel={t('courseCatalogLoadError')}
+            retryLabel={t('retry')}
+            onRetry={onRetryCatalog}
+          />
           {progress && (
             <div className="pt-2">
               <StudentCourseProgressSummary {...progress} />

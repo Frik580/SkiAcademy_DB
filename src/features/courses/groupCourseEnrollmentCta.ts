@@ -2,8 +2,20 @@ import type { CourseEnrollmentLifecycleStatus } from '@ski-academy/shared-domain
 import type { Course } from '../../types';
 import type { CourseCatalogOperationalState } from '../course-enrollments';
 
+export interface CourseCatalogLoadInput {
+  readonly catalogStatus?: 'idle' | 'loading' | 'ready' | 'error';
+  readonly onRetryCatalog?: () => void;
+}
+
 export type GroupCourseEnrollmentCtaLabel =
-  'enrolled' | 'awaitingPayment' | 'accessSuspended' | 'soldOut' | 'unavailable' | 'enroll';
+  | 'loading'
+  | 'error'
+  | 'enrolled'
+  | 'awaitingPayment'
+  | 'accessSuspended'
+  | 'soldOut'
+  | 'unavailable'
+  | 'enroll';
 
 export interface GroupCourseEnrollmentCtaState {
   readonly availableSeats: number;
@@ -16,13 +28,15 @@ export interface GroupCourseEnrollmentCtaState {
   readonly label: GroupCourseEnrollmentCtaLabel;
 }
 
-export function deriveGroupCourseEnrollmentCtaState(input: {
-  readonly rawCourse: Pick<Course, 'availableSeats' | 'totalSeats'>;
-  readonly catalogOperational?: CourseCatalogOperationalState;
-  readonly isEnrolled: boolean;
-  readonly enrollmentLifecycleStatus?: CourseEnrollmentLifecycleStatus;
-  readonly isClientActive?: boolean;
-}): GroupCourseEnrollmentCtaState {
+export function deriveGroupCourseEnrollmentCtaState(
+  input: CourseCatalogLoadInput & {
+    readonly rawCourse: Pick<Course, 'availableSeats' | 'totalSeats'>;
+    readonly catalogOperational?: CourseCatalogOperationalState;
+    readonly isEnrolled: boolean;
+    readonly enrollmentLifecycleStatus?: CourseEnrollmentLifecycleStatus;
+    readonly isClientActive?: boolean;
+  }
+): GroupCourseEnrollmentCtaState {
   const { rawCourse, catalogOperational, isEnrolled, enrollmentLifecycleStatus, isClientActive } =
     input;
   const hasOperationalCatalog = catalogOperational !== undefined;
@@ -31,16 +45,28 @@ export function deriveGroupCourseEnrollmentCtaState(input: {
   const isCapacityFrozen = catalogOperational?.isCapacityFrozen ?? false;
   const isEnrollmentEligible =
     hasOperationalCatalog && catalogOperational.isEnrollmentEligible === true;
-  const isFull = hasOperationalCatalog ? catalogOperational.isFull : availableSeats <= 0;
+  const catalogStatus = input.catalogStatus ?? (hasOperationalCatalog ? 'ready' : 'idle');
+  const isFull = hasOperationalCatalog && catalogOperational.isFull;
+  const pending = catalogStatus === 'idle' || catalogStatus === 'loading';
 
   const enrollDisabled =
-    isEnrolled || isClientActive === false || isFull || isCapacityFrozen || !isEnrollmentEligible;
+    pending ||
+    catalogStatus === 'error' ||
+    isEnrolled ||
+    isClientActive === false ||
+    isFull ||
+    isCapacityFrozen ||
+    !isEnrollmentEligible;
 
   let label: GroupCourseEnrollmentCtaLabel;
   if (isEnrolled) {
     label = enrollmentLifecycleStatus === 'pending' ? 'awaitingPayment' : 'enrolled';
   } else if (isClientActive === false) {
     label = 'accessSuspended';
+  } else if (pending) {
+    label = 'loading';
+  } else if (catalogStatus === 'error') {
+    label = 'error';
   } else if (isCapacityFrozen || isFull) {
     label = 'soldOut';
   } else if (!hasOperationalCatalog || !isEnrollmentEligible) {

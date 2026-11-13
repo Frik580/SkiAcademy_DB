@@ -1,6 +1,6 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Users, Star, Heart } from 'lucide-react';
+import { Users, Star } from 'lucide-react';
 import type {
   CourseEnrollmentLifecycleStatus,
   CourseScheduleProjectionReadModel,
@@ -82,7 +82,6 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
   const faq = (language === 'ru' ? rawCourse.faqRu : rawCourse.faq) || defaultEnriched.faq;
   const photos = rawCourse.galleryPhotos || defaultEnriched.photos;
   const videoUrl = rawCourse.videoUrl?.trim() || '';
-  const reviews = defaultEnriched.reviews;
 
   return (
     <AnimatePresence>
@@ -176,50 +175,6 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                     </div>
                   </section>
                 )}
-
-                <section className="space-y-4">
-                  <div className="flex items-center gap-2 border-b border-[var(--border)] pb-2">
-                    <Heart className="w-4 h-4 text-pink-500" />
-                    <h3 className="type-section-title uppercase text-[var(--ink)]">
-                      {t('courseStudentReviews')}
-                    </h3>
-                  </div>
-                  <div className="space-y-4">
-                    {reviews.map((rev, idx) => (
-                      <div
-                        key={idx}
-                        className="p-4 border border-[var(--border)]/70 bg-black/5 dark:bg-white/5 space-y-2.5"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2.5">
-                            <img
-                              src={rev.avatar}
-                              referrerPolicy="no-referrer"
-                              alt={rev.name}
-                              className="w-7 h-7 object-cover grayscale border border-[var(--border)]"
-                            />
-                            <div>
-                              <p className="type-caption font-medium text-[var(--ink)]">
-                                {rev.name}
-                              </p>
-                              <p className="type-caption text-[var(--ink-dim)]">{rev.date}</p>
-                            </div>
-                          </div>
-                          <div className="flex gap-0.5">
-                            {[...Array(rev.rating)].map((_, i) => (
-                              <Star key={i} className="w-3 h-3 fill-amber-500 text-transparent" />
-                            ))}
-                          </div>
-                        </div>
-                        <p className="type-caption text-[var(--ink-dim)] italic">
-                          {'"'}
-                          {rev.comment}
-                          {'"'}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </section>
 
                 <CourseFAQ faq={faq} />
               </div>

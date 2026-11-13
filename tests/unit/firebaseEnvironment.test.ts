@@ -4,6 +4,7 @@ import { EventEmitter } from 'node:events';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { runInNewContext } from 'node:vm';
+import { ModuleKind, ScriptTarget, transpileModule } from 'typescript';
 import { describe, expect, it, vi } from 'vitest';
 import { E2E_PROJECT_ID } from '../../e2e/emulator-config';
 import {
@@ -23,9 +24,6 @@ async function captureE2ERunner(
   diagnosticFailure = false
 ) {
   const runnerPath = resolve(repoRoot, 'scripts/runE2E.mjs');
-  const source = readFileSync(runnerPath, 'utf8')
-    .replace(/^import[\s\S]*? from 'node:[^']+';\r?\n/gm, '')
-    .replace(/import\.meta\.url/g, 'runnerUrl');
   const spawn = vi.fn(() => {
     const child = new EventEmitter();
     queueMicrotask(() => child.emit('exit', childExitCode));
@@ -63,42 +61,72 @@ async function captureE2ERunner(
   const diagnosticConsole = { ...console, error: vi.fn() };
   const diagnosticTimer = vi.fn(() => 1);
   const clearDiagnosticTimer = vi.fn();
+  const diagnosticInterval = vi.fn(() => ({ unref: vi.fn() }));
+  const clearDiagnosticInterval = vi.fn();
   const runnerProcess = {
     argv: [process.execPath, runnerPath, ...argv],
     execPath: process.execPath,
     platform: process.platform,
+    pid: process.pid,
+    memoryUsage: process.memoryUsage,
     env,
     on: vi.fn(),
     off: vi.fn(),
     exitCode: undefined,
   };
-  await runInNewContext(`(async () => {\n${source}\n})()`, {
-    runnerUrl: pathToFileURL(runnerPath).href,
-    URL,
-    fileURLToPath,
-    resolve,
-    createRequire: (url: string | URL) => {
-      const realRequire = createRequire(url);
-      return (id: string) => {
-        if (id === 'firebase-admin/app') return { initializeApp, deleteApp };
-        if (id === 'firebase-admin/firestore') return { getFirestore };
-        return realRequire(id);
-      };
-    },
-    console: diagnosticConsole,
-    setTimeout: diagnosticTimer,
-    clearTimeout: clearDiagnosticTimer,
-    fetch,
-    AbortSignal: { timeout: vi.fn() },
-    process: runnerProcess,
-    spawn,
-    spawnSync: vi.fn(),
+  const filesystem = {
     existsSync: (path: string) => files.has(path),
     readFileSync: (path: string) => files.get(path),
+    appendFileSync: (path: string, value: string) =>
+      files.set(path, (files.get(path) ?? '') + value),
+    statSync: (path: string) => ({ size: Buffer.byteLength(files.get(path) ?? '') }),
     mkdirSync: vi.fn(),
     writeFileSync,
     unlinkSync,
-  });
+  };
+  const requireWithEffects = (url: string | URL) => {
+    const realRequire = createRequire(url);
+    return (id: string) => {
+      if (id === 'node:fs') return filesystem;
+      if (id === 'node:child_process') return { spawn, spawnSync: vi.fn() };
+      if (id === 'node:module') return { createRequire: requireWithEffects };
+      if (id === 'firebase-admin/app') return { initializeApp, deleteApp };
+      if (id === 'firebase-admin/firestore') return { getFirestore };
+      if (id.startsWith('.') && id.endsWith('.mjs')) return loadModule(realRequire.resolve(id));
+      return realRequire(id);
+    };
+  };
+  const globals = {
+    URL,
+    console: diagnosticConsole,
+    setTimeout: diagnosticTimer,
+    clearTimeout: clearDiagnosticTimer,
+    setInterval: diagnosticInterval,
+    clearInterval: clearDiagnosticInterval,
+    fetch,
+    AbortSignal: { timeout: vi.fn() },
+    process: runnerProcess,
+  };
+  const modules = new Map<string, Record<string, unknown>>();
+  function loadModule(path: string, entry = false): unknown {
+    if (modules.has(path)) return modules.get(path);
+    const exports = {};
+    modules.set(path, exports);
+    // Preserve the real import graph, including diagnostics and process cleanup.
+    // Only OS/SDK effects are intercepted; new imports cannot silently disappear.
+    const { outputText } = transpileModule(
+      readFileSync(path, 'utf8').replace(/import\.meta\.url/g, 'moduleUrl'),
+      { compilerOptions: { module: ModuleKind.CommonJS, target: ScriptTarget.ES2022 } }
+    );
+    const result = runInNewContext(entry ? `(async () => {\n${outputText}\n})()` : outputText, {
+      ...globals,
+      moduleUrl: pathToFileURL(path).href,
+      require: requireWithEffects(pathToFileURL(path)),
+      exports,
+    });
+    return entry ? result : exports;
+  }
+  await loadModule(runnerPath, true);
   expect(files.get(resolve(repoRoot, 'functions/.secret.local'))).toBe(
     'GUEST_ACTION_TOKEN_SECRET=e2e-guest-action-token-secret\n'
   );
@@ -115,6 +143,8 @@ async function captureE2ERunner(
     diagnosticConsole,
     diagnosticTimer,
     clearDiagnosticTimer,
+    diagnosticInterval,
+    clearDiagnosticInterval,
   };
 }
 
@@ -396,6 +426,54 @@ describe('vite firebase env resolution', () => {
     expect(playwrightConfig).toMatch(
       /npm exec vite -- preview --mode e2e --outDir \.scratch\/e2e-app --host 127\.0\.0\.1/
     );
+  });
+
+  it.each([
+    {
+      argv: [],
+      stages: [
+        'emulator-startup:start',
+        'emulator-lifecycle:heartbeat',
+        'emulator-lifecycle:spawn',
+        'emulator-lifecycle:exit',
+        'emulator-shutdown:end',
+      ],
+    },
+    {
+      argv: ['--playwright'],
+      stages: [
+        'emulator-startup:ready',
+        'playwright:start',
+        'playwright:spawn',
+        'playwright:exit',
+        'playwright:end',
+        'emulator-shutdown:start',
+      ],
+    },
+  ])('executes real diagnostic dependencies for runner args $argv', async ({ argv, stages }) => {
+    const directory = resolve(repoRoot, '.scratch/e2e-diagnostics-test');
+    const result = await captureE2ERunner(argv, {
+      GCLOUD_PROJECT: E2E_PROJECT_ID,
+      FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
+      FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9299',
+      FIREBASE_STORAGE_EMULATOR_HOST: '127.0.0.1:9199',
+      CARVE_E2E_DIAGNOSTICS_DIR: directory,
+    });
+    const events = result.files.get(resolve(directory, `events-${process.pid}.jsonl`));
+    expect(events).toBeDefined();
+    expect(
+      events!
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line).stage)
+    ).toEqual(stages);
+    expect(result.exitCode).toBe(0);
+    if (argv.length === 0) {
+      expect(result.diagnosticInterval).toHaveBeenCalledWith(expect.any(Function), 15_000);
+      expect(result.clearDiagnosticInterval).toHaveBeenCalledWith(
+        result.diagnosticInterval.mock.results[0].value
+      );
+    }
   });
 
   it('captures bounded anonymous emulator counts through Admin', async () => {

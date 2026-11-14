@@ -49,10 +49,8 @@ test('Next Step preserves participant pin persistence, development, XP and four 
   await signInAccount(
     page,
     { email: r.studentEmail, password: r.studentPassword, expectedPath: '/cabinet' },
-    async () => {
-      // Vite's HTTP readiness probe only transforms the entry. Await the browser's
-      // complete import graph before starting the dashboard readiness assertions.
-      await waitForCabinetModule(page);
+    () => {
+      // Register before submitting so a fast authenticated response cannot race us.
       participantRead = page.waitForResponse(
         (response) =>
           response.url().endsWith('/queryManagedParticipantPickerReadModels') &&
@@ -61,10 +59,13 @@ test('Next Step preserves participant pin persistence, development, XP and four 
     }
   );
   expect((await participantRead).ok()).toBe(true);
+  await waitForCabinetModule(page);
   const header = page
     .getByRole('banner')
     .locator('[data-testid="navbar-participant-switcher"]:visible');
   await expect(header.locator(`[data-participant-id="${a}"]`)).toBeVisible();
+  await expect(header.locator(`[data-participant-id="${b}"]`)).toBeVisible();
+  await expect(header.locator(`[data-participant-id="${a}"]`)).toHaveAttribute('aria-pressed', 'true');
   const tile = page.locator('[data-dashboard-tile="nextStep"]');
   const title = tile.getByRole('heading', { level: 3 });
   await expect(title).toHaveText('Maintain basic stance in motion for 100 m');
@@ -113,8 +114,9 @@ test('Next Step preserves participant pin persistence, development, XP and four 
   await expect(
     page.getByRole('button', { name: 'Add to Today', exact: true }).first()
   ).toBeVisible();
-  await page.goto('/cabinet', { waitUntil: 'domcontentloaded' });
-  await waitForCabinetModule(page);
+  await page.getByRole('banner').locator('a[href="/cabinet"]').click();
+  await expect(page).toHaveURL(/\/cabinet$/);
+  expect(await page.evaluate(() => performance.timeOrigin)).toBe(documentTimeOrigin);
   await expect(title).toHaveText('Slide 20 m on a steep slope using side-slipping');
   // Recreate the global warning captured in CI, independent of suite order.
   // This is ephemeral UI state; no Firestore data or recommendation is changed.

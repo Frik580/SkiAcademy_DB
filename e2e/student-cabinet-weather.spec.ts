@@ -20,7 +20,7 @@ test('Student Cabinet weather shares data and unit preference across participant
   expect(process.env.FIRESTORE_EMULATOR_HOST).toBe(FIRESTORE_EMULATOR_HOST);
 
   const db = ensureFirestore();
-  const resortRef = db.doc('settings/resort_config');
+  const resortRef = db.doc('resort_data/config');
   const originalResort = await resortRef.get();
   const runtime = loadRuntimeConfig();
   const suffix = `${info.project.name}_w${info.workerIndex}_r${info.repeatEachIndex}_try${info.retry}`;
@@ -61,7 +61,12 @@ test('Student Cabinet weather shares data and unit preference across participant
 
   try {
     await resortRef.set(
-      { nameEn: 'E2E Alpine Resort', nameRu: 'E2E Горный курорт' },
+      {
+        nameEn: 'E2E Alpine Resort',
+        nameRu: 'E2E Горный курорт',
+        latitude: 43.1281,
+        longitude: 77.0808,
+      },
       { merge: true }
     );
     await bookingRef.create(
@@ -165,8 +170,8 @@ test('Student Cabinet weather shares data and unit preference across participant
     await expect(tile).toContainText('12 km/h');
     await expect(tile).toContainText('Excellent');
     await expect(tile.getByTestId('weather-temperature')).toHaveText('-4°C');
-    const resortName = await tile.locator('[data-weather-resort-name]').textContent();
-    expect(resortName?.trim()).toBe('E2E Alpine Resort');
+    const resortName = tile.locator('[data-weather-resort-name]');
+    await expect(resortName).toHaveText('E2E Alpine Resort');
     await expect.poll(() => weatherRequests.length).toBe(1);
 
     const participantSwitcher = page
@@ -185,7 +190,7 @@ test('Student Cabinet weather shares data and unit preference across participant
       'true'
     );
     await expect(tile).toBeVisible();
-    await expect(tile.locator('[data-weather-resort-name]')).toHaveText(resortName!.trim());
+    await expect(resortName).toHaveText('E2E Alpine Resort');
     await expect(tile).toContainText('82 cm');
     await selectParticipant(runtime.studentParticipantId).click();
     await expect(selectParticipant(runtime.studentParticipantId)).toHaveAttribute(
@@ -204,6 +209,15 @@ test('Student Cabinet weather shares data and unit preference across participant
     await expect(tile.getByRole('button', { name: /Switch temperature to Celsius/ })).toHaveText(
       '25°F'
     );
+    expect(weatherRequests).toHaveLength(1);
+    const languageSwitcher = page.getByRole('group', { name: /Switch language|Сменить язык/ });
+    await languageSwitcher.getByRole('button', { name: 'RU', exact: true }).click();
+    await expect(resortName).toHaveText('E2E Горный курорт');
+    await expect(tile).toContainText('Ясно');
+    await expect(tile.getByTestId('weather-temperature')).toHaveText('25°F');
+    await languageSwitcher.getByRole('button', { name: 'EN', exact: true }).click();
+    await expect(resortName).toHaveText('E2E Alpine Resort');
+    await expect(tile).toContainText('Clear');
     expect(weatherRequests).toHaveLength(1);
 
     for (const [name, width, height, dark] of [

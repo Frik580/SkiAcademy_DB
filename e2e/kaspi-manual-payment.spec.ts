@@ -15,6 +15,11 @@ const requireRoot = createRequire(`${process.cwd()}/package.json`);
 const requireFunctions = createRequire(`${process.cwd()}/functions/package.json`);
 const {
   AccountIdSchema,
+  IdempotencyKeySchema,
+  accountCommandActor,
+  deriveCommandKey,
+  encodeCommandActorScope,
+  monetaryEventIdFromCommandEffect,
   timestampFromDate,
   KASPI_CONFIGURATION_PATH,
   selfParticipantIdFromAccountId,
@@ -188,7 +193,48 @@ test('Kaspi top-up: guest-safe flag, customer statement, clarification, admin ba
   await waitForFunctionsEmulatorReady();
   try {
     await configRef.delete();
+    const walletRef = db.doc(`users/${runtime.studentUid}/wallet/state`);
+    const seededWallet = (await walletRef.get()).data()!;
+    // A fresh account receives starter credit asynchronously after sign-in.
+    // Account for that separate monetary operation before observing Kaspi effects.
+    const starterGrantResponse = page.waitForResponse(
+      (response) =>
+        response.url().endsWith('/executeCanonicalCommand') &&
+        response.request().method() === 'POST' &&
+        response.request().postDataJSON()?.data?.kind === 'grant_starter_credit'
+    );
     await signInStudent(page, runtime);
+    const grantResponse = await starterGrantResponse;
+    expect(grantResponse.status()).toBe(200);
+    expect((await grantResponse.json()).result).toMatchObject({
+      kind: 'grant_starter_credit',
+      status: 'success',
+    });
+    const grant = (await db.doc(`users/${runtime.studentUid}/wallet/starter_credit_grant`).get())
+      .data()!;
+    expect(grant.granted).toBe(true);
+    expect(grant.amountKzt).toBeGreaterThan(0);
+    const starterCommandId = deriveCommandKey(
+      encodeCommandActorScope(accountCommandActor(AccountIdSchema.parse(runtime.studentUid))),
+      IdempotencyKeySchema.parse('grant-starter-credit-v1')
+    );
+    const starterEventId = monetaryEventIdFromCommandEffect(starterCommandId, 0);
+    const accountEvents = db
+      .collection('monetary_events')
+      .where('walletAccountId', '==', runtime.studentUid);
+    const beforeEvents = await accountEvents.get();
+    expect(beforeEvents.docs.map((doc) => doc.id)).toEqual([starterEventId]);
+    expect(beforeEvents.docs[0]!.data()).toMatchObject({
+      eventKind: 'wallet_credit',
+      sourceKind: 'system',
+      currency: 'KZT',
+      walletAccountId: runtime.studentUid,
+      walletBalanceDelta: grant.amountKzt,
+      commandId: starterCommandId,
+      walletEventRevision: seededWallet.eventRevision + 1,
+    });
+    const walletBefore = (await walletRef.get()).data()!;
+    expect(walletBefore.balance).toBe(seededWallet.balance + grant.amountKzt);
     await page.goto('/cabinet/profile_wallet');
     const wallet = page.getByRole('region', { name: 'Kaspi QR payment', exact: true });
     await expect(wallet).toHaveCount(0);
@@ -212,8 +258,7 @@ test('Kaspi top-up: guest-safe flag, customer statement, clarification, admin ba
     );
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
     await expect(wallet.getByRole('button', { name: 'Top up', exact: true })).toBeVisible();
-    const balanceBefore = (await db.doc(`users/${runtime.studentUid}/wallet/state`).get()).data()!
-      .balance as number;
+    const balanceBefore = walletBefore.balance as number;
     await wallet.getByRole('button', { name: 'Top up', exact: true }).click();
     await wallet.getByRole('spinbutton', { name: 'Amount in KZT' }).fill('1234');
     await wallet.getByRole('button', { name: 'Confirm amount', exact: true }).dblclick();
@@ -224,11 +269,25 @@ test('Kaspi top-up: guest-safe flag, customer statement, clarification, admin ba
       .get();
     expect(requests.size).toBe(1);
     const requestId = requests.docs[0]!.id;
+    expect(requests.docs[0]!.data()).toMatchObject({
+      type: 'wallet_topup',
+      accountId: runtime.studentUid,
+      amount: 1234,
+      status: 'awaiting_payment',
+    });
+    expect((await walletRef.get()).data()).toEqual(walletBefore);
     await wallet.getByRole('button', { name: 'I have paid', exact: true }).dblclick();
     await expect(wallet.getByText('Checking payment', { exact: true })).toBeVisible();
     expect((await db.doc(`users/${runtime.studentUid}/wallet/state`).get()).data()!.balance).toBe(
       balanceBefore
     );
+    expect((await walletRef.get()).data()).toEqual(walletBefore);
+    const claimed = (await db.doc(`payment_requests/${requestId}`).get()).data()!;
+    expect(claimed.status).toBe('payment_claimed');
+    expect(claimed.claimedAt).toBeTruthy();
+    expect(claimed.receiptEventId).toBeUndefined();
+    expect(claimed.receipt).toBeUndefined();
+    expect((await accountEvents.get()).docs.map((doc) => doc.id)).toEqual([starterEventId]);
     await signInAccount(admin, { email: runtime.adminEmail, password: runtime.adminPassword });
     await admin.goto(`/admin?tab=finance&account=${runtime.studentUid}`);
     const payments = admin.getByRole('region', { name: 'Kaspi payment requests', exact: true });
@@ -280,6 +339,29 @@ test('Kaspi top-up: guest-safe flag, customer statement, clarification, admin ba
       .where('manualReference', '==', `EMULATOR-${suffix}`)
       .get();
     expect(events.size).toBe(1);
+    const confirmed = (await db.doc(`payment_requests/${requestId}`).get()).data()!;
+    expect(confirmed).toMatchObject({
+      status: 'confirmed',
+      confirmedBy: adminUser.uid,
+      receiptEventId: events.docs[0]!.id,
+    });
+    expect(events.docs[0]!.data()).toMatchObject({
+      eventKind: 'wallet_credit',
+      sourceKind: 'bank_transfer',
+      currency: 'KZT',
+      walletAccountId: runtime.studentUid,
+      walletBalanceDelta: 1234,
+      walletEventRevision: walletBefore.eventRevision + 1,
+      actor: { kind: 'account', accountId: adminUser.uid },
+    });
+    expect((await accountEvents.get()).docs.map((doc) => doc.id).sort()).toEqual(
+      [starterEventId, events.docs[0]!.id].sort()
+    );
+    expect((await walletRef.get()).data()).toMatchObject({
+      balance: balanceBefore + 1234,
+      revision: walletBefore.revision + 1,
+      eventRevision: walletBefore.eventRevision + 1,
+    });
     await expect(wallet.getByText('Money credited', { exact: true })).toBeVisible();
     expect((await db.doc(`users/${runtime.studentUid}/wallet/state`).get()).data()!.balance).toBe(
       balanceBefore + 1234
@@ -520,6 +602,10 @@ test('admin finance Kaspi QR toggle enables and disables new requests', async ({
   const db = ensureFirestore();
   const configRef = db.doc(KASPI_CONFIGURATION_PATH);
   const previous = await configRef.get();
+  // Replacing/deleting the configuration does not delete its immutable audit subcollection.
+  const previousActionIds = new Set(
+    (await configRef.collection('actions').get()).docs.map((doc) => doc.id)
+  );
   const { getAuth } = requireFunctions(
     'firebase-admin/auth'
   ) as typeof import('firebase-admin/auth');
@@ -595,11 +681,21 @@ test('admin finance Kaspi QR toggle enables and disables new requests', async ({
       history.getByRole('button', { name: 'Report a payment already made', exact: true })
     ).toBeVisible();
     await expect(wallet.getByRole('button', { name: 'Top up', exact: true })).toHaveCount(0);
-    const actions = await configRef.collection('actions').get();
-    expect(actions.size).toBe(2);
+    const actions = (await configRef.collection('actions').get()).docs.filter(
+      (doc) => !previousActionIds.has(doc.id)
+    );
+    expect(actions).toHaveLength(2);
     expect(
-      actions.docs.every((doc) => doc.data().updatedBy === adminUser.uid && doc.data().updatedAt)
+      actions.every((doc) => doc.data().updatedBy === adminUser.uid && doc.data().updatedAt)
     ).toBe(true);
+    expect(actions.map((doc) => doc.data()).sort((a, b) => a.revision - b.revision)).toEqual([
+      expect.objectContaining({ previousEnabled: false, enabled: true, revision: 1 }),
+      expect.objectContaining({ previousEnabled: true, enabled: false, revision: 2 }),
+    ]);
+    for (const action of actions) {
+      expect(action.data().commandId).toBe(action.id);
+      expect(action.data().correlationId).toEqual(expect.any(String));
+    }
   } finally {
     if (previous.exists) await configRef.set(previous.data()!);
     else await configRef.delete();

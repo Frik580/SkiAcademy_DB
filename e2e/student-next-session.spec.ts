@@ -193,15 +193,31 @@ test('Next Session keeps account courses and family lesson actions, calendar, li
     await expect(lesson).toContainText(
       `${lessonTime.format(new Date(canonicalTimestampToEpochMs(record!.occurrence.interval.startsAt)))}–${lessonTime.format(new Date(canonicalTimestampToEpochMs(record!.occurrence.interval.endsAt)))}`
     );
-    for (const card of [course, lesson]) {
-      await expect(card).toContainText(r.studentDisplayName);
-      await expect(card).toContainText(r.studentChildDisplayName);
-      await expect(card.locator('img')).toHaveCount(2);
-      for (const img of await card.locator('img').all()) {
+    const assertParticipants = async (card: typeof course) => {
+      // Unified session cards intentionally show avatars only. The list items
+      // own the accessible names; their nested images are decorative (alt="").
+      const participants = card.getByRole('list', { name: 'Participants', exact: true });
+      await expect(participants.getByRole('listitem')).toHaveCount(2);
+      for (const [name, suffix] of [
+        [r.studentDisplayName, 'a'],
+        [r.studentChildDisplayName, 'b'],
+      ]) {
+        const participant = participants.getByRole('listitem', { name, exact: true });
+        await expect(participant).toBeVisible();
+        const img = participant.locator('img');
+        await expect(img).toHaveCount(1);
+        await expect(img).toHaveAttribute('alt', '');
+        await expect(img).toHaveAttribute(
+          'src',
+          `http://127.0.0.1:5173/next-session-avatar.svg?${suffix}`
+        );
         await expect
           .poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0))
           .toBe(true);
       }
+    };
+    for (const card of [course, lesson]) {
+      await assertParticipants(card);
     }
     await expect(tile.locator('.sc-next-session-day')).toHaveCount(7);
     await expect(tile.locator('[aria-current="date"]')).toHaveText(
@@ -235,8 +251,8 @@ test('Next Session keeps account courses and family lesson actions, calendar, li
         'true'
       );
       await assertOccurrences();
-      await expect(course).toContainText(r.studentDisplayName);
-      await expect(course).toContainText(r.studentChildDisplayName);
+      await assertParticipants(course);
+      await assertParticipants(lesson);
     }
     await info.attach('switch-read-observations', {
       body: JSON.stringify(reads),

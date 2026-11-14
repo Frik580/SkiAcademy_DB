@@ -50,15 +50,9 @@ export const BookingAppleSelect: React.FC<BookingAppleSelectProps> = ({
       }
     };
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsOpen(false);
-    };
-
     document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen]);
 
@@ -68,7 +62,19 @@ export const BookingAppleSelect: React.FC<BookingAppleSelectProps> = ({
   };
 
   return (
-    <div ref={rootRef} className="relative">
+    <div
+      ref={rootRef}
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape' || !isOpen) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setIsOpen(false);
+        rootRef.current
+          ?.querySelector<HTMLButtonElement>('button[aria-expanded]')
+          ?.focus({ preventScroll: true });
+      }}
+      className="relative"
+    >
       <button
         type="button"
         id={listboxId}

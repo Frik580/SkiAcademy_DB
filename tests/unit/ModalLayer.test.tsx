@@ -1,8 +1,10 @@
 import { StrictMode, useState } from 'react';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ModalLayer } from '../../src/ui/ModalLayer';
+import { BookingAppleSelect } from '../../src/features/bookings/components/booking_modal/BookingAppleSelect';
+import { BookingAppleDatePicker } from '../../src/features/bookings/components/booking_modal/BookingAppleDatePicker';
 import { BookingAppleWheelPicker } from '../../src/features/bookings/components/booking_modal/BookingAppleWheelPicker';
 
 afterEach(cleanup);
@@ -48,6 +50,62 @@ function Example({ pending = false }: { pending?: boolean }) {
 }
 
 describe('shared modal accessibility', () => {
+  it('keeps the child on top when both portal layers mount in one commit', async () => {
+    const parentClose = vi.fn();
+    const childClose = vi.fn();
+    render(
+      <ModalLayer onClose={parentClose}>
+        <div role="dialog" aria-label="Simultaneous parent">
+          <button>Parent action</button>
+          <ModalLayer onClose={childClose}>
+            <div role="dialog" aria-label="Simultaneous child">
+              <button>Child action</button>
+            </div>
+          </ModalLayer>
+        </div>
+      </ModalLayer>
+    );
+    expect(screen.getByRole('dialog', { name: 'Simultaneous child' })).toBeInTheDocument();
+    expect(screen.getByText('Child action')).toHaveFocus();
+    await userEvent.keyboard('{Escape}');
+    expect(childClose).toHaveBeenCalledOnce();
+    expect(parentClose).not.toHaveBeenCalled();
+  });
+
+  it('restores the original opener after dismissing a simultaneously mounted nested pair', async () => {
+    function Simultaneous() {
+      const [open, setOpen] = useState(false);
+      const [child, setChild] = useState(true);
+      return (
+        <main>
+          <button onClick={() => setOpen(true)}>Open pair</button>
+          {open && (
+            <ModalLayer onClose={() => setOpen(false)}>
+              <div role="dialog" aria-label="Pair parent">
+                <button>Parent action</button>
+                {child && (
+                  <ModalLayer onClose={() => setChild(false)}>
+                    <div role="dialog" aria-label="Pair child">
+                      <button>Child action</button>
+                    </div>
+                  </ModalLayer>
+                )}
+              </div>
+            </ModalLayer>
+          )}
+        </main>
+      );
+    }
+    render(<Simultaneous />);
+    await userEvent.click(screen.getByText('Open pair'));
+    await userEvent.keyboard('{Escape}');
+    expect(screen.getByRole('dialog', { name: 'Pair parent' })).toContainElement(
+      document.activeElement as HTMLElement
+    );
+    await userEvent.keyboard('{Escape}');
+    expect(screen.getByText('Open pair')).toHaveFocus();
+  });
+
   it('uses a safe fallback when a responsive wrapper hides the opener', async () => {
     const view = render(<Example />);
     await userEvent.click(screen.getByText('Open'));
@@ -91,6 +149,47 @@ describe('shared modal accessibility', () => {
     await userEvent.keyboard('{Escape}');
     expect(closed).toBe(true);
   });
+  it.each(['select', 'date'])(
+    'Escape closes the nested %s first and restores its trigger',
+    async (kind) => {
+      let closed = false;
+      render(
+        <ModalLayer
+          onClose={() => {
+            closed = true;
+          }}
+        >
+          <div role="dialog">
+            {kind === 'select' ? (
+              <BookingAppleSelect
+                aria-label="Picker"
+                value="1"
+                onChange={() => {}}
+                options={[{ value: '1', label: 'One' }]}
+              />
+            ) : (
+              <BookingAppleDatePicker
+                aria-label="Picker"
+                value="2099-12-15"
+                onChange={() => {}}
+                locale="en-US"
+              />
+            )}
+          </div>
+        </ModalLayer>
+      );
+      const trigger = screen.getByRole('button', { name: 'Picker' });
+      await userEvent.click(trigger);
+      await userEvent.tab();
+      await userEvent.keyboard('{Escape}');
+      expect(closed).toBe(false);
+      expect(trigger).toHaveAttribute('aria-expanded', 'false');
+      expect(trigger).toHaveFocus();
+      await userEvent.keyboard('{Escape}');
+      expect(closed).toBe(true);
+    }
+  );
+
   it('focuses inside, traps both Tab directions and restores the opener and scrolling', async () => {
     render(<Example />);
     const user = userEvent.setup();

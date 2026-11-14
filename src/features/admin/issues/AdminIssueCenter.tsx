@@ -1,3 +1,5 @@
+import { useModalAccessibility } from '../../../ui/useModalAccessibility';
+import { useBodyScrollLock } from '../../../lib/useBodyScrollLock';
 import { AdminLevelRequests } from './AdminLevelRequests';
 import {
   AdminIssueIdSchema,
@@ -8,7 +10,7 @@ import {
   type AdminIssueInboxItem,
 } from '@ski-academy/shared-domain';
 import { ChevronRight, Info, Loader2, RefreshCw, Search, ShieldAlert, X } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   ADMIN_ISSUE_CATEGORY_QUERY_KEY,
@@ -248,6 +250,31 @@ export function AdminIssueCenter({ adminAccountId }: { readonly adminAccountId: 
     if (view === 'open') void changeRequests.retryList();
   };
   const selectedOpen = Boolean(selectedIssueParam || selectedChangeRequestParam);
+  const detailRoot = useRef<HTMLElement>(null);
+  const [mobileDetail, setMobileDetail] = useState(
+    () =>
+      typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 1023px)').matches
+  );
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const query = window.matchMedia('(max-width: 1023px)');
+    const update = () => setMobileDetail(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+  const modalDetail = selectedOpen && mobileDetail;
+  useModalAccessibility(
+    detailRoot,
+    () =>
+      updateQuery({
+        [ADMIN_ISSUE_QUERY_KEY]: undefined,
+        [ADMIN_CHANGE_REQUEST_QUERY_KEY]: undefined,
+      }),
+    attendance.pending,
+    modalDetail
+  );
+  useBodyScrollLock(modalDetail);
 
   const openIssueDestination = (
     item: AdminIssueInboxItem | AdminIssueDetailReadModel,
@@ -568,6 +595,9 @@ export function AdminIssueCenter({ adminAccountId }: { readonly adminAccountId: 
       </section>
 
       <aside
+        ref={detailRoot}
+        role={modalDetail ? 'dialog' : undefined}
+        aria-modal={modalDetail ? true : undefined}
         aria-label={t('adminIssueDetailTitle')}
         className={`border border-[var(--border)] bg-[var(--bg)] p-4 ${
           selectedOpen

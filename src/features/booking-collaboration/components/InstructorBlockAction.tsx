@@ -1,6 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { BodyScrollLock } from '../../../ui/BodyScrollLock';
+import { ModalLayer } from '../../../ui/ModalLayer';
 import { Check, X } from 'lucide-react';
 import { useBookingCollaborationTranslations } from '../useBookingCollaborationTranslations';
 import type { ParticipantAccessControlsProps } from './ParticipantAccessControls';
@@ -21,13 +20,6 @@ export function InstructorBlockAction({
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
   const blocked = access?.managerBlockStatus === 'active';
-  useEffect(() => {
-    if (!confirming) return;
-    const dialog = dialogRef.current;
-    dialog?.querySelector<HTMLElement>('input, button')?.focus();
-    const trigger = triggerRef.current;
-    return () => trigger?.focus();
-  }, [confirming]);
   useEffect(() => {
     if (confirming && loading) dialogRef.current?.focus();
   }, [confirming, loading]);
@@ -77,10 +69,9 @@ export function InstructorBlockAction({
           />
         )}
       </button>
-      {confirming &&
-        createPortal(
+      {confirming && (
+        <ModalLayer onClose={() => setOperation(null)} closeDisabled={loading}>
           <div className="ui-modal-overlay fixed inset-0 z-60 flex items-center justify-center bg-black/40 p-4">
-            <BodyScrollLock />
             <div
               tabIndex={-1}
               ref={dialogRef}
@@ -88,32 +79,6 @@ export function InstructorBlockAction({
               aria-modal="true"
               aria-labelledby={`${reasonId}-title`}
               aria-describedby={`${reasonId}-body`}
-              onKeyDownCapture={(event) => {
-                if (event.key === 'Escape') {
-                  event.stopPropagation();
-                  if (!loading) setOperation(null);
-                }
-                if (event.key === 'Tab') {
-                  const controls = Array.from(
-                    event.currentTarget.querySelectorAll<HTMLElement>(
-                      'input:not(:disabled), button:not(:disabled)'
-                    )
-                  );
-                  if (controls.length === 0) event.preventDefault();
-                  const first = controls[0];
-                  const last = controls[controls.length - 1];
-                  if (document.activeElement === event.currentTarget) {
-                    event.preventDefault();
-                    (event.shiftKey ? last : first)?.focus();
-                  } else if (event.shiftKey && document.activeElement === first) {
-                    event.preventDefault();
-                    last?.focus();
-                  } else if (!event.shiftKey && document.activeElement === last) {
-                    event.preventDefault();
-                    first?.focus();
-                  }
-                }
-              }}
               className="w-full max-w-md max-h-[85dvh] overflow-y-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-5 text-[var(--ink)] shadow-xl space-y-4"
             >
               <h3 id={`${reasonId}-title`} className="type-section-title">
@@ -167,9 +132,9 @@ export function InstructorBlockAction({
                 )}
               </form>
             </div>
-          </div>,
-          document.body
-        )}
+          </div>
+        </ModalLayer>
+      )}
     </>
   );
 }

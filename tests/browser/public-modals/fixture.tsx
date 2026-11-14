@@ -1,6 +1,17 @@
+import { LevelUpModal } from '../../../src/features/student-cabinet/components/LevelUpModal';
+import { ReviewModal } from '../../../src/features/student-cabinet/components/ReviewModal';
+import { ConfirmActionModal } from '../../../src/features/student-cabinet/components/ConfirmActionModal';
+import { LessonDetailsModal } from '../../../src/features/student-cabinet/components/LessonDetailsModal';
+import { BookInstructorPickerModal } from '../../../src/features/student-cabinet/components/student/BookInstructorPickerModal';
+import { ChatWindow } from '../../../src/features/bookings/components/booking_chat/ChatWindow';
+import { PaymentGateway } from '../../../src/features/bookings/components/PaymentGateway';
+import { NotificationHubModal } from '../../../src/features/notifications';
+import { BookingAppleSelect } from '../../../src/features/bookings/components/booking_modal/BookingAppleSelect';
+import { BookingAppleDatePicker } from '../../../src/features/bookings/components/booking_modal/BookingAppleDatePicker';
+import { AdminModal } from '../../../src/features/admin/components/AdminModal';
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { LanguageProvider } from '../../../src/app/providers/LanguageContext';
+import { LanguageProvider, useLanguage } from '../../../src/app/providers/LanguageContext';
 import { CurrencyProvider } from '../../../src/app/providers/CurrencyContext';
 import { NotificationProvider } from '../../../src/features/notifications';
 import { CourseDetailsModal } from '../../../src/features/courses/components/CourseDetailsModal';
@@ -9,7 +20,7 @@ import { AuthModal } from '../../../src/features/auth/components/AuthModal';
 import { BookingModal } from '../../../src/features/bookings/components/BookingModal';
 import { InstructorReviewsModal } from '../../../src/features/profile/components/InstructorReviewsModal';
 import { useCourseEnrollmentStore } from '../../../src/features/course-enrollments/courseEnrollmentStore';
-import type { Course, Instructor } from '../../../src/types';
+import type { Booking, Course, Instructor } from '../../../src/types';
 import '../../../src/index.css';
 
 const course = {
@@ -49,6 +60,125 @@ const instructor = {
   pricePerHourKZT: 12000,
 } as Instructor;
 
+const lesson = {
+  id: 'lesson_fixture',
+  instructorId: 'coach',
+  instructorName: 'Coach',
+  date: '2099-12-15',
+  time: '10:00',
+  durationHours: 1,
+  status: 'confirmed',
+} as Booking;
+function MigratedSurfaces() {
+  const { setLanguage } = useLanguage();
+  const [kind, setKind] = useState('');
+  const [nested, setNested] = useState(false);
+  const [pending, setPending] = useState(false);
+  const close = () => setKind('');
+  return (
+    <>
+      <button onClick={() => setLanguage('ru')}>Russian</button>
+      <button onClick={() => setLanguage('en')}>English</button>
+      {[
+        'level',
+        'review',
+        'confirm',
+        'lesson',
+        'picker',
+        'chat',
+        'payment',
+        'notifications',
+        'nested',
+        'simultaneous',
+      ].map((key) => (
+        <button
+          key={key}
+          onClick={() => {
+            setKind(key);
+            if (key === 'simultaneous') setNested(true);
+          }}
+        >
+          Open {key}
+        </button>
+      ))}
+      {kind === 'level' && <LevelUpModal level={2} theme="light" onClose={close} />}
+      {kind === 'review' && (
+        <ReviewModal
+          booking={lesson}
+          rating={5}
+          setRating={() => {}}
+          comment=""
+          setComment={() => {}}
+          onClose={close}
+          isSubmitting={pending}
+          onSubmit={(event) => {
+            event.preventDefault();
+            setPending(true);
+          }}
+        />
+      )}
+      {kind === 'confirm' && (
+        <ConfirmActionModal
+          message="Confirm?"
+          reason=""
+          setReason={() => {}}
+          onCancel={close}
+          onConfirm={() => {}}
+        />
+      )}
+      {kind === 'lesson' && <LessonDetailsModal booking={lesson} courses={[]} onClose={close} />}
+      <BookInstructorPickerModal
+        open={kind === 'picker'}
+        onClose={close}
+        userProfile={{ uid: 'fixture' } as never}
+        bookings={[]}
+        instructors={[]}
+      />
+      {kind === 'chat' && (
+        <ChatWindow booking={lesson} onClose={close}>
+          <input aria-label="Message" />
+        </ChatWindow>
+      )}
+      <PaymentGateway
+        isOpen={kind === 'payment'}
+        onClose={close}
+        currentBalance={0}
+        onPaymentSuccess={async () => {}}
+      />
+      <NotificationHubModal isOpen={kind === 'notifications'} onClose={close} />
+      {(kind === 'nested' || kind === 'simultaneous') && (
+        <AdminModal title="Parent" onClose={close} closeLabel="Close parent">
+          <BookingAppleSelect
+            aria-label="Select"
+            value="1"
+            onChange={() => {}}
+            options={[
+              { value: '1', label: 'One' },
+              { value: '2', label: 'Two' },
+            ]}
+          />
+          <BookingAppleDatePicker
+            aria-label="Calendar"
+            value="2099-12-15"
+            onChange={() => {}}
+            locale="en-US"
+          />
+          <button onClick={() => setNested(true)}>Open child</button>
+          {nested && (
+            <ConfirmActionModal
+              message="Nested"
+              reason=""
+              setReason={() => {}}
+              onCancel={() => setNested(false)}
+              onConfirm={() => {}}
+            />
+          )}
+        </AdminModal>
+      )}
+    </>
+  );
+}
+
 export function Fixture() {
   const [details, setDetails] = useState(false);
   const [enroll, setEnroll] = useState(false);
@@ -72,6 +202,7 @@ export function Fixture() {
             <button onClick={() => setBooking(true)}>Open booking</button>
             <button onClick={() => setReviews(true)}>Open reviews</button>
             <a href="#background">Background link</a>
+            <MigratedSurfaces />
             <CourseDetailsModal
               isOpen={details}
               onClose={() => setDetails(false)}

@@ -240,6 +240,24 @@ describe('AdminCourseEnrollmentPanel', () => {
     });
   });
 
+  it('enrollment drawer traps both Tab directions and closes with Escape', async () => {
+    render(
+      <MemoryRouter initialEntries={['/?enrollment=course_enrollment_admin_component_01']}>
+        <AdminCourseEnrollmentPanel adminAccountId="account_admin_component_01" />
+      </MemoryRouter>
+    );
+    await screen.findByRole('heading', { name: 'Canonical Participant' });
+    const dialog = screen.getByRole('dialog', { name: 'Enrollment detail' });
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    await userEvent.tab({ shift: true });
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    await userEvent.tab();
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.documentElement).not.toHaveClass('modal-scroll-lock');
+  });
+
   it('renders only the canonical enrollment projection, not legacy booking rows', async () => {
     render(
       <MemoryRouter>

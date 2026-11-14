@@ -1,7 +1,7 @@
 import { useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { BodyScrollLock } from './BodyScrollLock';
-import { useModalAccessibility } from './useModalAccessibility';
+import { ModalParent, useModalAccessibility } from './useModalAccessibility';
 
 /** Lifecycle only; each public modal keeps its existing chrome and animation. */
 export function ModalLayer({
@@ -18,7 +18,7 @@ export function ModalLayer({
   return createPortal(
     <div ref={root} data-modal-layer className="fixed inset-0">
       <BodyScrollLock />
-      {children}
+      <ModalParent.Provider value={root}>{children}</ModalParent.Provider>
     </div>,
     document.body
   );

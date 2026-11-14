@@ -1,7 +1,19 @@
-import { useLayoutEffect, useRef, type RefObject } from 'react';
+import { createContext, useContext, useLayoutEffect, useRef, type RefObject } from 'react';
 
 // Shared with AdminModal: one owner for keyboard handling and background isolation.
+export const ModalParent = createContext<RefObject<HTMLElement> | null>(null);
 const layers: HTMLElement[] = [];
+const focusOrigins = new WeakMap<HTMLElement, HTMLElement | null>();
+const parents = new WeakMap<HTMLElement, RefObject<HTMLElement> | null>();
+function updateLayerOrder() {
+  layers.forEach((layer, index) => {
+    layer.style.zIndex = String(81 + index);
+  });
+}
+function descendsFrom(layer: HTMLElement, ancestor: HTMLElement): boolean {
+  const parent = parents.get(layer)?.current;
+  return !!parent && (parent === ancestor || descendsFrom(parent, ancestor));
+}
 const background = new Map<HTMLElement, { inert: boolean; hidden: string | null }>();
 
 function restoreBackground() {
@@ -17,14 +29,18 @@ function isolateBackground() {
   restoreBackground();
   const top = layers.at(-1);
   if (!top) return;
-  for (const node of Array.from(document.body.children)) {
-    if (!(node instanceof HTMLElement) || node === top || node.contains(top)) continue;
-    background.set(node, {
-      inert: node.hasAttribute('inert'),
-      hidden: node.getAttribute('aria-hidden'),
-    });
-    node.setAttribute('inert', '');
-    node.setAttribute('aria-hidden', 'true');
+  // Isolate siblings along the whole ancestor path, including inline mobile overlays.
+  for (let branch: HTMLElement = top; branch.parentElement; branch = branch.parentElement) {
+    for (const node of Array.from(branch.parentElement.children)) {
+      if (!(node instanceof HTMLElement) || node === branch) continue;
+      background.set(node, {
+        inert: node.hasAttribute('inert'),
+        hidden: node.getAttribute('aria-hidden'),
+      });
+      node.setAttribute('inert', '');
+      node.setAttribute('aria-hidden', 'true');
+    }
+    if (branch.parentElement === document.body) break;
   }
 }
 
@@ -67,29 +83,40 @@ function canRestoreFocus(node: HTMLElement | null): node is HTMLElement {
 export function useModalAccessibility(
   rootRef: RefObject<HTMLElement>,
   onClose: () => void,
-  closeDisabled = false
+  closeDisabled = false,
+  active = true
 ) {
+  const parent = useContext(ModalParent);
   const closeRef = useRef({ onClose, closeDisabled });
   closeRef.current = { onClose, closeDisabled };
 
   useLayoutEffect(() => {
     const root = rootRef.current;
-    if (!root) return;
-    const previousFocus =
+    if (!root || !active) return;
+    let previousFocus =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const originalZIndex = root.style.zIndex;
-    const dialog = () => root.querySelector<HTMLElement>('[role="dialog"]');
+    const dialog = () =>
+      root.matches('[role="dialog"]') ? root : root.querySelector<HTMLElement>('[role="dialog"]');
     const focusFirst = () => {
       const target = dialog();
       if (!target) return;
       target.tabIndex = -1;
       (focusableElements(target)[0] ?? target).focus({ preventScroll: true });
     };
-    layers.push(root);
-    root.style.zIndex = String(80 + layers.length);
+    parents.set(root, parent);
+    const descendant = layers.findIndex((layer) => descendsFrom(layer, root));
+    if (descendant < 0) layers.push(root);
+    else {
+      // A child layout effect may already have moved focus in this same commit.
+      previousFocus = focusOrigins.get(layers[descendant]) ?? previousFocus;
+      layers.splice(descendant, 0, root);
+    }
+    focusOrigins.set(root, previousFocus);
+    updateLayerOrder();
     // Restore the lower layer before focusing a newly opened portal.
     restoreBackground();
-    focusFirst();
+    if (layers.at(-1) === root) focusFirst();
     isolateBackground();
     const isTop = () => layers.at(-1) === root;
     const handleKey = (event: KeyboardEvent) => {
@@ -130,6 +157,9 @@ export function useModalAccessibility(
       document.removeEventListener('keydown', handleKey);
       document.removeEventListener('focusin', handleFocus);
       layers.splice(layers.indexOf(root), 1);
+      parents.delete(root);
+      focusOrigins.delete(root);
+      updateLayerOrder();
       root.style.zIndex = originalZIndex;
       isolateBackground();
       if (!wasTop) return;
@@ -146,5 +176,5 @@ export function useModalAccessibility(
         else fallback.setAttribute('tabindex', tabIndex);
       }
     };
-  }, [rootRef]);
+  }, [rootRef, active, parent]);
 }

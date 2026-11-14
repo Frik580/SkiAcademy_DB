@@ -151,7 +151,7 @@ export function KaspiPaymentsAdmin({ accountId }: { accountId: string }) {
     >
       <KaspiConfigurationAdmin accountId={accountId} />
       <h3 className="type-card-title">{t('kaspiAdminTitle')}</h3>
-      {error && <p role="alert">{t('kaspiError')}</p>}
+      {error && !selected && <p role="alert">{t('kaspiError')}</p>}
       <label>
         {t('kaspiFilter')}
         <select
@@ -222,6 +222,7 @@ export function KaspiPaymentsAdmin({ accountId }: { accountId: string }) {
           width="lg"
         >
           <div className="space-y-3 p-4">
+            {error && !pending && <p role="alert">{t('kaspiError')}</p>}
             <p className="break-all">
               {selected.requestId} · {formatKzt(selected.amount)} ·{' '}
               {t(`kaspiStatus_${selected.status}`)}
@@ -383,6 +384,7 @@ export function KaspiPaymentsAdmin({ accountId }: { accountId: string }) {
               closeDisabled={busy}
             >
               <div className="space-y-3 p-4">
+                {error && <p role="alert">{t('kaspiError')}</p>}
                 <p>{t('kaspiFinancialConfirm')}</p>
                 {pending.action === 'require_refund' && selected.type === 'wallet_topup' && (
                   <p>{t('kaspiWalletRefundPreparation')}</p>

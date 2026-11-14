@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useId, useRef, useState } 
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { BOOKING_MODAL_SHELL_CLASS } from '../../bookings/components/booking_modal/bookingModalLayout';
+import { useModalAccessibility } from '../../../ui/useModalAccessibility';
 import { BodyScrollLock } from '../../../ui/BodyScrollLock';
 import './adminModal.css';
 
@@ -22,35 +23,6 @@ interface AdminModalProps {
   'data-testid'?: string;
 }
 
-function isTopModal(root: HTMLElement) {
-  const roots = Array.from(document.querySelectorAll<HTMLElement>('[data-admin-modal-root]'));
-  roots.sort((a, b) => Number(a.style.zIndex) - Number(b.style.zIndex));
-  return roots.at(-1) === root;
-}
-
-function focusableElements(dialog: HTMLElement) {
-  return Array.from(
-    dialog.querySelectorAll<HTMLElement>(
-      'button:not(:disabled), input:not(:disabled):not([type="hidden"]), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])'
-    )
-  ).filter((element) => {
-    for (
-      let node: HTMLElement | null = element;
-      node && node !== dialog;
-      node = node.parentElement
-    ) {
-      if (
-        node.hidden ||
-        node.hasAttribute('inert') ||
-        getComputedStyle(node).display === 'none' ||
-        getComputedStyle(node).visibility === 'hidden'
-      )
-        return false;
-    }
-    return element.tabIndex >= 0;
-  });
-}
-
 /** Booking chrome, with viewport positioning and lifecycle owned by one admin shell. */
 export function AdminModal({
   title,
@@ -61,15 +33,13 @@ export function AdminModal({
   children,
   footer,
   bodyLayout = 'scroll',
-  inertBackground = false,
+  inertBackground: _inertBackground = false,
   'data-testid': testId,
 }: AdminModalProps) {
   const depth = useContext(ModalDepth);
   const titleId = useId();
-  const dialogRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  const closeRef = useRef({ onClose, closeDisabled });
-  closeRef.current = { onClose, closeDisabled };
+  useModalAccessibility(rootRef, onClose, closeDisabled);
   const [viewport, setViewport] = useState<React.CSSProperties>();
 
   useEffect(() => {
@@ -91,64 +61,6 @@ export function AdminModal({
     };
   }, []);
 
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    const root = rootRef.current;
-    if (!dialog || !root) return;
-    const previousFocus =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const focusFirst = () =>
-      (focusableElements(dialog)[0] ?? dialog).focus({ preventScroll: true });
-    if (isTopModal(root)) focusFirst();
-    const background = inertBackground
-      ? Array.from(document.body.children)
-          .filter((node): node is HTMLElement => node instanceof HTMLElement && node !== root)
-          .map((node) => ({
-            node,
-            inert: node.hasAttribute('inert'),
-            hidden: node.getAttribute('aria-hidden'),
-          }))
-      : [];
-    for (const { node } of background) {
-      node.setAttribute('inert', '');
-      node.setAttribute('aria-hidden', 'true');
-    }
-    const handleKey = (event: KeyboardEvent) => {
-      if (!isTopModal(root) || event.defaultPrevented) return;
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        event.stopPropagation();
-        if (!closeRef.current.closeDisabled) closeRef.current.onClose();
-      } else if (event.key === 'Tab') {
-        const elements = focusableElements(dialog);
-        const index = elements.indexOf(document.activeElement as HTMLElement);
-        if (
-          !elements.length ||
-          index < 0 ||
-          (event.shiftKey ? index === 0 : index === elements.length - 1)
-        ) {
-          event.preventDefault();
-          (event.shiftKey ? (elements.at(-1) ?? dialog) : (elements[0] ?? dialog)).focus();
-        }
-      }
-    };
-    const handleFocus = (event: FocusEvent) => {
-      if (isTopModal(root) && !dialog.contains(event.target as Node)) focusFirst();
-    };
-    document.addEventListener('keydown', handleKey);
-    document.addEventListener('focusin', handleFocus);
-    return () => {
-      document.removeEventListener('keydown', handleKey);
-      document.removeEventListener('focusin', handleFocus);
-      for (const { node, inert, hidden } of background) {
-        if (!inert) node.removeAttribute('inert');
-        if (hidden === null) node.removeAttribute('aria-hidden');
-        else node.setAttribute('aria-hidden', hidden);
-      }
-      if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
-    };
-  }, [inertBackground]);
-
   if (typeof document === 'undefined') return null;
   return createPortal(
     <ModalDepth.Provider value={depth + 1}>
@@ -164,7 +76,6 @@ export function AdminModal({
           aria-hidden="true"
         />
         <div
-          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}

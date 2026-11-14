@@ -20,11 +20,12 @@ import {
 interface AuthProps {
   onSuccess: (profile: UserProfile) => void;
   variant?: 'default' | 'sidebar';
+  onBusyChange?: (busy: boolean) => void;
 }
 
 const PRESET_SEEDS = ['Felix', 'Aneka', 'Jack', 'Buster', 'Bella', 'Luna'];
 
-export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) => {
+export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default', onBusyChange }) => {
   const { addNotification } = useNotifications();
   const { t, language } = useLanguage();
   const [isSignUp, setIsSignUp] = useState(false);
@@ -35,6 +36,10 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
   const [avatarSeed, setAvatarSeed] = useState('Felix');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  React.useEffect(() => {
+    onBusyChange?.(isLoading);
+    return () => onBusyChange?.(false);
+  }, [isLoading, onBusyChange]);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [verificationUser, setVerificationUser] = useState<User | null>(null);
 
@@ -393,7 +398,10 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
       )}
 
       {error && (
-        <div className="p-3 bg-red-950/20 border border-red-900/40 type-caption text-red-400 rounded-[var(--radius-md)] normal-case border-red-500/20 bg-red-500/10">
+        <div
+          role="alert"
+          className="p-3 bg-red-950/20 border border-red-900/40 type-caption text-red-400 rounded-[var(--radius-md)] normal-case border-red-500/20 bg-red-500/10"
+        >
           {error}
         </div>
       )}
@@ -422,6 +430,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default' }) =>
         </div>
       )}
       <form
+        aria-busy={isLoading}
         hidden={verificationUser !== null}
         onSubmit={isForgotPassword ? handlePasswordReset : handleSubmit}
         className={formGap}

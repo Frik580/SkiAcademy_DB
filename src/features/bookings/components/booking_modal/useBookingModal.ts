@@ -135,6 +135,8 @@ export const useBookingModal = ({
     }
   }, [difficulty, levels]);
   const [notes, setNotes] = useState<string>('');
+  const [submissionError, setSubmissionError] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [guestQuotaError, setGuestQuotaError] = useState(false);
   const [guestCreatedBookingId, setGuestCreatedBookingId] = useState<string | null>(null);
@@ -149,6 +151,7 @@ export const useBookingModal = ({
 
   useEffect(() => {
     if (!isOpen && !isSubmitting) {
+      setSubmissionError('');
       bookingAttemptIdRef.current = null;
       setGuestQuotaError(false);
       setGuestCreatedBookingId(null);
@@ -632,6 +635,7 @@ export const useBookingModal = ({
     }
 
     isSubmittingRef.current = true;
+    setSubmissionError('');
     setIsSubmitting(true);
     setGuestQuotaError(false);
 
@@ -672,6 +676,7 @@ export const useBookingModal = ({
         bookingAttemptIdRef.current = null;
         setGuestQuotaError(true);
       } else {
+        setSubmissionError(presented.message);
         addNotification('error', t('bookingError'), presented.message);
       }
       if (presented.shouldRefresh) {
@@ -840,6 +845,7 @@ export const useBookingModal = ({
   };
 
   const closeGuestStatus = () => {
+    if (isSubmittingRef.current || isCompletingGuestProfile || authBusy) return;
     if (guestReservation?.lifecycle.status === 'cancelled' && targetInstructor) {
       forgetGuestReservation('lesson', targetInstructor.id, guestCreatedBookingId ?? undefined);
     }
@@ -936,6 +942,7 @@ export const useBookingModal = ({
     )
       return;
     isSubmittingRef.current = true;
+    setSubmissionError('');
     setIsSubmitting(true);
 
     if (submitTimerRef.current) {
@@ -1012,6 +1019,7 @@ export const useBookingModal = ({
             code: presented.code,
           });
         }
+        setSubmissionError(presented.message);
         addNotification('error', t('bookingError'), presented.message);
         if (presented.shouldRefresh) {
           setOccupancyRefreshNonce((current) => current + 1);
@@ -1047,6 +1055,9 @@ export const useBookingModal = ({
     notes,
     setNotes,
     isSubmitting,
+    submissionError,
+    authBusy,
+    setAuthBusy,
     guestQuotaError,
     guestCreatedBookingId,
     guestReservation,

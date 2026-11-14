@@ -104,7 +104,8 @@ export const AuthBookingForm: React.FC<AuthBookingFormProps> = ({ workspace }) =
     (lessonDiscipline !== 'ski' && lessonDiscipline !== 'snowboard');
 
   return (
-    <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+    <form aria-busy={isSubmitting} onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+      {workspace.submissionError && <p role="alert">{workspace.submissionError}</p>}
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
         <div className="space-y-1 type-caption text-[var(--ink-dim)]">
           {targetInstructor.specialty === 'both' ? (

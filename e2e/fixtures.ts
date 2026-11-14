@@ -193,9 +193,7 @@ export async function openGuestBookingModal(page: Page, instructorName: string):
     .filter({ has: page.getByRole('heading', { name: instructorName }) })
     .getByRole('button', { name: 'Book Lesson' })
     .click();
-  await expect(
-    page.getByRole('heading', { name: instructorName, exact: true }).first()
-  ).toBeVisible();
+  await expect(page.getByRole('dialog', { name: new RegExp(instructorName) })).toBeVisible();
 }
 
 export async function openStudentBookingModal(

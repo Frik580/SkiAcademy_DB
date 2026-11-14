@@ -4,6 +4,7 @@ import { test, expect } from '@playwright/test';
 // This scenario needs Vite's fixture route or the app's live source-store modules.
 test.use({ baseURL: 'http://127.0.0.1:5174' });
 import { loadRuntimeConfig, signInAccount, watchBrowserFailures } from './fixtures';
+import { waitForCabinetModule } from './cabinet-readiness';
 import { DEFAULT_SKILL_CONFIG, getSkillItemTitle } from '../src/domain/achievements';
 
 function emulatorDb() {
@@ -51,10 +52,7 @@ test('Next Step preserves participant pin persistence, development, XP and four 
     async () => {
       // Vite's HTTP readiness probe only transforms the entry. Await the browser's
       // complete import graph before starting the dashboard readiness assertions.
-      await page.evaluate(async () => {
-        const moduleUrl = '/src/app/routes/CabinetRouteContainer.tsx';
-        await import(moduleUrl);
-      });
+      await waitForCabinetModule(page);
       participantRead = page.waitForResponse(
         (response) =>
           response.url().endsWith('/queryManagedParticipantPickerReadModels') &&
@@ -94,6 +92,12 @@ test('Next Step preserves participant pin persistence, development, XP and four 
   );
   await expect(title).toHaveText('Slide 20 m on a steep slope using side-slipping');
   await page.reload({ waitUntil: 'domcontentloaded' });
+  await waitForCabinetModule(page);
+  await expect(header.locator(`[data-participant-id="${a}"]`)).toHaveAttribute('aria-pressed', 'true');
+  await expect(tile.locator('[data-participant-scope]')).toContainText(r.studentDisplayName);
+  await expect(page.locator('[data-dashboard-tile="todayTasks"]')).toContainText(
+    'Maintain basic stance in motion for 100 m'
+  );
   await expect(title).toHaveText('Slide 20 m on a steep slope using side-slipping');
   expect((await profile.get()).data()?.participantTodayChecklists[a].todaySkillItemIds).toEqual([
     'l1_1',
@@ -110,6 +114,7 @@ test('Next Step preserves participant pin persistence, development, XP and four 
     page.getByRole('button', { name: 'Add to Today', exact: true }).first()
   ).toBeVisible();
   await page.goto('/cabinet', { waitUntil: 'domcontentloaded' });
+  await waitForCabinetModule(page);
   await expect(title).toHaveText('Slide 20 m on a steep slope using side-slipping');
   // Recreate the global warning captured in CI, independent of suite order.
   // This is ephemeral UI state; no Firestore data or recommendation is changed.
@@ -179,6 +184,7 @@ test('Next Step preserves participant pin persistence, development, XP and four 
     .map((item) => item.id);
   await profile.update({ [`participantTodayChecklists.${a}.todaySkillItemIds`]: allLevelOneIds });
   await page.reload({ waitUntil: 'domcontentloaded' });
+  await waitForCabinetModule(page);
   await expect(tile).toContainText('No new exercises');
   await expect(tile.getByRole('button', { name: 'Add to tasks' })).toHaveCount(0);
   const progressAfter = await Promise.all(

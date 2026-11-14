@@ -5,6 +5,7 @@ import { test, expect } from '@playwright/test';
 // This scenario needs Vite's fixture route or the app's live source-store modules.
 test.use({ baseURL: 'http://127.0.0.1:5174' });
 import { loadRuntimeConfig, signInStudent } from './fixtures';
+import { waitForCabinetModule } from './cabinet-readiness';
 import {
   AUTH_EMULATOR_HOST,
   E2E_PROJECT_ID,
@@ -252,6 +253,7 @@ test('authenticated mastery progression and admin qualification preserve factual
       { timeout: 60000 }
     );
     await signInStudent(page, runtime);
+    await waitForCabinetModule(page);
     expect((await participantRead).ok()).toBe(true);
     const switcher = page
       .getByRole('banner')
@@ -295,10 +297,7 @@ test('authenticated mastery progression and admin qualification preserve factual
     const journey = page.locator('#your-journey').filter({
       has: page.getByRole('img', { name: 'E2E Level Student', exact: true }),
     });
-    // The navbar and progress stores resolve before the lazy cabinet route.
-    // The failure trace still had route modules loading after the normal 15s
-    // assertion budget. Wait for this Participant's rendered Journey once,
-    // then keep the normal budget for every language/viewport assertion.
+    // Module readiness alone does not prove this Participant's Journey rendered.
     await expect(journey).toBeVisible({ timeout: 60_000 });
     await expect.poll(cabinetState).toEqual(expectedState);
     await expect(target).toHaveAttribute('aria-pressed', 'true');

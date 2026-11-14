@@ -35,7 +35,7 @@ export const BookingAuthShell: React.FC<BookingAuthShellProps> = ({ workspace })
       className={BOOKING_MODAL_SHELL_CLASS}
       role="dialog"
       aria-modal="true"
-      aria-label={t('bookLessonWith')}
+      aria-label={`${t('bookLessonWith')} ${targetInstructor.name}`}
       onClick={(e) => e.stopPropagation()}
     >
       <BookingModalHeader

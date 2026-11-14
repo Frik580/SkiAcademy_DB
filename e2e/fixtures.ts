@@ -198,9 +198,10 @@ export async function openGuestBookingModal(page: Page, instructorName: string):
 
 export async function openStudentBookingModal(
   page: Page,
-  config = loadRuntimeConfig()
+  config = loadRuntimeConfig(),
+  { authenticated = false }: { authenticated?: boolean } = {}
 ): Promise<void> {
-  await signInStudent(page, config);
+  if (!authenticated) await signInStudent(page, config);
   await page.getByRole('button', { name: 'Book Lesson' }).click();
   await expect(page.getByRole('dialog', { name: 'Choose a coach' })).toBeVisible();
   await page.getByRole('button').filter({ hasText: config.instructorName }).first().click();

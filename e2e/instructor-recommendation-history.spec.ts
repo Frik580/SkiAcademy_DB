@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module';
+import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { DEFAULT_SKILL_CONFIG, getSkillItemTitle } from '../src/domain/achievements';
 import { MASTERY_LEVELS } from '@ski-academy/shared-domain/canonical/participantLevelProgression';
@@ -15,6 +16,8 @@ const {
   BookingIdSchema,
   BookingSchema,
   ParticipantIdSchema,
+  ParticipantSchema,
+  ParticipantManagementSchema,
   ParticipantProgressSchema,
   QueryInstructorParticipantRecommendationHistoryReadModelsResultSchema,
   attendanceIdFromBookingIdentity,
@@ -32,9 +35,9 @@ test('instructor lesson context combines live progress, homework and recommendat
   test.setTimeout(300_000);
   const fixture = loadRuntimeConfig();
   const db = ensureFirestore();
-  const prefix = `rec_history_${info.repeatEachIndex}_${info.retry}`;
-  const participantId = ParticipantIdSchema.parse(fixture.studentParticipantId);
-  const siblingId = ParticipantIdSchema.parse(fixture.studentChildParticipantId);
+  const prefix = `rec_history_${info.repeatEachIndex}_${info.retry}_${randomUUID()}`;
+  const participantId = ParticipantIdSchema.parse(`${prefix}_participant`);
+  const siblingId = ParticipantIdSchema.parse(`${prefix}_sibling`);
   const instructorId = `${prefix}_author`;
   const authorName = 'Recommendation History Coach';
   const authorEmail = `${prefix}-author@e2e.test`;
@@ -57,6 +60,37 @@ test('instructor lesson context combines live progress, homework and recommendat
     ownedPaths.push(path);
     batch.create(db.doc(path), data);
   };
+  // Both histories are Participant-scoped. Never reuse progress/homework from
+  // the suite's shared people or delete their progress during fixture cleanup.
+  for (const [id, sourceId] of [
+    [participantId, fixture.studentParticipantId],
+    [siblingId, fixture.studentChildParticipantId],
+  ]) {
+    const source = await db.doc(`participants/${sourceId}`).get();
+    expect(source.exists).toBe(true);
+    const managementId = `${id}_management`;
+    seed(
+      `participants/${id}`,
+      ParticipantSchema.parse({
+        ...source.data(),
+        participantId: id,
+        management: { kind: 'managed', participantManagementId: managementId },
+        ...metadata,
+      })
+    );
+    seed(
+      `participant_management/${managementId}`,
+      ParticipantManagementSchema.parse({
+        participantManagementId: managementId,
+        participantId: id,
+        accountId: fixture.studentUid,
+        role: 'owner',
+        authority: 'parent_guardian',
+        status: 'active',
+        ...metadata,
+      })
+    );
+  }
 
   const signup = await request.post(
     `${AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key`,
@@ -406,11 +440,6 @@ test('instructor lesson context combines live progress, homework and recommendat
       expectedPath: '/instructor',
     });
 
-    const open = (name: string, language: 'en' | 'ru' = 'en') =>
-      page.getByRole('button', {
-        name: `${name}: ${translations[language].lessonContextTitle}`,
-        exact: true,
-      });
     traffic.push(snapshot('schedule'));
     expect(requests).toEqual({ recommendations: 0, progress: 0, homework: 0 });
     const dialog = page.getByTestId('instructor-lesson-context');
@@ -418,9 +447,9 @@ test('instructor lesson context combines live progress, homework and recommendat
     const toggle = section.getByRole('button', { name: translations.en.recommendationHistory });
     const more = section.getByRole('button', { name: translations.en.historyShowMore });
     await page.setViewportSize({ width: 375, height: 812 });
-    const fromBooking = (id: string, name: string) =>
+    const fromBooking = (id: string, name: string, language: 'en' | 'ru' = 'en') =>
       page.locator(`#instructor-lesson-${id}`).getByRole('button', {
-        name: `${name}: ${translations.en.lessonContextTitle}`,
+        name: `${name}: ${translations[language].lessonContextTitle}`,
         exact: true,
       });
     const primary = fromBooking(bookedA, fixture.studentDisplayName);
@@ -726,7 +755,7 @@ test('instructor lesson context combines live progress, homework and recommendat
     await page.getByRole('button', { name: 'RU', exact: true }).click();
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.locator('html')).not.toHaveClass(/\bdark\b/);
-    await open(fixture.studentChildDisplayName, 'ru').click();
+    await fromBooking(bookedA, fixture.studentChildDisplayName, 'ru').click();
     const russianSection = dialog.getByRole('region', {
       name: translations.ru.recommendationHistory,
     });

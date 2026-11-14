@@ -115,7 +115,8 @@ test('Next Session keeps account courses and family lesson actions, calendar, li
       await expect(enrollment).not.toBeVisible();
     }
     const before = await getBlockingBookingIdsForPayer(r.studentUid);
-    await openStudentBookingModal(page, r);
+    // Enrollment above already authenticated this page; do not race auth hydration on `/`.
+    await openStudentBookingModal(page, r, { authenticated: true });
     await fillBookingSelectors(page, 7 + dayOffset, {
       participantDisplayName: r.studentDisplayName,
       time: '14:00',

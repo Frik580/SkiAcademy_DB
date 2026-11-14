@@ -20,6 +20,8 @@ test('Student Cabinet weather shares data and unit preference across participant
   expect(process.env.FIRESTORE_EMULATOR_HOST).toBe(FIRESTORE_EMULATOR_HOST);
 
   const db = ensureFirestore();
+  const resortRef = db.doc('settings/resort_config');
+  const originalResort = await resortRef.get();
   const runtime = loadRuntimeConfig();
   const suffix = `${info.project.name}_w${info.workerIndex}_r${info.repeatEachIndex}_try${info.retry}`;
   const bookingId = `booking_weather_${suffix}`;
@@ -58,6 +60,10 @@ test('Student Cabinet weather shares data and unit preference across participant
   });
 
   try {
+    await resortRef.set(
+      { nameEn: 'E2E Alpine Resort', nameRu: 'E2E Горный курорт' },
+      { merge: true }
+    );
     await bookingRef.create(
       BookingSchema.parse({
         bookingId,
@@ -160,7 +166,7 @@ test('Student Cabinet weather shares data and unit preference across participant
     await expect(tile).toContainText('Excellent');
     await expect(tile.getByTestId('weather-temperature')).toHaveText('-4°C');
     const resortName = await tile.locator('[data-weather-resort-name]').textContent();
-    expect(resortName?.trim()).toBeTruthy();
+    expect(resortName?.trim()).toBe('E2E Alpine Resort');
     await expect.poll(() => weatherRequests.length).toBe(1);
 
     const participantSwitcher = page
@@ -281,6 +287,8 @@ test('Student Cabinet weather shares data and unit preference across participant
     });
     throw error;
   } finally {
+    if (originalResort.exists) await resortRef.set(originalResort.data()!);
+    else await resortRef.delete();
     await Promise.all([bookingRef.delete(), paymentRef.delete()]);
   }
 });

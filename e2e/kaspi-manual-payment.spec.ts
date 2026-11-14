@@ -1,4 +1,4 @@
-import { test, expect as playwrightExpect } from '@playwright/test';
+import { test as base, expect as playwrightExpect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { ensureFirestore, seedE2ECourse } from './firestore-admin';
@@ -9,22 +9,61 @@ import {
   signInAccount,
   signInStudent,
 } from './fixtures';
-import { waitForFunctionsEmulatorReady } from './global-setup';
+import { seedStudentAccount, waitForFunctionsEmulatorReady } from './global-setup';
 const expect = playwrightExpect.configure({ timeout: 60_000 });
 const requireRoot = createRequire(`${process.cwd()}/package.json`);
 const requireFunctions = createRequire(`${process.cwd()}/functions/package.json`);
-const { timestampFromDate, KASPI_CONFIGURATION_PATH } = requireRoot(
-  '@ski-academy/shared-domain'
-) as typeof import('@ski-academy/shared-domain');
+const {
+  AccountIdSchema,
+  timestampFromDate,
+  KASPI_CONFIGURATION_PATH,
+  selfParticipantIdFromAccountId,
+} = requireRoot('@ski-academy/shared-domain') as typeof import('@ski-academy/shared-domain');
+
+const test = base.extend<{ walletRuntime: ReturnType<typeof loadRuntimeConfig> }>({
+  // eslint-disable-next-line no-empty-pattern -- Playwright requires destructuring for dependency-free fixtures.
+  walletRuntime: async ({}, use) => {
+    expect(process.env.GCLOUD_PROJECT).toBe('demo-ski-school-e2e');
+    const db = ensureFirestore();
+    const shared = loadRuntimeConfig();
+    const { getAuth } = requireFunctions(
+      'firebase-admin/auth'
+    ) as typeof import('firebase-admin/auth');
+    const studentEmail = `kaspi-${randomUUID()}@e2e.test`;
+    const student = await getAuth().createUser({
+      email: studentEmail,
+      password: shared.studentPassword,
+    });
+    const studentParticipantId = selfParticipantIdFromAccountId(AccountIdSchema.parse(student.uid));
+    try {
+      await seedStudentAccount({
+        studentUid: student.uid,
+        email: studentEmail,
+        displayName: shared.studentDisplayName,
+      });
+      await use({ ...shared, studentUid: student.uid, studentEmail, studentParticipantId });
+    } finally {
+      const participant = await db.doc(`participants/${studentParticipantId}`).get();
+      const managementId = participant.data()?.management?.participantManagementId;
+      const cleanup = db.batch();
+      cleanup.delete(db.doc(`users/${student.uid}/wallet/state`));
+      cleanup.delete(db.doc(`users/${student.uid}`));
+      cleanup.delete(participant.ref);
+      if (managementId) cleanup.delete(db.doc(`participant_management/${managementId}`));
+      await cleanup.commit();
+      await getAuth().deleteUser(student.uid);
+    }
+  },
+});
 
 test('Kaspi merchant setup: immutable QR upload, verified settings OFF, separate activation and customer visibility', async ({
   page,
   browser,
+  walletRuntime: runtime,
 }) => {
   test.setTimeout(240_000);
   expect(process.env.GCLOUD_PROJECT).toBe('demo-ski-school-e2e');
   const db = ensureFirestore();
-  const runtime = loadRuntimeConfig();
   const configRef = db.doc(KASPI_CONFIGURATION_PATH);
   const previous = await configRef.get();
   const customerContext = await browser.newContext({ locale: 'en-US' });
@@ -122,11 +161,11 @@ test('Kaspi merchant setup: immutable QR upload, verified settings OFF, separate
 test('Kaspi top-up: guest-safe flag, customer statement, clarification, admin bank verification and exactly-once balance', async ({
   page,
   browser,
+  walletRuntime: runtime,
 }) => {
   test.setTimeout(360_000);
   expect(process.env.GCLOUD_PROJECT).toBe('demo-ski-school-e2e');
   const db = ensureFirestore();
-  const runtime = loadRuntimeConfig();
   const adminContext = await browser.newContext({ locale: 'en-US', timezoneId: 'UTC' });
   const admin = await adminContext.newPage();
   const browserEgress: string[] = [];
@@ -474,11 +513,11 @@ for (const kind of ['lesson', 'course'] as const) {
 test('admin finance Kaspi QR toggle enables and disables new requests', async ({
   page,
   browser,
+  walletRuntime: runtime,
 }) => {
   test.setTimeout(180_000);
   expect(process.env.GCLOUD_PROJECT).toBe('demo-ski-school-e2e');
   const db = ensureFirestore();
-  const runtime = loadRuntimeConfig();
   const configRef = db.doc(KASPI_CONFIGURATION_PATH);
   const previous = await configRef.get();
   const { getAuth } = requireFunctions(
@@ -516,7 +555,10 @@ test('admin finance Kaspi QR toggle enables and disables new requests', async ({
     const wallet = customer.getByRole('region', { name: 'Kaspi QR payment', exact: true });
     await expect(wallet).toHaveCount(0);
     await toggle.click();
-    await expect(toggle).not.toBeChecked();
+    // The confirmation isolates the background from the accessibility tree.
+    const enableDialog = page.getByRole('dialog', { name: 'Enable Kaspi QR payments?' });
+    await expect(enableDialog).toBeVisible();
+    expect((await configRef.get()).data()!.enabled).toBe(false);
     await page
       .getByRole('dialog', { name: 'Enable Kaspi QR payments?' })
       .getByRole('button', { name: 'Confirm', exact: true })
@@ -675,7 +717,11 @@ for (const kind of ['lesson', 'course'] as const) {
         payment.getByRole('button', { name: 'Open QR payment', exact: true })
       ).toBeVisible();
       await togglePayment(false);
-      await modal.getByRole('button', { name: 'Close', exact: true }).click();
+      const closeName = kind === 'lesson' ? 'Cancel' : 'Close';
+      await modal
+        .getByRole('button', { name: closeName, exact: true })
+        .and(modal.locator('button[aria-label]'))
+        .click();
       await reopen();
       if (kind === 'lesson') {
         await modal

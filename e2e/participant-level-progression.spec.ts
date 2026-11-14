@@ -28,6 +28,7 @@ const {
   ParticipantManagementIdSchema,
   ParticipantSchema,
   ParticipantManagementSchema,
+  BookingSchema,
   instructorRelationshipIdFromPair,
   instructorRelationshipExpiresAt,
   timestampFromDate,
@@ -74,6 +75,8 @@ test('authenticated mastery progression and admin qualification preserve factual
   const participantRef = db.doc(`participants/${participantId}`);
   const managementRef = db.doc(`participant_management/${managementId}`);
   const relationshipRef = db.doc(`instructor_relationships/${relationshipId}`);
+  const bookingId = `booking_levels_e2e_${attemptId}`;
+  const bookingRef = db.doc(`bookings/${bookingId}`);
   const fixtureMetadata = {
     revision: 1,
     createdAt: at,
@@ -109,6 +112,33 @@ test('authenticated mastery progression and admin qualification preserve factual
         role: 'owner',
         authority: 'parent_guardian',
         status: 'active',
+        ...fixtureMetadata,
+      })
+    );
+    // Assessment requires a started canonical lesson; a manual relationship alone
+    // deliberately grants no assessment authority.
+    seed.create(
+      bookingRef,
+      BookingSchema.parse({
+        bookingId,
+        paymentId: `payment_levels_e2e_${attemptId}`,
+        attribution: {
+          bookingOrigin: 'admin',
+          bookedBy: { kind: 'account', accountId: runtime.studentUid },
+        },
+        party: { kind: 'individual', participantIds: [participantId] },
+        occurrence: {
+          occurrenceId: `occurrence_levels_e2e_${attemptId}`,
+          instructorId: runtime.workspaceInstructorId,
+          interval: {
+            startsAt: timestampFromDate(new Date(Date.now() - 15 * 60_000)),
+            endsAt: timestampFromDate(new Date(Date.now() + 45 * 60_000)),
+          },
+          timeZone: 'Asia/Almaty',
+          scheduleRevision: 1,
+          serviceParty: { participantIds: [participantId], frozenAt: at },
+        },
+        lifecycle: { status: 'confirmed' },
         ...fixtureMetadata,
       })
     );
@@ -184,7 +214,7 @@ test('authenticated mastery progression and admin qualification preserve factual
       correlationId: 'correlation_e2e_levels',
       exercisedCapability: 'instructor',
     });
-    expect(result?.status).toBe('success');
+    expect(result?.status, JSON.stringify(result)).toBe('success');
     expect((await db.doc(`participant_progress/${participantId}`).get()).data()!.level).toBe(1);
     expect((await operate({ action: 'confirm' }))?.status).toBe('success');
     expect((await db.doc(`participant_progress/${participantId}`).get()).data()!.level).toBe(2);
@@ -318,8 +348,8 @@ test('authenticated mastery progression and admin qualification preserve factual
     ).toBe(0);
   } finally {
     const cleanup = db.batch();
-    // Only the four documents owned by this attempt; keep command receipts/events.
-    for (const ref of [progressRef, relationshipRef, managementRef, participantRef]) {
+    // Only documents owned by this attempt; keep command receipts/events.
+    for (const ref of [bookingRef, progressRef, relationshipRef, managementRef, participantRef]) {
       cleanup.delete(ref);
     }
     await cleanup.commit();

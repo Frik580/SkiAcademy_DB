@@ -66,11 +66,7 @@ test('reschedule timezone preserves Almaty 09:00 in America/New_York', async ({
     await page.goto('/cabinet/calendar', { waitUntil: 'domcontentloaded' });
     const card = page.locator(`#booking-card-${bookingId}`);
     await card.getByRole('button', { name: /Reschedule/i }).click();
-    const modal = page
-      .locator('div')
-      .filter({ has: page.getByRole('heading', { name: 'Reschedule lesson', exact: true }) })
-      .filter({ has: page.getByRole('button', { name: 'Confirm reschedule', exact: true }) })
-      .last();
+    const modal = page.getByRole('dialog', { name: 'Reschedule lesson', exact: true });
     const dateButton = modal.getByRole('button', { name: 'Select Date', exact: true });
     await dateButton.click();
     const month = target.toLocaleString('en-US', { month: 'long', timeZone: 'UTC' });
@@ -85,10 +81,18 @@ test('reschedule timezone preserves Almaty 09:00 in America/New_York', async ({
     await modal.getByRole('button', { name: String(target.getUTCDate()), exact: true }).click();
     if ((await dateButton.getAttribute('aria-expanded')) === 'true')
       await page.keyboard.press('Escape');
-    await modal.getByRole('button', { name: 'Time', exact: true }).click();
+    const timeButton = modal.getByRole('button', { name: 'Time', exact: true });
+    await timeButton.click();
     await modal.getByRole('button', { name: '09:00', exact: true }).click();
+    // Picking the current wheel value already collapses it. Exercise Escape
+    // from an open picker so it cannot legitimately dismiss the parent dialog.
+    if ((await timeButton.getAttribute('aria-expanded')) === 'false')
+      await timeButton.click();
+    await expect(timeButton).toHaveAttribute('aria-expanded', 'true');
     await page.keyboard.press('Escape');
-    await expect(modal.getByRole('button', { name: 'Time', exact: true })).toHaveAttribute('aria-expanded', 'false');
+    await expect(modal).toBeVisible();
+    await expect(timeButton).toHaveAttribute('aria-expanded', 'false');
+    await expect(timeButton).toContainText('09:00');
     const responsePromise = page.waitForResponse(
       (response) =>
         response.url().includes('executeCanonicalCommand') &&

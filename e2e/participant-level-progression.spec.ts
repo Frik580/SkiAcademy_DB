@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test';
 // This scenario needs Vite's fixture route or the app's live source-store modules.
 test.use({ baseURL: 'http://127.0.0.1:5174' });
 import { loadRuntimeConfig, signInStudent } from './fixtures';
-import { waitForCabinetModule } from './cabinet-readiness';
+import { waitForCabinetReady } from './cabinet-readiness';
 import {
   AUTH_EMULATOR_HOST,
   E2E_PROJECT_ID,
@@ -253,7 +253,7 @@ test('authenticated mastery progression and admin qualification preserve factual
       { timeout: 60000 }
     );
     await signInStudent(page, runtime);
-    await waitForCabinetModule(page);
+    await waitForCabinetReady(page, runtime.studentParticipantId);
     expect((await participantRead).ok()).toBe(true);
     const switcher = page
       .getByRole('banner')

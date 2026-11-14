@@ -1,12 +1,16 @@
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 
-/** Wait for the live Vite route's complete import graph in the current document. */
-export async function waitForCabinetModule(page: Page): Promise<void> {
-  // DOMContentLoaded and the authenticated navbar can precede this lazy route.
-  // A reload/goto creates a new module registry, so repeat this per document.
-  // Do not mutate stores or substitute module readiness for product assertions.
-  await page.evaluate(async () => {
-    const moduleUrl = '/src/app/routes/CabinetRouteContainer.tsx';
-    await import(moduleUrl);
-  });
+/** Wait for the multi-participant student cabinet and its selected Participant. */
+export async function waitForCabinetReady(page: Page, participantId: string): Promise<void> {
+  // The authenticated navbar alone can precede the lazy route and its data.
+  // Observe product UI; importing a module neither proves hydration nor scope.
+  await expect(
+    page
+      .getByRole('banner')
+      .locator('[data-testid="navbar-participant-switcher"]:visible')
+      .locator(`[data-participant-id="${participantId}"]`)
+  ).toHaveAttribute('aria-pressed', 'true');
+  await expect(
+    page.getByRole('main').locator(`[data-participant-scope="${participantId}"]`).first()
+  ).toBeVisible();
 }

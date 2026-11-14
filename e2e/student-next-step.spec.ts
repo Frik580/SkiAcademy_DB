@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test';
 // This scenario needs Vite's fixture route or the app's live source-store modules.
 test.use({ baseURL: 'http://127.0.0.1:5174' });
 import { loadRuntimeConfig, signInAccount, watchBrowserFailures } from './fixtures';
-import { waitForCabinetModule } from './cabinet-readiness';
+import { waitForCabinetReady } from './cabinet-readiness';
 import { DEFAULT_SKILL_CONFIG, getSkillItemTitle } from '../src/domain/achievements';
 
 function emulatorDb() {
@@ -44,7 +44,14 @@ test('Next Step preserves participant pin persistence, development, XP and four 
     [a, b].map(async (id) => (await db.doc(`participant_progress/${id}`).get()).data())
   );
   const healthy = watchBrowserFailures(page);
-  await page.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, (route) => route.abort());
+  // Playwright routing disables HTTP caching for every request, including the
+  // hundreds of Vite modules needed again on reload. Block only remote fonts
+  // through Chromium so module caching remains available across documents.
+  const network = await page.context().newCDPSession(page);
+  await network.send('Network.enable');
+  await network.send('Network.setBlockedURLs', {
+    urls: ['https://fonts.googleapis.com/*', 'https://fonts.gstatic.com/*'],
+  });
   let participantRead!: Promise<import('@playwright/test').Response>;
   await signInAccount(
     page,
@@ -59,7 +66,7 @@ test('Next Step preserves participant pin persistence, development, XP and four 
     }
   );
   expect((await participantRead).ok()).toBe(true);
-  await waitForCabinetModule(page);
+  await waitForCabinetReady(page, a);
   const header = page
     .getByRole('banner')
     .locator('[data-testid="navbar-participant-switcher"]:visible');
@@ -93,7 +100,7 @@ test('Next Step preserves participant pin persistence, development, XP and four 
   );
   await expect(title).toHaveText('Slide 20 m on a steep slope using side-slipping');
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await waitForCabinetModule(page);
+  await waitForCabinetReady(page, a);
   await expect(header.locator(`[data-participant-id="${a}"]`)).toHaveAttribute('aria-pressed', 'true');
   await expect(tile.locator('[data-participant-scope]')).toContainText(r.studentDisplayName);
   await expect(page.locator('[data-dashboard-tile="todayTasks"]')).toContainText(
@@ -186,7 +193,7 @@ test('Next Step preserves participant pin persistence, development, XP and four 
     .map((item) => item.id);
   await profile.update({ [`participantTodayChecklists.${a}.todaySkillItemIds`]: allLevelOneIds });
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await waitForCabinetModule(page);
+  await waitForCabinetReady(page, a);
   await expect(tile).toContainText('No new exercises');
   await expect(tile.getByRole('button', { name: 'Add to tasks' })).toHaveCount(0);
   const progressAfter = await Promise.all(

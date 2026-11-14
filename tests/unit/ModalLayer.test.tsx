@@ -18,13 +18,21 @@ afterAll(() => {
   else Reflect.deleteProperty(HTMLElement.prototype, 'scrollTo');
 });
 
-function Example({ pending = false }: { pending?: boolean }) {
+function Example({
+  pending = false,
+  triggerDisabled = false,
+}: {
+  pending?: boolean;
+  triggerDisabled?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [child, setChild] = useState(false);
   const [trigger, setTrigger] = useState(true);
   return (
     <main tabIndex={-1}>
-      {trigger && <button onClick={() => setOpen(true)}>Open</button>}
+      {trigger && (
+        <button disabled={triggerDisabled} onClick={() => setOpen(true)}>Open</button>
+      )}
       <button>Background</button>
       {open && (
         <ModalLayer onClose={() => setOpen(false)} closeDisabled={pending}>
@@ -50,6 +58,66 @@ function Example({ pending = false }: { pending?: boolean }) {
 }
 
 describe('shared modal accessibility', () => {
+  it('restores focus when the opener becomes enabled in a later commit', async () => {
+    const view = render(<Example />);
+    const opener = screen.getByText('Open');
+    await userEvent.click(opener);
+    view.rerender(<Example triggerDisabled />);
+    await userEvent.keyboard('{Escape}');
+    expect(screen.getByRole('main')).toHaveFocus();
+    expect(opener).toBeDisabled();
+    view.rerender(<Example />);
+    await Promise.resolve();
+    expect(opener).toHaveFocus();
+  });
+
+  it('restores a disabled child opener inside the surviving parent modal', async () => {
+    const view = render(<Example />);
+    await userEvent.click(screen.getByText('Open'));
+    const childOpener = screen.getByText('Child');
+    await userEvent.click(childOpener);
+    childOpener.setAttribute('disabled', '');
+    await userEvent.keyboard('{Escape}');
+    expect(screen.getByRole('dialog', { name: 'Parent' })).toHaveFocus();
+    childOpener.removeAttribute('disabled');
+    await Promise.resolve();
+    expect(childOpener).toHaveFocus();
+    view.unmount();
+  });
+
+  it.each(['removed', 'hidden', 'user focus', 'another modal'] as const)(
+    'cancels deferred restoration after %s',
+    async (change) => {
+      const view = render(<><Example /></>);
+      const opener = screen.getByText('Open');
+      await userEvent.click(opener);
+      view.rerender(<><Example triggerDisabled /></>);
+      await userEvent.keyboard('{Escape}');
+      if (change === 'removed') opener.remove();
+      else if (change === 'hidden') opener.hidden = true;
+      else if (change === 'user focus') screen.getByText('Background').focus();
+      else {
+        view.rerender(
+          <>
+            <Example triggerDisabled />
+            <ModalLayer onClose={() => {}}>
+              <div role="dialog" aria-label="New modal">
+                <button>New action</button>
+              </div>
+            </ModalLayer>
+          </>
+        );
+      }
+      // Let the pending observer see removal/visibility before enabling the origin.
+      await Promise.resolve();
+      opener.removeAttribute('disabled');
+      await Promise.resolve();
+      expect(opener).not.toHaveFocus();
+      if (change === 'another modal') expect(screen.getByText('New action')).toHaveFocus();
+      if (change === 'user focus') expect(screen.getByText('Background')).toHaveFocus();
+    }
+  );
+
   it('keeps the child on top when both portal layers mount in one commit', async () => {
     const parentClose = vi.fn();
     const childClose = vi.fn();

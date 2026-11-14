@@ -5,6 +5,7 @@ export const ModalParent = createContext<RefObject<HTMLElement> | null>(null);
 const layers: HTMLElement[] = [];
 const focusOrigins = new WeakMap<HTMLElement, HTMLElement | null>();
 const parents = new WeakMap<HTMLElement, RefObject<HTMLElement> | null>();
+let cancelPendingFocusRestore: (() => void) | undefined;
 function updateLayerOrder() {
   layers.forEach((layer, index) => {
     layer.style.zIndex = String(81 + index);
@@ -66,18 +67,75 @@ function focusableElements(dialog: HTMLElement) {
   });
 }
 
-function canRestoreFocus(node: HTMLElement | null): node is HTMLElement {
-  if (!node?.isConnected || node.matches(':disabled')) return false;
+function canRestoreFocus(node: HTMLElement | null, allowDisabled = false): node is HTMLElement {
+  if (!node?.isConnected || (!allowDisabled && node.matches(':disabled'))) return false;
   for (let ancestor: HTMLElement | null = node; ancestor; ancestor = ancestor.parentElement) {
     if (
       ancestor.hidden ||
       ancestor.hasAttribute('inert') ||
+      ancestor.getAttribute('aria-hidden') === 'true' ||
       getComputedStyle(ancestor).display === 'none' ||
-      getComputedStyle(ancestor).visibility === 'hidden'
+      ['hidden', 'collapse'].includes(getComputedStyle(ancestor).visibility)
     )
       return false;
   }
   return true;
+}
+
+function layerDialog(layer: HTMLElement) {
+  return layer.matches('[role="dialog"]')
+    ? layer
+    : layer.querySelector<HTMLElement>('[role="dialog"]');
+}
+
+function inRestoreScope(origin: HTMLElement, closedRoot: HTMLElement) {
+  if (closedRoot.contains(origin)) return false;
+  const top = layers.at(-1);
+  return top
+    ? top.contains(origin) && origin.closest('[role="dialog"]') === layerDialog(top)
+    : !origin.closest('[role="dialog"], [data-modal-layer]');
+}
+
+function restoreWhenEnabled(origin: HTMLElement, closedRoot: HTMLElement, fallback: HTMLElement) {
+  const top = layers.at(-1);
+  let cancelled = false;
+  const cancel = () => {
+    cancelled = true;
+    observer.disconnect();
+    document.removeEventListener('focusin', cancel);
+    document.removeEventListener('pointerdown', cancel, true);
+    document.removeEventListener('keydown', cancel, true);
+    if (cancelPendingFocusRestore === cancel) cancelPendingFocusRestore = undefined;
+  };
+  const restore = () => {
+    if (cancelled) return;
+    if (
+      layers.at(-1) !== top ||
+      !inRestoreScope(origin, closedRoot) ||
+      !canRestoreFocus(origin, true) ||
+      (document.activeElement !== fallback && document.activeElement !== document.body)
+    ) {
+      cancel();
+      return;
+    }
+    if (origin.matches(':disabled')) return;
+    cancel();
+    origin.focus({ preventScroll: true });
+  };
+  const observer = new MutationObserver(restore);
+  observer.observe(document.body, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ['disabled', 'hidden', 'inert', 'aria-hidden', 'class', 'style'],
+  });
+  cancelPendingFocusRestore = cancel;
+  document.addEventListener('focusin', cancel);
+  document.addEventListener('pointerdown', cancel, true);
+  document.addEventListener('keydown', cancel, true);
+  // Deletion layout cleanup runs before surviving host nodes receive new props.
+  // Retry after the commit, then observe a genuinely later disabled -> enabled update.
+  queueMicrotask(restore);
 }
 
 export function useModalAccessibility(
@@ -93,6 +151,7 @@ export function useModalAccessibility(
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root || !active) return;
+    cancelPendingFocusRestore?.();
     let previousFocus =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const originalZIndex = root.style.zIndex;
@@ -152,6 +211,7 @@ export function useModalAccessibility(
     document.addEventListener('keydown', handleKey);
     document.addEventListener('focusin', handleFocus);
     return () => {
+      cancelPendingFocusRestore?.();
       const wasTop = isTop();
       observer.disconnect();
       document.removeEventListener('keydown', handleKey);
@@ -163,17 +223,30 @@ export function useModalAccessibility(
       root.style.zIndex = originalZIndex;
       isolateBackground();
       if (!wasTop) return;
-      if (canRestoreFocus(previousFocus)) previousFocus.focus({ preventScroll: true });
-      if (!canRestoreFocus(previousFocus) || document.activeElement !== previousFocus) {
+      const top = layers.at(-1);
+      const originInScope = previousFocus && inRestoreScope(previousFocus, root);
+      if (originInScope && canRestoreFocus(previousFocus))
+        previousFocus.focus({ preventScroll: true });
+      if (
+        !originInScope ||
+        !canRestoreFocus(previousFocus) ||
+        document.activeElement !== previousFocus
+      ) {
+        const main = document.querySelector<HTMLElement>('main');
         const fallback =
-          layers.at(-1)?.querySelector<HTMLElement>('[role="dialog"]') ??
-          document.querySelector<HTMLElement>('main') ??
+          (top ? layerDialog(top) : main && inRestoreScope(main, root) ? main : null) ??
           document.body;
         const tabIndex = fallback.getAttribute('tabindex');
         fallback.tabIndex = -1;
-        fallback.focus({ preventScroll: true });
+        if (canRestoreFocus(fallback)) fallback.focus({ preventScroll: true });
         if (tabIndex === null) fallback.removeAttribute('tabindex');
         else fallback.setAttribute('tabindex', tabIndex);
+        if (
+          originInScope &&
+          canRestoreFocus(previousFocus, true) &&
+          previousFocus.matches(':disabled')
+        )
+          restoreWhenEnabled(previousFocus, root, fallback);
       }
     };
   }, [rootRef, active, parent]);

@@ -6,6 +6,10 @@ import { hostingBuildInfoPlugin } from './scripts/hostingBuildInfoPlugin.mjs';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  optimizeDeps: {
+    // Scan the application entry, not every HTML fixture in the repository.
+    entries: ['index.html'],
+  },
   build: {
     manifest: true,
   },

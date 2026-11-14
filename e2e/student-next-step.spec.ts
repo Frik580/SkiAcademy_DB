@@ -3,8 +3,8 @@ import { test, expect } from '@playwright/test';
 
 // This scenario needs Vite's fixture route or the app's live source-store modules.
 test.use({ baseURL: 'http://127.0.0.1:5174' });
-import { loadRuntimeConfig, signInStudent, watchBrowserFailures } from './fixtures';
-import { DEFAULT_SKILL_CONFIG } from '../src/domain/achievements';
+import { loadRuntimeConfig, signInAccount, watchBrowserFailures } from './fixtures';
+import { DEFAULT_SKILL_CONFIG, getSkillItemTitle } from '../src/domain/achievements';
 
 function emulatorDb() {
   expect(process.env.GCLOUD_PROJECT).toBe('demo-ski-school-e2e');
@@ -44,12 +44,24 @@ test('Next Step preserves participant pin persistence, development, XP and four 
   );
   const healthy = watchBrowserFailures(page);
   await page.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, (route) => route.abort());
-  const participantRead = page.waitForResponse(
-    (response) =>
-      response.url().endsWith('/queryManagedParticipantPickerReadModels') &&
-      response.request().method() === 'POST'
+  let participantRead!: Promise<import('@playwright/test').Response>;
+  await signInAccount(
+    page,
+    { email: r.studentEmail, password: r.studentPassword, expectedPath: '/cabinet' },
+    async () => {
+      // Vite's HTTP readiness probe only transforms the entry. Await the browser's
+      // complete import graph before starting the dashboard readiness assertions.
+      await page.evaluate(async () => {
+        const moduleUrl = '/src/app/routes/CabinetRouteContainer.tsx';
+        await import(moduleUrl);
+      });
+      participantRead = page.waitForResponse(
+        (response) =>
+          response.url().endsWith('/queryManagedParticipantPickerReadModels') &&
+          response.request().method() === 'POST'
+      );
+    }
   );
-  await signInStudent(page, r);
   expect((await participantRead).ok()).toBe(true);
   const header = page
     .getByRole('banner')
@@ -57,6 +69,11 @@ test('Next Step preserves participant pin persistence, development, XP and four 
   await expect(header.locator(`[data-participant-id="${a}"]`)).toBeVisible();
   const tile = page.locator('[data-dashboard-tile="nextStep"]');
   const title = tile.getByRole('heading', { level: 3 });
+  await expect(title).toHaveText('Maintain basic stance in motion for 100 m');
+  const firstSkill = DEFAULT_SKILL_CONFIG.items.find((item) => item.id === 'l1_1')!;
+  await page.getByRole('button', { name: 'RU', exact: true }).click();
+  await expect(title).toHaveText(getSkillItemTitle(firstSkill, 'ru'));
+  await page.getByRole('button', { name: 'EN', exact: true }).click();
   await expect(title).toHaveText('Maintain basic stance in motion for 100 m');
   await expect(tile.locator('[data-participant-scope]')).toContainText(r.studentDisplayName);
   await expect(tile).toContainText('Potential gain after instructor assessment');

@@ -28,6 +28,45 @@ const {
 const callable = 'queryInstructorParticipantRecommendationHistoryReadModels';
 const progressHistoryCallable = 'queryParticipantProgressHistoryReadModels';
 
+// This file has one scenario; retain ownership from the first setup operation so
+// afterEach can clean up partial setup as well as a timed-out test body.
+let cleanupData: {
+  db: ReturnType<typeof ensureFirestore>;
+  paths: string[];
+  authTokens: string[];
+} | undefined;
+
+test.afterEach(async ({ playwright }) => {
+  const data = cleanupData;
+  cleanupData = undefined;
+  if (!data) return;
+  // The test-scoped request fixture can already be closed after a body timeout.
+  const cleanupRequest = await playwright.request.newContext();
+  try {
+    const results = await Promise.allSettled([
+      (async () => {
+        const batch = data.db.batch();
+        for (const path of data.paths) batch.delete(data.db.doc(path));
+        await batch.commit();
+      })(),
+      ...data.authTokens.map(async (idToken) => {
+        const response = await cleanupRequest.post(
+          `${AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:delete?key=fake-api-key`,
+          { data: { idToken } }
+        );
+        expect(response.ok(), await response.text()).toBe(true);
+      }),
+    ]);
+    const errors = results.flatMap((result) =>
+      result.status === 'rejected' ? [result.reason] : []
+    );
+    // Report cleanup failures separately without replacing the body's failure.
+    if (errors.length) throw new AggregateError(errors, 'Recommendation history cleanup failed');
+  } finally {
+    await cleanupRequest.dispose();
+  }
+});
+
 test('instructor lesson context combines live progress, homework and recommendations and reauthorizes both histories', async ({
   page,
   request,
@@ -55,6 +94,8 @@ test('instructor lesson context combines live progress, homework and recommendat
   };
   const metadata = { revision: 1, createdAt: at, updatedAt: at, audit };
   const ownedPaths: string[] = [];
+  const authTokens: string[] = [];
+  cleanupData = { db, paths: ownedPaths, authTokens };
   const batch = db.batch();
   const seed = (path: string, data: FirebaseFirestore.DocumentData) => {
     ownedPaths.push(path);
@@ -98,12 +139,14 @@ test('instructor lesson context combines live progress, homework and recommendat
   );
   expect(signup.ok()).toBe(true);
   const { localId: accountId, idToken } = await signup.json();
+  authTokens.push(idToken);
   const unrelatedSignup = await request.post(
     `${AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key`,
     { data: { returnSecureToken: true } }
   );
   expect(unrelatedSignup.ok()).toBe(true);
   const unrelated = await unrelatedSignup.json();
+  authTokens.push(unrelated.idToken);
   for (const [uid, coach, name, email] of [
     [accountId, instructorId, authorName, authorEmail],
     [unrelated.localId, `${prefix}_unrelated`, 'Unrelated History Coach', null],
@@ -290,10 +333,8 @@ test('instructor lesson context combines live progress, homework and recommendat
   }
   const authorText = 'Practice weight transfer';
   const longText = 'ПереносВеса'.repeat(160);
-  let seeded = false;
-  try {
+  await test.step('Exercise lesson context and reauthorization', async () => {
     await batch.commit();
-    seeded = true;
     ownedPaths.push(`participant_lesson_feedback/${feedbackId(participantId, authoredLessonId)}`);
     const saved = await request.post(functionsCallableUrl('executeCanonicalCommand'), {
       headers: { Authorization: `Bearer ${idToken}` },
@@ -775,6 +816,9 @@ test('instructor lesson context combines live progress, homework and recommendat
     await page.getByRole('button', { name: 'EN', exact: true }).click();
     const signOut = async () => {
       await page.getByTitle(translations.en.signOut, { exact: true }).click();
+      // Guest chrome appears when local stores reset, before Firebase persists
+      // sign-out. This notification is emitted only after handleSignOut resolves.
+      await expect(page.getByText(translations.en.loggedOutDesc, { exact: true })).toBeVisible();
       await expect(
         page.getByRole('button', { name: 'Sign In', exact: true }).first()
       ).toBeVisible();
@@ -809,19 +853,5 @@ test('instructor lesson context combines live progress, homework and recommendat
     await expect(history.getByText(translations.en.historyEmpty)).toBeVisible();
     await expect(observations).toHaveCount(0);
     await expect(historyMore).toHaveCount(0);
-  } finally {
-    if (seeded) {
-      const cleanup = db.batch();
-      for (const path of ownedPaths) cleanup.delete(db.doc(path));
-      await cleanup.commit();
-    }
-    await Promise.all(
-      [idToken, unrelated.idToken].map((token) =>
-        request.post(
-          `${AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:delete?key=fake-api-key`,
-          { data: { idToken: token } }
-        )
-      )
-    );
-  }
+  });
 });

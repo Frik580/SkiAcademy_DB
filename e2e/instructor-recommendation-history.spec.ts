@@ -5,7 +5,7 @@ import { DEFAULT_SKILL_CONFIG, getSkillItemTitle } from '../src/domain/achieveme
 import { MASTERY_LEVELS } from '@ski-academy/shared-domain/canonical/participantLevelProgression';
 import { translations } from '../src/lib/i18n/translations';
 import { AUTH_EMULATOR_HOST, functionsCallableUrl } from './emulator-config';
-import { loadRuntimeConfig, signInAccount } from './fixtures';
+import { loadRuntimeConfig, signInAccount, signOutAccount } from './fixtures';
 import { ensureFirestore } from './firestore-admin';
 
 const requireRoot = createRequire(import.meta.url);
@@ -815,13 +815,7 @@ test('instructor lesson context combines live progress, homework and recommendat
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'EN', exact: true }).click();
     const signOut = async () => {
-      await page.getByTitle(translations.en.signOut, { exact: true }).click();
-      // Guest chrome appears when local stores reset, before Firebase persists
-      // sign-out. This notification is emitted only after handleSignOut resolves.
-      await expect(page.getByText(translations.en.loggedOutDesc, { exact: true })).toBeVisible();
-      await expect(
-        page.getByRole('button', { name: 'Sign In', exact: true }).first()
-      ).toBeVisible();
+      await signOutAccount(page);
       await expect(dialog).toHaveCount(0);
     };
     await signOut();

@@ -8,6 +8,7 @@ import {
   loadRuntimeConfig,
   signInAccount,
   signInStudent,
+  signOutAccount,
   watchBrowserFailures,
 } from './fixtures';
 import { seedStudentAccount } from './global-setup';
@@ -373,10 +374,7 @@ test('authenticated coach comments preserve participant data and navigation', as
       await student.reload();
       await openComments();
       await expectComment();
-      await student.getByRole('button', { name: 'Sign Out', exact: true }).click();
-      await expect(
-        student.getByRole('button', { name: 'Sign In', exact: true }).first()
-      ).toBeVisible();
+      await signOutAccount(student);
       await signInStudent(student, { studentEmail: email, studentPassword: password });
       await openComments();
       await expectComment();

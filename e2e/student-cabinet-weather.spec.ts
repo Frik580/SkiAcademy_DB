@@ -1,7 +1,13 @@
 import { ensureFirestore } from './firestore-admin';
 import { test, expect } from '@playwright/test';
 import { createRequire } from 'node:module';
-import { loadRuntimeConfig, signInStudent, signInStudentB, watchBrowserFailures } from './fixtures';
+import {
+  loadRuntimeConfig,
+  signInStudent,
+  signInStudentB,
+  signOutAccount,
+  watchBrowserFailures,
+} from './fixtures';
 import { FIRESTORE_EMULATOR_HOST } from './emulator-config';
 import { waitForFunctionsEmulatorReady } from './global-setup';
 
@@ -261,8 +267,7 @@ test('Student Cabinet weather shares data and unit preference across participant
 
     // Sign Out is in the desktop navbar; the viewport loop ends at 320px.
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await page.getByRole('button', { name: 'Sign Out' }).click();
-    await expect(page.getByRole('button', { name: 'Sign In', exact: true }).first()).toBeVisible();
+    await signOutAccount(page);
     lessonReadModel = undefined;
     await signInStudentB(page, runtime);
     await expect(page).toHaveURL(/\/cabinet$/);

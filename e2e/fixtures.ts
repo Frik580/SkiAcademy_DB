@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { expect, type Page, type Request, type TestInfo } from '@playwright/test';
 import type { E2ERuntimeConfig } from './global-setup';
 import { DEFAULT_LESSON_DURATION_MINUTES } from './emulator-config';
+import { translations } from '../src/lib/i18n/translations';
 
 const runtimeConfigPath = join(dirname(fileURLToPath(import.meta.url)), '.runtime-config.json');
 
@@ -146,6 +147,30 @@ export function loadRuntimeConfig(): E2ERuntimeConfig {
   return JSON.parse(readFileSync(runtimeConfigPath, 'utf8')) as E2ERuntimeConfig;
 }
 
+/** Wait for persisted Firebase sign-out before another helper navigates/reloads. */
+export async function signOutAccount(page: Page, language: 'en' | 'ru' = 'en'): Promise<void> {
+  const completed = page.locator('[id^="toast-"]').filter({
+    has: page.getByText(translations[language].loggedOutDesc, { exact: true }),
+  });
+  const previousIds = await completed.evaluateAll((nodes) => nodes.map((node) => node.id));
+  await page.getByRole('button', { name: translations[language].signOut, exact: true }).click();
+  // Guest chrome appears on the synchronous local reset. AppShell emits this
+  // notification only after handleSignOut (including Firebase persistence) resolves.
+  // Require a new toast so a previous sign-out cannot satisfy this wait.
+  await expect
+    .poll(() =>
+      completed.evaluateAll(
+        (nodes, ids) => nodes.some((node) => !ids.includes(node.id)),
+        previousIds
+      )
+    )
+    .toBe(true);
+  await expect(
+    page.getByRole('button', { name: translations[language].signIn, exact: true }).first()
+  ).toBeVisible();
+}
+
+/** Requires a fresh context or completed signOutAccount; never reuse a restored principal. */
 export async function signInAccount(
   page: Page,
   credentials: { email: string; password: string; expectedPath?: '/cabinet' | '/instructor' },
@@ -153,11 +178,14 @@ export async function signInAccount(
 ): Promise<void> {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'Sign In', exact: true }).first().click();
-  const authModal = page.locator('.ui-modal');
+  const authModal = page.getByRole('dialog').filter({ has: page.getByPlaceholder('Email Address') });
+  await expect(authModal).toBeVisible();
   await authModal.getByPlaceholder('Email Address').fill(credentials.email);
   await authModal.getByPlaceholder('Password').fill(credentials.password);
+  const submit = authModal.getByRole('button', { name: 'Sign In', exact: true });
+  await expect(submit).toBeEnabled();
   await beforeSubmit?.();
-  await authModal.getByRole('button', { name: 'Sign In', exact: true }).click();
+  await submit.click();
   if (credentials.expectedPath) {
     await expect(page).toHaveURL(new RegExp(`${credentials.expectedPath}(?:/|$)`));
   } else {

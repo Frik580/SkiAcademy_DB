@@ -1,16 +1,14 @@
 import { expect, type Page } from '@playwright/test';
 
-/** Wait for the multi-participant student cabinet and its selected Participant. */
+/** Authenticated route mounted and managed Participant selection resolved.
+ * Tile-specific content (XP, Next Step, etc.) still needs its own assertions.
+ */
 export async function waitForCabinetReady(page: Page, participantId: string): Promise<void> {
-  // The authenticated navbar alone can precede the lazy route and its data.
-  // Observe product UI; importing a module neither proves hydration nor scope.
+  // Scope badges are decorative and may be absent on a tab or for one person.
+  // The shell contract survives reloads, tab navigation and Participant changes.
   await expect(
-    page
-      .getByRole('banner')
-      .locator('[data-testid="navbar-participant-switcher"]:visible')
-      .locator(`[data-participant-id="${participantId}"]`)
-  ).toHaveAttribute('aria-pressed', 'true');
-  await expect(
-    page.getByRole('main').locator(`[data-participant-scope="${participantId}"]`).first()
+    page.getByRole('main').locator(
+      `[data-testid="student-cabinet"][data-cabinet-state="ready"][data-cabinet-participant-id="${participantId}"]`
+    )
   ).toBeVisible();
 }

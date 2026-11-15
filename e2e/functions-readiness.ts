@@ -13,11 +13,15 @@ async function probeFunctionsHttp(functionName: string): Promise<boolean> {
   try {
     const response = await fetch(functionsCallableUrl(functionName), {
       method: 'GET',
+      redirect: 'error',
       signal: AbortSignal.timeout(FUNCTIONS_READINESS_ATTEMPT_TIMEOUT_MS),
     });
-    const ready = response.status < 502;
-    await response.body?.cancel();
-    return ready;
+    if (response.status !== 400) {
+      await response.body?.cancel();
+      return false;
+    }
+    // No image URL: validation returns before cache, admission or upstream I/O.
+    return (await response.text()) === 'Missing u parameter';
   } catch {
     return false;
   }
@@ -27,27 +31,36 @@ async function probeFunctionsCallable(functionName: string): Promise<boolean> {
   try {
     const response = await fetch(functionsCallableUrl(functionName), {
       method: 'POST',
+      redirect: 'error',
       headers: { 'Content-Type': 'application/json' },
       // Missing callable envelope is rejected by the SDK before admission or
       // domain handlers. Readiness must not write counters or contend on them.
       body: JSON.stringify({}),
       signal: AbortSignal.timeout(FUNCTIONS_READINESS_ATTEMPT_TIMEOUT_MS),
     });
-    const ready = response.status === 400;
-    await response.body?.cancel();
-    return ready;
+    if (response.status !== 400) {
+      await response.body?.cancel();
+      return false;
+    }
+    // A domain validation error can also be HTTP 400, after admission writes.
+    // Only the SDK's rejection of the missing envelope proves this safe path.
+    const body = await response.json();
+    return body?.error?.status === 'INVALID_ARGUMENT' && body.error.message === 'Bad Request';
   } catch {
     return false;
   }
 }
 
 async function probeFunctionsRuntimeReady() {
-  const [httpReady, guestCallableReady, authCallableReady] = await Promise.all([
+  const [httpReady, guestCallableReady, authCallableReady, kaspiCallableReady] = await Promise.all([
     probeFunctionsHttp(FUNCTIONS_READINESS_PROBE),
     probeFunctionsCallable('executeGuestCanonicalCommand'),
     probeFunctionsCallable('executeCanonicalCommand'),
+    // Guest status mounts payment reads too. A cold payment worker can occupy
+    // the browser's emulator connections and queue the next enrollment read.
+    probeFunctionsCallable('queryKaspiPayments'),
   ]);
-  return { httpReady, guestCallableReady, authCallableReady };
+  return { httpReady, guestCallableReady, authCallableReady, kaspiCallableReady };
 }
 
 /**

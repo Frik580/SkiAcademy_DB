@@ -2,8 +2,6 @@ import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
 
-// This scenario needs Vite's fixture route or the app's live source-store modules.
-test.use({ baseURL: 'http://127.0.0.1:5174' });
 import { loadRuntimeConfig, signInStudent } from './fixtures';
 import { waitForCabinetReady } from './cabinet-readiness';
 import {
@@ -263,33 +261,11 @@ test('authenticated mastery progression and admin qualification preserve factual
     await target.click();
     const projected = (await (await managedRead).json()).result;
     expect(projected.items).toEqual(
-      expect.arrayContaining([expect.objectContaining({ participantId, level: 3 })])
+      expect.arrayContaining([expect.objectContaining({ participantId, level: 3, skillScores: scores })])
     );
-    // A successful response alone does not prove that the cabinet consumed it.
-    // Read the same Vite module instances as the app, without writing either store.
-    const cabinetState = () =>
-      page.evaluate(async (id) => {
-        const selectionUrl =
-          '/src/features/student-cabinet/cabinetProgressParticipantSelectionStore.ts';
-        const progressUrl = '/src/features/participant-progress/participantProgressStore.ts';
-        const { useCabinetProgressParticipantSelectionStore } = await import(selectionUrl);
-        const { useParticipantProgressStore } = await import(progressUrl);
-        const selection = useCabinetProgressParticipantSelectionStore.getState();
-        const progress = useParticipantProgressStore.getState().byId[id];
-        return {
-          selectedParticipantId: selection.selectedParticipantId,
-          participantId: progress?.participantId,
-          level: progress?.level,
-          skillScores: progress?.skillScores,
-        };
-      }, participantId);
-    const expectedState = {
-      selectedParticipantId: participantId,
-      participantId,
-      level: 3,
-      skillScores: scores,
-    };
-    await expect.poll(cabinetState).toEqual(expectedState);
+    // Verify consumption through the selected Participant's rendered Journey,
+    // rather than importing source stores into an E2E browser.
+    await waitForCabinetReady(page, participantId);
     await expect(target).toHaveAttribute('aria-pressed', 'true');
 
     // Scope every mastery assertion to the journey whose avatar is the selected
@@ -297,9 +273,8 @@ test('authenticated mastery progression and admin qualification preserve factual
     const journey = page.locator('#your-journey').filter({
       has: page.getByRole('img', { name: 'E2E Level Student', exact: true }),
     });
-    // Module readiness alone does not prove this Participant's Journey rendered.
+    // Shell readiness alone does not prove this Participant's Journey rendered.
     await expect(journey).toBeVisible({ timeout: 60_000 });
-    await expect.poll(cabinetState).toEqual(expectedState);
     await expect(target).toHaveAttribute('aria-pressed', 'true');
 
     for (const language of ['en', 'ru'] as const) {
@@ -332,7 +307,6 @@ test('authenticated mastery progression and admin qualification preserve factual
         await expect(journey.locator('.journey-summary-xp')).toHaveText('0 XP');
         const current = journey.locator('.journey-criteria');
         await expect(current).toContainText(`${stage.required} XP`);
-        await expect.poll(cabinetState).toEqual(expectedState);
         await testInfo.attach(`selected-participant-${language}-${width}`, {
           body: await journey.screenshot(),
           contentType: 'image/png',

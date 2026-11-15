@@ -4,6 +4,8 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { hostingBuildInfoPlugin } from './scripts/hostingBuildInfoPlugin.mjs';
 
+let e2eBuild = false;
+
 // https://vitejs.dev/config/
 export default defineConfig({
   optimizeDeps: {
@@ -32,7 +34,32 @@ export default defineConfig({
       ),
     },
   },
-  plugins: [react(), tailwindcss(), hostingBuildInfoPlugin()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    hostingBuildInfoPlugin(),
+    {
+      name: 'e2e-app-probe',
+      apply: 'build',
+      configResolved(config) {
+        e2eBuild = config.mode === 'e2e';
+      },
+      transformIndexHtml: {
+        order: 'pre',
+        handler() {
+          return e2eBuild
+            ? [
+                {
+                  tag: 'script',
+                  attrs: { type: 'module', src: '/e2e/app-probe.ts' },
+                  injectTo: 'body',
+                },
+              ]
+            : [];
+        },
+      },
+    },
+  ],
   server: {
     port: 3000,
     host: true,

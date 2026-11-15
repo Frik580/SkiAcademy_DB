@@ -10,7 +10,7 @@ import {
   updateMetadata,
   deleteObject,
 } from 'firebase/storage';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   cleanupEmulatorTestEnvironment,
   initializeEmulatorTestEnvironment,
@@ -42,24 +42,60 @@ import {
 } from './helpers/storageRulesFixtures';
 
 let testEnv: RulesTestEnvironment;
+let restoreSetupFetch: (() => void) | undefined;
 
 beforeAll(async () => {
-  testEnv = await initializeEmulatorTestEnvironment(
-    {
-      projectId: STORAGE_RULES_PROJECT_ID,
-      firestore: {
-        rules: loadFirestoreRules(),
-      },
-      storage: {
-        rules: loadStorageRules(),
-      },
-    },
-    { preserveEmulatorHub: true }
-  );
-
-  await testEnv.withSecurityRulesDisabled(async (context) => {
-    await uploadString(ref(context.storage(), 'existing/image.txt'), 'private');
+  // initializeTestEnvironment awaits these administrative HTTP requests before
+  // creating the environment. Record their boundaries to locate a hook timeout.
+  const emulatorFetch = globalThis.fetch;
+  const setupFetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async (...args) => {
+    const [input] = args;
+    const url = new URL(
+      typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    );
+    const phases: Record<string, string> = {
+      '/emulators': 'Hub discovery',
+      '/internal/setRules': 'Storage Rules upload',
+    };
+    const phase =
+      phases[url.pathname] ??
+      (url.pathname.endsWith(':securityRules') ? 'Firestore Rules upload' : undefined);
+    if (!phase) return emulatorFetch(...args);
+    const started = Date.now();
+    console.info(`[Storage setup] ${phase}: started (${url.origin})`);
+    try {
+      const response = await emulatorFetch(...args);
+      console.info(`[Storage setup] ${phase}: HTTP ${response.status} (${Date.now() - started}ms)`);
+      return response;
+    } catch (error) {
+      console.error(`[Storage setup] ${phase}: failed (${Date.now() - started}ms)`, error);
+      throw error;
+    }
   });
+  restoreSetupFetch = () => setupFetch.mockRestore();
+  try {
+    console.info('[Storage setup] initializeTestEnvironment: started');
+    testEnv = await initializeEmulatorTestEnvironment(
+      {
+        projectId: STORAGE_RULES_PROJECT_ID,
+        firestore: {
+          rules: loadFirestoreRules(),
+        },
+        storage: {
+          rules: loadStorageRules(),
+        },
+      },
+      { preserveEmulatorHub: true }
+    );
+
+    console.info('[Storage setup] RulesTestEnvironment created; initial SDK upload: started');
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await uploadString(ref(context.storage(), 'existing/image.txt'), 'private');
+    });
+    console.info('[Storage setup] initial SDK upload: completed');
+  } finally {
+    restoreSetupFetch();
+  }
 }, 30_000);
 
 beforeEach(async () => {
@@ -71,6 +107,8 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
+  // A timed-out hook can still have an unresolved request.
+  restoreSetupFetch?.();
   await cleanupEmulatorTestEnvironment(testEnv);
 }, 30_000);
 

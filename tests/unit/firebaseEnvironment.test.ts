@@ -617,6 +617,12 @@ describe('E2E harness synchronization and Admin app isolation', () => {
     vi.resetModules();
     vi.doMock('@playwright/test', () => ({
       expect: () => ({
+        toBeVisible: async () => {
+          events.push('form visible');
+        },
+        toBeEnabled: async () => {
+          events.push('submit enabled');
+        },
         toHaveURL: async () => {
           events.push('authenticated');
         },
@@ -624,31 +630,39 @@ describe('E2E harness synchronization and Admin app isolation', () => {
     }));
     try {
       const { signInAccount } = await import('../../e2e/fixtures');
+      const emailLocator = {};
+      const submit = {
+        click: async () => {
+          events.push('submit');
+        },
+      };
       const modal = {
-        getByPlaceholder: (name: string) => ({
-          fill: async () => {
+        getByPlaceholder: vi.fn((name: string) => ({
+          fill: async (value: string) => {
+            expect(value).toBe(name === 'Email Address' ? 'fixture@e2e.test' : 'fixture-password');
             events.push(name);
           },
-        }),
-        getByRole: () => ({
-          click: async () => {
-            events.push('submit');
-          },
-        }),
+        })),
+        getByRole: vi.fn(() => submit),
       };
+      const dialog = { filter: vi.fn(() => modal) };
       const page = {
         goto: async () => {
           events.push('navigation');
           await navigation;
         },
-        getByRole: () => ({
-          first: () => ({
-            click: async () => {
-              events.push('open form');
-            },
-          }),
-        }),
-        locator: () => modal,
+        getByRole: vi.fn((role: string) =>
+          role === 'dialog'
+            ? dialog
+            : {
+                first: () => ({
+                  click: async () => {
+                    events.push('open form');
+                  },
+                }),
+              }
+        ),
+        getByPlaceholder: vi.fn(() => emailLocator),
       };
       const login = signInAccount(
         page as never,
@@ -664,11 +678,24 @@ describe('E2E harness synchronization and Admin app isolation', () => {
       expect(events).toEqual(['navigation']);
       releaseNavigation();
       await login;
+      expect(page.getByRole.mock.calls).toEqual([
+        ['button', { name: 'Sign In', exact: true }],
+        ['dialog'],
+      ]);
+      expect(page.getByPlaceholder).toHaveBeenCalledExactlyOnceWith('Email Address');
+      expect(dialog.filter).toHaveBeenCalledExactlyOnceWith({ has: emailLocator });
+      expect(modal.getByPlaceholder.mock.calls).toEqual([['Email Address'], ['Password']]);
+      expect(modal.getByRole).toHaveBeenCalledExactlyOnceWith('button', {
+        name: 'Sign In',
+        exact: true,
+      });
       expect(events).toEqual([
         'navigation',
         'open form',
+        'form visible',
         'Email Address',
         'Password',
+        'submit enabled',
         'observer armed',
         'submit',
         'authenticated',

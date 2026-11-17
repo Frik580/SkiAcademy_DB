@@ -524,7 +524,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
       data-outgoing-slide={outgoingSlide ?? ''}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      className="ui-hero hero-layout relative w-full min-h-[calc(100svh-4.25rem)] overflow-hidden touch-pan-y"
+      className="ui-hero hero-layout relative w-full shrink-0 overflow-hidden touch-pan-y"
     >
       <div className="absolute inset-0 z-0" aria-hidden="true">
         {slides.length === 0 ? (
@@ -614,7 +614,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
       </div>
 
       {slides.length > 0 && (
-        <div className="hero-stage relative z-10 w-full min-h-[calc(100svh-4.25rem)]">
+        <div className="hero-stage relative z-10 w-full">
           <div className="hero-copy-shell w-full">
             <div className="hero-copy-shell-inner w-full max-w-7xl mx-auto px-6 md:px-10 lg:px-12">
               <div className="hero-copy-stack w-full max-w-[min(42rem,70vw)]">

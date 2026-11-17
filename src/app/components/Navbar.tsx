@@ -41,6 +41,9 @@ export const Navbar: React.FC<NavbarProps> = ({
     legacySelfAvatarUrl: userProfile?.avatarUrl,
   });
   const location = useLocation();
+  const isHomeView = location.pathname === '/';
+  const homeTopRef = useRef<HTMLDivElement>(null);
+  const [isAtHomeTop, setIsAtHomeTop] = useState(true);
   const navigate = useNavigate();
   const isAdminView = location.pathname === '/admin';
   const isCabinetView =
@@ -68,6 +71,20 @@ export const Navbar: React.FC<NavbarProps> = ({
     workspaceItems.find((item) => item.active)?.label ?? workspaceItems[0]?.label;
 
   const headerRef = useRef<HTMLElement>(null);
+
+  useLayoutEffect(() => {
+    if (!isHomeView || !homeTopRef.current) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      setIsAtHomeTop(false);
+      return;
+    }
+    setIsAtHomeTop(window.scrollY === 0);
+    const observer = new IntersectionObserver(([entry]) => setIsAtHomeTop(entry.isIntersecting), {
+      threshold: 1,
+    });
+    observer.observe(homeTopRef.current);
+    return () => observer.disconnect();
+  }, [isHomeView]);
   const mobileTriggerRef = useRef<HTMLButtonElement>(null);
   const mobilePanelRef = useRef<HTMLDivElement>(null);
   const logoRef = useRef<HTMLAnchorElement>(null);
@@ -174,148 +191,58 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, [isMenuOpen]);
 
   return (
-    // Delegate Escape from native navigation controls without making the disclosure a menu widget.
-    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
-    <nav
-      aria-label={mobileMenuLabel}
-      className="sticky top-0 z-40 relative"
-      onBlurCapture={(event) => {
-        // CSS can hide the focused mobile control before the breakpoint listener runs.
-        if (
-          (!event.relatedTarget || event.relatedTarget.nodeType === Node.DOCUMENT_NODE) &&
-          window.matchMedia?.('(min-width: 1024px)').matches &&
-          (event.target === mobileTriggerRef.current ||
-            mobilePanelRef.current?.contains(event.target))
-        ) {
-          setIsMenuOpen(false);
-          // Native blur can finish after this handler; do not steal a newer focus target.
-          queueMicrotask(() => {
-            if (document.activeElement === document.body)
-              logoRef.current?.focus({ preventScroll: true });
-          });
-        }
-      }}
-      onKeyDown={(event) => {
-        if (isMenuOpen && event.key === 'Escape' && !event.defaultPrevented) {
-          event.preventDefault();
-          event.stopPropagation();
-          closeMobileMenu();
-        }
-      }}
-    >
-      <header
-        ref={headerRef}
-        className="ui-navbar px-4 sm:px-6 py-3 transition-colors duration-300"
+    <>
+      {isHomeView && <div ref={homeTopRef} className="home-header-sentinel" aria-hidden="true" />}
+      {/* Delegate Escape from native navigation controls without making the disclosure a menu widget. */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
+      <nav
+        aria-label={mobileMenuLabel}
+        className={`sticky top-0 z-40 relative${isHomeView ? ' home-overlay-header shrink-0' : ''}`}
+        data-transparent={isHomeView && isAtHomeTop && !isMenuOpen}
+        onBlurCapture={(event) => {
+          // CSS can hide the focused mobile control before the breakpoint listener runs.
+          if (
+            (!event.relatedTarget || event.relatedTarget.nodeType === Node.DOCUMENT_NODE) &&
+            window.matchMedia?.('(min-width: 1024px)').matches &&
+            (event.target === mobileTriggerRef.current ||
+              mobilePanelRef.current?.contains(event.target))
+          ) {
+            setIsMenuOpen(false);
+            // Native blur can finish after this handler; do not steal a newer focus target.
+            queueMicrotask(() => {
+              if (document.activeElement === document.body)
+                logoRef.current?.focus({ preventScroll: true });
+            });
+          }
+        }}
+        onKeyDown={(event) => {
+          if (isMenuOpen && event.key === 'Escape' && !event.defaultPrevented) {
+            event.preventDefault();
+            event.stopPropagation();
+            closeMobileMenu();
+          }
+        }}
       >
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
-          <Link
-            ref={logoRef}
-            to={
-              userProfile && userProfile.role !== 'admin'
-                ? getDefaultWorkspacePath(userProfile)
-                : '/'
-            }
-            className="flex items-center select-none shrink-0"
-          >
-            <Logo theme={theme} className="h-8 sm:h-9 md:h-10" />
-          </Link>
+        <header
+          ref={headerRef}
+          className="ui-navbar px-4 sm:px-6 py-3 transition-colors duration-300"
+        >
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
+            <Link
+              ref={logoRef}
+              to={
+                userProfile && userProfile.role !== 'admin'
+                  ? getDefaultWorkspacePath(userProfile)
+                  : '/'
+              }
+              className="flex items-center select-none shrink-0"
+            >
+              <Logo theme={theme} className="h-8 sm:h-9 md:h-10" />
+            </Link>
 
-          <div className="hidden lg:flex items-center gap-1.5 xl:gap-3 type-caption">
-            {!userProfile && (
-              <>
-                <button
-                  onClick={onToggleTheme}
-                  className="ui-icon-btn shrink-0"
-                  title={t(theme === 'light' ? 'switchToDark' : 'switchToLight')}
-                >
-                  {theme === 'light' ? (
-                    <Moon className="w-4 h-4 text-[var(--ink)]" />
-                  ) : (
-                    <Sun className="w-4 h-4 text-amber-400" />
-                  )}
-                </button>
-
-                <LanguageSwitch
-                  language={language}
-                  onChange={setLanguage}
-                  label={t('switchLanguage')}
-                />
-
-                {onSignInClick && (
-                  <button
-                    onClick={onSignInClick}
-                    className="px-3 xl:px-4 py-1.5 xl:py-2 btn-primary whitespace-nowrap"
-                  >
-                    {t('signInBtn')}
-                  </button>
-                )}
-              </>
-            )}
-
-            {userProfile && (
-              <>
-                {workspaceItems.length > 0 && (
-                  <button
-                    ref={workspaceTriggerRef}
-                    type="button"
-                    onClick={() => setIsWorkspaceMenuOpen((open) => !open)}
-                    aria-expanded={isWorkspaceMenuOpen}
-                    aria-haspopup="menu"
-                    className={`flex items-center gap-1.5 px-3 xl:px-4 py-1.5 xl:py-2 transition cursor-pointer normal-case type-nav rounded-full whitespace-nowrap shrink-0 ${
-                      workspaceItems.some((item) => item.active)
-                        ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
-                        : 'bg-transparent border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] border-none bg-[var(--profile-bg)]'
-                    }`}
-                  >
-                    <span>{activeWorkspaceLabel}</span>
-                    <ChevronDown
-                      className={`w-3.5 h-3.5 transition-transform ${isWorkspaceMenuOpen ? 'rotate-180' : ''}`}
-                    />
-                  </button>
-                )}
-
-                <div className="flex items-center gap-1.5 xl:gap-2 select-none text-[var(--ink)] type-caption px-1 xl:px-2 whitespace-nowrap">
-                  <span className="text-[var(--ink-dim)] normal-case hidden xl:inline">
-                    {t('balance')}:
-                  </span>
-                  <span className="font-bold" data-testid="navbar-balance">
-                    {formattedBalance}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2 xl:gap-3 pl-1 shrink-0">
-                  <CabinetParticipantAvatarSwitcher
-                    items={participantSwitcher.items}
-                    selectedParticipantId={participantSwitcher.selectedParticipantId}
-                    onSelect={participantSwitcher.selectParticipant}
-                    fallbackDisplayName={userProfile.displayName}
-                    fallbackAvatarUrl={userProfile.avatarUrl}
-                    groupLabel={t('bookingParticipantsLabel')}
-                    switchToParticipantLabel={t('switchToParticipant')}
-                    showName
-                  />
-
-                  <button
-                    onClick={onOpenNotifications}
-                    title={notificationButtonTitle}
-                    aria-label={notificationButtonTitle}
-                    className={`ui-icon-btn relative shrink-0 ${
-                      hasUnreadNotifications
-                        ? 'text-[var(--accent)] bg-[var(--accent)]/10 bg-[var(--accent-muted)]'
-                        : ''
-                    }`}
-                  >
-                    <Bell className={`w-4 h-4 ${hasUnreadNotifications ? 'animate-pulse' : ''}`} />
-                    {hasUnreadNotifications && (
-                      <>
-                        <span className="absolute -top-0.5 -right-0.5 min-w-5 h-5 px-0.5 bg-rose-500 text-white type-caption-sm rounded-full ring-1 ring-[var(--bg)] flex items-center justify-center">
-                          {badgeLabel}
-                        </span>
-                        <span className="absolute -top-0.5 -right-0.5 min-w-[0.95rem] h-[0.95rem] bg-rose-500 rounded-full animate-ping opacity-60" />
-                      </>
-                    )}
-                  </button>
-
+            <div className="hidden lg:flex items-center gap-1.5 xl:gap-3 type-caption">
+              {!userProfile && (
+                <>
                   <button
                     onClick={onToggleTheme}
                     className="ui-icon-btn shrink-0"
@@ -334,226 +261,322 @@ export const Navbar: React.FC<NavbarProps> = ({
                     label={t('switchLanguage')}
                   />
 
-                  {userProfile.role === 'admin' && (
+                  {onSignInClick && (
                     <button
+                      onClick={onSignInClick}
+                      className="px-3 xl:px-4 py-1.5 xl:py-2 btn-primary whitespace-nowrap"
+                    >
+                      {t('signInBtn')}
+                    </button>
+                  )}
+                </>
+              )}
+
+              {userProfile && (
+                <>
+                  {workspaceItems.length > 0 && (
+                    <button
+                      ref={workspaceTriggerRef}
                       type="button"
-                      onClick={() => navigate(isAdminView ? '/' : '/admin')}
-                      title={isAdminView ? t('browseSlopes') : t('manageResort')}
-                      aria-label={isAdminView ? t('browseSlopes') : t('manageResort')}
-                      className={`ui-icon-btn shrink-0 ${
-                        isAdminView ? 'text-amber-500 bg-amber-500/10 bg-amber-500/15' : ''
+                      onClick={() => setIsWorkspaceMenuOpen((open) => !open)}
+                      aria-expanded={isWorkspaceMenuOpen}
+                      aria-haspopup="menu"
+                      className={`flex items-center gap-1.5 px-3 xl:px-4 py-1.5 xl:py-2 transition cursor-pointer normal-case type-nav rounded-full whitespace-nowrap shrink-0 ${
+                        workspaceItems.some((item) => item.active)
+                          ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
+                          : 'bg-transparent border border-[var(--border)] hover:border-[var(--ink)] text-[var(--ink)] border-none bg-[var(--profile-bg)]'
                       }`}
                     >
-                      <Settings className="w-4 h-4" />
+                      <span>{activeWorkspaceLabel}</span>
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 transition-transform ${isWorkspaceMenuOpen ? 'rotate-180' : ''}`}
+                      />
                     </button>
                   )}
 
-                  <button
-                    onClick={onSignOut}
-                    title={t('signOut')}
-                    className="ui-icon-btn text-[var(--ink-dim)] hover:text-rose-500 shrink-0"
-                  >
-                    <LogOut className="w-4 h-4" />
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+                  <div className="flex items-center gap-1.5 xl:gap-2 select-none text-[var(--ink)] type-caption px-1 xl:px-2 whitespace-nowrap">
+                    <span className="text-[var(--ink-dim)] normal-case hidden xl:inline">
+                      {t('balance')}:
+                    </span>
+                    <span className="font-bold" data-testid="navbar-balance">
+                      {formattedBalance}
+                    </span>
+                  </div>
 
-          <div className="lg:hidden flex items-center gap-2 sm:gap-3 min-w-0">
-            {userProfile && (
-              <CabinetParticipantAvatarSwitcher
-                items={participantSwitcher.items}
-                selectedParticipantId={participantSwitcher.selectedParticipantId}
-                onSelect={participantSwitcher.selectParticipant}
-                fallbackDisplayName={userProfile.displayName}
-                fallbackAvatarUrl={userProfile.avatarUrl}
-                groupLabel={t('bookingParticipantsLabel')}
-                switchToParticipantLabel={t('switchToParticipant')}
-              />
-            )}
-            <button
-              ref={mobileTriggerRef}
-              type="button"
-              aria-label={mobileMenuLabel}
-              aria-expanded={isMenuOpen}
-              aria-controls={mobilePanelId}
-              onClick={() => setIsMenuOpen((open) => !open)}
-              className="ui-icon-btn min-h-11 min-w-11 text-[var(--ink)] shrink-0"
-            >
-              {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
-          </div>
-        </div>
-      </header>
+                  <div className="flex items-center gap-2 xl:gap-3 pl-1 shrink-0">
+                    <CabinetParticipantAvatarSwitcher
+                      items={participantSwitcher.items}
+                      selectedParticipantId={participantSwitcher.selectedParticipantId}
+                      onSelect={participantSwitcher.selectParticipant}
+                      fallbackDisplayName={userProfile.displayName}
+                      fallbackAvatarUrl={userProfile.avatarUrl}
+                      groupLabel={t('bookingParticipantsLabel')}
+                      switchToParticipantLabel={t('switchToParticipant')}
+                      showName
+                    />
 
-      <AnimatePresence>
-        {isWorkspaceMenuOpen && workspaceItems.length > 0 && (
-          <m.div
-            key="workspace-menu"
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.15 }}
-            style={{ top: 'var(--app-navbar-height, 60px)', left: workspaceMenuLeft }}
-            className="ui-navbar-panel fixed z-50 hidden w-max lg:flex flex-col"
-          >
-            <div ref={workspaceDropdownRef} role="menu" className="flex flex-col py-1.5 px-1.5">
-              {workspaceItems.map((item) => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  role="menuitem"
-                  onClick={() => setIsWorkspaceMenuOpen(false)}
-                  className={`px-5 py-2.5 normal-case type-nav no-underline whitespace-nowrap transition ${
-                    item.active
-                      ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
-                      : 'text-[var(--ink)] hover:bg-[var(--profile-bg)]'
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              ))}
+                    <button
+                      onClick={onOpenNotifications}
+                      title={notificationButtonTitle}
+                      aria-label={notificationButtonTitle}
+                      className={`ui-icon-btn relative shrink-0 ${
+                        hasUnreadNotifications
+                          ? 'text-[var(--accent)] bg-[var(--accent)]/10 bg-[var(--accent-muted)]'
+                          : ''
+                      }`}
+                    >
+                      <Bell
+                        className={`w-4 h-4 ${hasUnreadNotifications ? 'animate-pulse' : ''}`}
+                      />
+                      {hasUnreadNotifications && (
+                        <>
+                          <span className="absolute -top-0.5 -right-0.5 min-w-5 h-5 px-0.5 bg-rose-500 text-white type-caption-sm rounded-full ring-1 ring-[var(--bg)] flex items-center justify-center">
+                            {badgeLabel}
+                          </span>
+                          <span className="absolute -top-0.5 -right-0.5 min-w-[0.95rem] h-[0.95rem] bg-rose-500 rounded-full animate-ping opacity-60" />
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      onClick={onToggleTheme}
+                      className="ui-icon-btn shrink-0"
+                      title={t(theme === 'light' ? 'switchToDark' : 'switchToLight')}
+                    >
+                      {theme === 'light' ? (
+                        <Moon className="w-4 h-4 text-[var(--ink)]" />
+                      ) : (
+                        <Sun className="w-4 h-4 text-amber-400" />
+                      )}
+                    </button>
+
+                    <LanguageSwitch
+                      language={language}
+                      onChange={setLanguage}
+                      label={t('switchLanguage')}
+                    />
+
+                    {userProfile.role === 'admin' && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(isAdminView ? '/' : '/admin')}
+                        title={isAdminView ? t('browseSlopes') : t('manageResort')}
+                        aria-label={isAdminView ? t('browseSlopes') : t('manageResort')}
+                        className={`ui-icon-btn shrink-0 ${
+                          isAdminView ? 'text-amber-500 bg-amber-500/10 bg-amber-500/15' : ''
+                        }`}
+                      >
+                        <Settings className="w-4 h-4" />
+                      </button>
+                    )}
+
+                    <button
+                      onClick={onSignOut}
+                      title={t('signOut')}
+                      className="ui-icon-btn text-[var(--ink-dim)] hover:text-rose-500 shrink-0"
+                    >
+                      <LogOut className="w-4 h-4" />
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
-          </m.div>
-        )}
-      </AnimatePresence>
 
-      <AnimatePresence>
-        {isMenuOpen && (
-          <m.div
-            ref={mobilePanelRef}
-            id={mobilePanelId}
-            role="region"
-            aria-label={mobileMenuLabel}
-            initial={{ y: -12 }}
-            animate={{ y: 0 }}
-            exit={{ y: -12 }}
-            transition={{ duration: 0.2 }}
-            className="ui-navbar-panel lg:hidden absolute top-full left-0 w-full p-6 sm:p-8 flex flex-col gap-5 sm:gap-6 z-50 max-h-[calc(100dvh-var(--app-navbar-height,60px))] overflow-y-auto [&_button]:min-h-11 [&_button]:min-w-11"
-          >
-            {userProfile && (
-              <>
-                {showClientNav && (
+            <div className="lg:hidden flex items-center gap-2 sm:gap-3 min-w-0">
+              {userProfile && (
+                <CabinetParticipantAvatarSwitcher
+                  items={participantSwitcher.items}
+                  selectedParticipantId={participantSwitcher.selectedParticipantId}
+                  onSelect={participantSwitcher.selectParticipant}
+                  fallbackDisplayName={userProfile.displayName}
+                  fallbackAvatarUrl={userProfile.avatarUrl}
+                  groupLabel={t('bookingParticipantsLabel')}
+                  switchToParticipantLabel={t('switchToParticipant')}
+                />
+              )}
+              <button
+                ref={mobileTriggerRef}
+                type="button"
+                aria-label={mobileMenuLabel}
+                aria-expanded={isMenuOpen}
+                aria-controls={mobilePanelId}
+                onClick={() => setIsMenuOpen((open) => !open)}
+                className="ui-icon-btn min-h-11 min-w-11 text-[var(--ink)] shrink-0"
+              >
+                {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <AnimatePresence>
+          {isWorkspaceMenuOpen && workspaceItems.length > 0 && (
+            <m.div
+              key="workspace-menu"
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.15 }}
+              style={{ top: 'var(--app-navbar-height, 60px)', left: workspaceMenuLeft }}
+              className="ui-navbar-panel fixed z-50 hidden w-max lg:flex flex-col"
+            >
+              <div ref={workspaceDropdownRef} role="menu" className="flex flex-col py-1.5 px-1.5">
+                {workspaceItems.map((item) => (
                   <Link
-                    to="/cabinet"
-                    onClick={closeMobileMenu}
-                    className={`w-full px-4 py-3 transition type-nav rounded-full normal-case no-underline text-center ${
-                      isCabinetView
+                    key={item.to}
+                    to={item.to}
+                    role="menuitem"
+                    onClick={() => setIsWorkspaceMenuOpen(false)}
+                    className={`px-5 py-2.5 normal-case type-nav no-underline whitespace-nowrap transition ${
+                      item.active
                         ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
-                        : 'bg-[var(--profile-bg)] border border-[var(--border)] text-[var(--ink)] border-none'
+                        : 'text-[var(--ink)] hover:bg-[var(--profile-bg)]'
                     }`}
                   >
-                    {t('clientCabinet')}
+                    {item.label}
                   </Link>
-                )}
+                ))}
+              </div>
+            </m.div>
+          )}
+        </AnimatePresence>
 
-                {showInstructorNav && (
-                  <Link
-                    to="/instructor"
-                    onClick={closeMobileMenu}
-                    className={`w-full px-4 py-3 transition type-nav rounded-full normal-case no-underline text-center ${
-                      isInstructorView
-                        ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
-                        : 'bg-[var(--profile-bg)] border border-[var(--border)] text-[var(--ink)] border-none'
-                    }`}
-                  >
-                    {t('instructorWorkspaceTab')}
-                  </Link>
-                )}
+        <AnimatePresence>
+          {isMenuOpen && (
+            <m.div
+              ref={mobilePanelRef}
+              id={mobilePanelId}
+              role="region"
+              aria-label={mobileMenuLabel}
+              initial={{ y: -12 }}
+              animate={{ y: 0 }}
+              exit={{ y: -12 }}
+              transition={{ duration: 0.2 }}
+              className="ui-navbar-panel lg:hidden absolute top-full left-0 w-full p-6 sm:p-8 flex flex-col gap-5 sm:gap-6 z-50 max-h-[calc(100dvh-var(--app-navbar-height,60px))] overflow-y-auto [&_button]:min-h-11 [&_button]:min-w-11"
+            >
+              {userProfile && (
+                <>
+                  {showClientNav && (
+                    <Link
+                      to="/cabinet"
+                      onClick={closeMobileMenu}
+                      className={`w-full px-4 py-3 transition type-nav rounded-full normal-case no-underline text-center ${
+                        isCabinetView
+                          ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
+                          : 'bg-[var(--profile-bg)] border border-[var(--border)] text-[var(--ink)] border-none'
+                      }`}
+                    >
+                      {t('clientCabinet')}
+                    </Link>
+                  )}
 
-                {userProfile.role === 'admin' && (
+                  {showInstructorNav && (
+                    <Link
+                      to="/instructor"
+                      onClick={closeMobileMenu}
+                      className={`w-full px-4 py-3 transition type-nav rounded-full normal-case no-underline text-center ${
+                        isInstructorView
+                          ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
+                          : 'bg-[var(--profile-bg)] border border-[var(--border)] text-[var(--ink)] border-none'
+                      }`}
+                    >
+                      {t('instructorWorkspaceTab')}
+                    </Link>
+                  )}
+
+                  {userProfile.role === 'admin' && (
+                    <button
+                      onClick={() => {
+                        closeMobileMenu();
+                        navigate(isAdminView ? '/' : '/admin');
+                      }}
+                      className={`w-full px-4 py-3 transition cursor-pointer type-nav rounded-full normal-case ${
+                        isAdminView
+                          ? 'bg-amber-500 border border-amber-500 text-white'
+                          : 'bg-[var(--profile-bg)] border border-[var(--border)] text-[var(--ink)] border-none'
+                      }`}
+                    >
+                      {isAdminView ? t('browseSlopes') : t('manageResort')}
+                    </button>
+                  )}
+
+                  <div className="flex items-center justify-between gap-2 type-compact text-[var(--ink)]">
+                    <span className="text-[var(--ink-dim)]">{t('balance')}:</span>
+                    <span className="font-bold" data-testid="navbar-balance-mobile">
+                      {formattedBalance}
+                    </span>
+                  </div>
+
                   <button
                     onClick={() => {
                       closeMobileMenu();
-                      navigate(isAdminView ? '/' : '/admin');
+                      onOpenNotifications();
                     }}
-                    className={`w-full px-4 py-3 transition cursor-pointer type-nav rounded-full normal-case ${
-                      isAdminView
-                        ? 'bg-amber-500 border border-amber-500 text-white'
-                        : 'bg-[var(--profile-bg)] border border-[var(--border)] text-[var(--ink)] border-none'
-                    }`}
+                    className="w-full flex justify-between items-center type-nav text-[var(--ink)]"
                   >
-                    {isAdminView ? t('browseSlopes') : t('manageResort')}
+                    <span className="flex items-center gap-2">
+                      {t('notifications')}
+                      {hasUnreadNotifications && (
+                        <span className="min-w-5 h-5 px-1 bg-rose-500 text-white type-caption-sm rounded-full flex items-center justify-center">
+                          {badgeLabel}
+                        </span>
+                      )}
+                    </span>
+                    <Bell
+                      className={`w-4 h-4 ${hasUnreadNotifications ? 'text-[var(--accent)]' : ''}`}
+                    />
                   </button>
-                )}
+                </>
+              )}
 
-                <div className="flex items-center justify-between gap-2 type-compact text-[var(--ink)]">
-                  <span className="text-[var(--ink-dim)]">{t('balance')}:</span>
-                  <span className="font-bold" data-testid="navbar-balance-mobile">
-                    {formattedBalance}
-                  </span>
-                </div>
-
+              <div className="flex items-center justify-between type-compact text-[var(--ink)]">
+                <span>{t(theme === 'light' ? 'lightTheme' : 'darkTheme')}</span>
+                <button
+                  onClick={onToggleTheme}
+                  className="ui-icon-btn"
+                  aria-label={t(theme === 'light' ? 'switchToDark' : 'switchToLight')}
+                >
+                  {theme === 'light' ? (
+                    <Moon className="w-4 h-4" />
+                  ) : (
+                    <Sun className="w-4 h-4 text-amber-400" />
+                  )}
+                </button>
+              </div>
+              <div className="flex items-center justify-between type-compact text-[var(--ink)]">
+                <span>{t('languageLabel')}</span>
+                <LanguageSwitch
+                  language={language}
+                  onChange={setLanguage}
+                  label={t('switchLanguage')}
+                />
+              </div>
+              {!userProfile && onSignInClick && (
                 <button
                   onClick={() => {
                     closeMobileMenu();
-                    onOpenNotifications();
+                    onSignInClick();
                   }}
-                  className="w-full flex justify-between items-center type-nav text-[var(--ink)]"
+                  className="w-full max-w-xs mx-auto mt-2 px-4 py-3 btn-primary type-nav text-center"
                 >
-                  <span className="flex items-center gap-2">
-                    {t('notifications')}
-                    {hasUnreadNotifications && (
-                      <span className="min-w-5 h-5 px-1 bg-rose-500 text-white type-caption-sm rounded-full flex items-center justify-center">
-                        {badgeLabel}
-                      </span>
-                    )}
-                  </span>
-                  <Bell
-                    className={`w-4 h-4 ${hasUnreadNotifications ? 'text-[var(--accent)]' : ''}`}
-                  />
+                  {t('signInBtn')}
                 </button>
-              </>
-            )}
-
-            <div className="flex items-center justify-between type-compact text-[var(--ink)]">
-              <span>{t(theme === 'light' ? 'lightTheme' : 'darkTheme')}</span>
-              <button
-                onClick={onToggleTheme}
-                className="ui-icon-btn"
-                aria-label={t(theme === 'light' ? 'switchToDark' : 'switchToLight')}
-              >
-                {theme === 'light' ? (
-                  <Moon className="w-4 h-4" />
-                ) : (
-                  <Sun className="w-4 h-4 text-amber-400" />
-                )}
-              </button>
-            </div>
-            <div className="flex items-center justify-between type-compact text-[var(--ink)]">
-              <span>{t('languageLabel')}</span>
-              <LanguageSwitch
-                language={language}
-                onChange={setLanguage}
-                label={t('switchLanguage')}
-              />
-            </div>
-            {!userProfile && onSignInClick && (
-              <button
-                onClick={() => {
-                  closeMobileMenu();
-                  onSignInClick();
-                }}
-                className="w-full max-w-xs mx-auto mt-2 px-4 py-3 btn-primary type-nav text-center"
-              >
-                {t('signInBtn')}
-              </button>
-            )}
-            {userProfile && (
-              <button
-                onClick={() => {
-                  closeMobileMenu();
-                  onSignOut();
-                }}
-                className="w-full mt-2 px-4 py-3 text-rose-500 hover:bg-rose-500/10 transition cursor-pointer type-nav rounded-full"
-              >
-                {t('signOut')}
-              </button>
-            )}
-          </m.div>
-        )}
-      </AnimatePresence>
-    </nav>
+              )}
+              {userProfile && (
+                <button
+                  onClick={() => {
+                    closeMobileMenu();
+                    onSignOut();
+                  }}
+                  className="w-full mt-2 px-4 py-3 text-rose-500 hover:bg-rose-500/10 transition cursor-pointer type-nav rounded-full"
+                >
+                  {t('signOut')}
+                </button>
+              )}
+            </m.div>
+          )}
+        </AnimatePresence>
+      </nav>
+    </>
   );
 };

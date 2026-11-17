@@ -2,7 +2,8 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
-  testMatch: 'hero-cta-layout.spec.ts',
+  testMatch: ['hero-cta-layout.spec.ts', 'hero-header-compositing.spec.ts'],
+  timeout: 60_000,
   workers: 1,
   reporter: 'list',
   use: {

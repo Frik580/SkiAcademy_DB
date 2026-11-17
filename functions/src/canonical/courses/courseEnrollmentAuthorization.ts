@@ -15,16 +15,14 @@ import {
   requireAccountActor,
 } from '../participantAccess/participantAccessAuthorization';
 
-export type CourseEnrollmentCreationMode =
-  | 'account_self_service'
-  | 'administrator'
-  | 'guest';
+export type CourseEnrollmentCreationMode = 'account_self_service' | 'administrator' | 'guest';
 
 export interface CourseEnrollmentCreationAuthorization {
   readonly mode: CourseEnrollmentCreationMode;
   readonly actorAccountId?: AccountId;
   readonly payerAccountId?: AccountId;
   readonly bookedByAccountId?: AccountId;
+  readonly managementAuthority?: 'self' | 'parent_guardian';
 }
 
 export function resolveCourseEnrollmentCreationAuthorization(
@@ -112,26 +110,30 @@ export function resolveManagedEnrollmentAuthorization(
       correlationId: envelope.context.correlationId,
     });
   }
-  if (access.authority === 'self' && envelope.context.exercisedCapability !== 'account_owner') {
-    throw new CanonicalCommandError('forbidden', {
-      correlationId: envelope.context.correlationId,
-    });
-  }
-  if (
-    access.authority === 'parent_guardian' &&
-    envelope.context.exercisedCapability !== 'parent_guardian'
-  ) {
-    throw new CanonicalCommandError('forbidden', {
-      correlationId: envelope.context.correlationId,
-    });
-  }
-
   return {
     mode,
+    managementAuthority: access.authority,
     actorAccountId: actor.accountId,
     payerAccountId: actor.accountId,
     bookedByAccountId: actor.accountId,
   };
+}
+
+/** Match the command capability against the entire server-authorized party. */
+export function assertEnrollmentPartyCapability(
+  envelope: CommandEnvelope<'create_course_enrollments'>,
+  authorizations: readonly CourseEnrollmentCreationAuthorization[]
+): void {
+  const expectedCapability = authorizations.some(
+    (authorization) => authorization.managementAuthority === 'parent_guardian'
+  )
+    ? 'parent_guardian'
+    : 'account_owner';
+  if (envelope.context.exercisedCapability !== expectedCapability) {
+    throw new CanonicalCommandError('forbidden', {
+      correlationId: envelope.context.correlationId,
+    });
+  }
 }
 
 export function assertAdminEnrollmentUnderpaymentReason(

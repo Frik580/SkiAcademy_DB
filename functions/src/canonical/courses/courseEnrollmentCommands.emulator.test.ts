@@ -506,6 +506,87 @@ describe.sequential.runIf(runsOnFirestoreEmulator)('course enrollment commands e
     await seedBase(WALLET_ENROLLMENT_PLUS_BOOKING_KZT);
   });
 
+  it.each([false, true])(
+    'four participants: atomic funding failure, top up and idempotent retry (mixed=%s)',
+    async (mixed) => {
+      await clearCollections(firestore);
+      await seedBase(COURSE_PRICE_KZT * 3, 1, 8);
+      const fourthId = ParticipantIdSchema.parse('participant_course_enrollment_party_four');
+      const fourthManagementId = ParticipantManagementIdSchema.parse(
+        'management_course_enrollment_party_four'
+      );
+      await firestore.doc(`participants/${fourthId}`).set(
+        seedParticipantRecord({
+          participantId: fourthId,
+          managementId: fourthManagementId,
+          displaySuffix: 'D',
+        })
+      );
+      const ids = [participantId, participantIdB, participantIdC, fourthId];
+      const managements = [managementId, managementIdB, managementIdC, fourthManagementId];
+      for (const [index, id] of ids.entries()) {
+        await firestore.doc(`participant_management/${managements[index]}`).set({
+          ...seedManagementRecord({ managementId: managements[index]!, participantId: id }),
+          authority: mixed && index === 0 ? 'self' : 'parent_guardian',
+        });
+      }
+      const commands = createCommands();
+      const envelope = enrollmentEnvelope({
+        idempotencyKey: `party-four-topup-${mixed}`,
+        participantIds: ids,
+        capability: 'parent_guardian',
+      });
+      expect(await commands.execute(envelope)).toMatchObject({
+        status: 'error',
+        error: { code: 'insufficient_funds' },
+      });
+      expect(await durableCounts()).toMatchObject({
+        enrollments: 0,
+        payments: 0,
+        monetaryEvents: 0,
+        enrollmentGuards: 0,
+        enrollmentClaims: 0,
+        availableSeats: 8,
+        walletBalance: COURSE_PRICE_KZT * 3,
+      });
+      expect(
+        await commands.execute({
+          kind: 'record_manual_wallet_funding',
+          context: {
+            ...accountContext(
+              `party-four-funding-${mixed}`,
+              adminAccountId,
+              correlationId,
+              'administrator'
+            ),
+            expectedRevision: AggregateRevisionSchema.parse(1),
+          },
+          intent: { accountId, amount: COURSE_PRICE_KZT, reasonExplanation: 'Course party top up' },
+        })
+      ).toMatchObject({ status: 'success' });
+      expect(await commands.execute(envelope)).toMatchObject({
+        status: 'success',
+        payload: { outcome: 'created' },
+      });
+      const after = await durableCounts();
+      expect(after).toMatchObject({
+        enrollments: 4,
+        payments: 4,
+        monetaryEvents: 5,
+        enrollmentGuards: 4,
+        enrollmentClaims: 8,
+        availableSeats: 4,
+        walletBalance: 0,
+      });
+      expect(await commands.execute(envelope)).toMatchObject({
+        status: 'success',
+        payload: { outcome: 'already_exists' },
+      });
+      expect(await durableCounts()).toEqual(after);
+    },
+    30_000
+  );
+
   it('A. commits a successful single enrollment with full durable atomicity', async () => {
     const commands = createCommands();
     const instructorClaimsBefore = (await durableCounts()).instructorClaims;

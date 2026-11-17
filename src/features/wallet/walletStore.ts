@@ -3,6 +3,8 @@ import type { StateCreator } from 'zustand';
 import { WalletLedgerEntry } from './types';
 
 export interface BalanceOptimisticState {
+  /** Invalidates pending rollbacks when a snapshot/reset replaces the overlay. */
+  optimisticBalanceGeneration: number;
   optimisticBalanceDelta: number;
   adjustOptimisticBalance: (delta: number) => void;
   resetOptimisticBalance: () => void;
@@ -46,6 +48,7 @@ export const balanceOptimisticMiddleware: BalanceOptimisticImpl =
 
     return {
       ...state,
+      optimisticBalanceGeneration: 0,
       optimisticBalanceDelta: 0,
       adjustOptimisticBalance: (delta) => {
         if (delta === 0) return;
@@ -55,10 +58,10 @@ export const balanceOptimisticMiddleware: BalanceOptimisticImpl =
         }));
       },
       resetOptimisticBalance: () => {
-        if (get().optimisticBalanceDelta === 0) return;
         set((current) => ({
           ...current,
           optimisticBalanceDelta: 0,
+          optimisticBalanceGeneration: current.optimisticBalanceGeneration + 1,
         }));
       },
     };
@@ -76,6 +79,7 @@ const EMPTY_CANONICAL_WALLET: CanonicalWalletSnapshot = {
 export const useWalletStore = create<WalletState>()(
   balanceOptimisticMiddleware((set) => ({
     ...EMPTY_CANONICAL_WALLET,
+    optimisticBalanceGeneration: 0,
     canonicalWalletRefreshNonce: 0,
     refreshCanonicalWallet: () =>
       set((state) => ({
@@ -87,7 +91,8 @@ export const useWalletStore = create<WalletState>()(
 
     setWalletLedgerEntries: (entries) => set({ walletLedgerEntries: entries }),
     syncCanonicalWalletFromSnapshot: ({ exists, balanceKzt, eventRevision, accountId, trusted }) =>
-      set({
+      set((state) => ({
+        optimisticBalanceGeneration: state.optimisticBalanceGeneration + 1,
         canonicalWalletAccountId: accountId ?? null,
         canonicalWalletTrusted: trusted === true,
         canonicalWalletExists: exists,
@@ -95,8 +100,13 @@ export const useWalletStore = create<WalletState>()(
         canonicalWalletEventRevision: exists ? (eventRevision ?? null) : null,
         canonicalWalletLoaded: true,
         optimisticBalanceDelta: 0,
-      }),
-    resetCanonicalWallet: () => set({ ...EMPTY_CANONICAL_WALLET, optimisticBalanceDelta: 0 }),
+      })),
+    resetCanonicalWallet: () =>
+      set((state) => ({
+        ...EMPTY_CANONICAL_WALLET,
+        optimisticBalanceDelta: 0,
+        optimisticBalanceGeneration: state.optimisticBalanceGeneration + 1,
+      })),
     adjustOptimisticBalance: (delta) => {
       if (delta === 0) return;
       set((current) => ({
@@ -104,8 +114,9 @@ export const useWalletStore = create<WalletState>()(
       }));
     },
     resetOptimisticBalance: () => {
-      set(() => ({
+      set((state) => ({
         optimisticBalanceDelta: 0,
+        optimisticBalanceGeneration: state.optimisticBalanceGeneration + 1,
       }));
     },
   }))

@@ -135,15 +135,6 @@ describe('balanceOptimisticMiddleware', () => {
       optimisticBalanceDelta: 0,
       walletLedgerEntries: [],
       canonicalBalanceKzt: 100_000,
-      adjustOptimisticBalance: (delta) => {
-        if (delta === 0) return;
-        useWalletStore.setState((current) => ({
-          optimisticBalanceDelta: current.optimisticBalanceDelta + delta,
-        }));
-      },
-      resetOptimisticBalance: () => {
-        useWalletStore.setState({ optimisticBalanceDelta: 0 });
-      },
       setWalletLedgerEntries: () => {},
     });
   });
@@ -178,5 +169,61 @@ describe('balanceOptimisticMiddleware', () => {
     await withOptimisticBalance(40, async () => undefined);
 
     expect(useWalletStore.getState().optimisticBalanceDelta).toBe(40);
+  });
+  it.each([false, true])(
+    'does not credit a consumed overlay after a snapshot (failure=%s)',
+    async (failure) => {
+      const operation = withOptimisticBalance(
+        -30_000,
+        async () => {
+          useWalletStore
+            .getState()
+            .syncCanonicalWalletFromSnapshot({ exists: true, balanceKzt: 70_000 });
+          if (failure) throw new Error('server failure');
+          return 'already_exists';
+        },
+        { settleOnSuccess: true }
+      );
+      if (failure) await expect(operation).rejects.toThrow('server failure');
+      else await expect(operation).resolves.toBe('already_exists');
+      expect(useWalletStore.getState().optimisticBalanceDelta).toBe(0);
+      expect(selectEffectiveBalance(useWalletStore.getState())).toBe(70_000);
+    }
+  );
+
+  it('settles independent concurrent overlays without changing canonical balance', async () => {
+    let finish!: () => void;
+    const first = withOptimisticBalance(
+      -30_000,
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+      { settleOnSuccess: true }
+    );
+    await expect(
+      withOptimisticBalance(
+        -20_000,
+        async () => {
+          throw new Error('failure');
+        },
+        { settleOnSuccess: true }
+      )
+    ).rejects.toThrow('failure');
+    expect(useWalletStore.getState().optimisticBalanceDelta).toBe(-30_000);
+    finish();
+    await first;
+    expect(useWalletStore.getState().optimisticBalanceDelta).toBe(0);
+    expect(useWalletStore.getState().canonicalBalanceKzt).toBe(100_000);
+  });
+  it('does not restore an overlay invalidated by an explicit reset', async () => {
+    await expect(
+      withOptimisticBalance(-30_000, async () => {
+        useWalletStore.getState().resetOptimisticBalance();
+        throw new Error('cancelled');
+      })
+    ).rejects.toThrow('cancelled');
+    expect(useWalletStore.getState().optimisticBalanceDelta).toBe(0);
+    expect(useWalletStore.getState().canonicalBalanceKzt).toBe(100_000);
   });
 });

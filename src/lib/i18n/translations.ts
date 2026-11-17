@@ -1021,6 +1021,7 @@ export const translations = {
     totalPrice: 'Total price',
     confirmBooking: 'Confirm & Book',
     insufficientFunds: 'Insufficient Funds',
+    courseEnrollmentInsufficientFunds: 'Insufficient funds to book this course. Please top up your balance and try again',
     addCreditsFirst: 'Contact the resort admin to top up your balance before booking.',
     contactAdminForTopUp: 'Contact the resort admin to top up your balance.',
     safetyAssurance: 'Safety & Gear Assurance',
@@ -3705,6 +3706,7 @@ export const translations = {
     totalPrice: 'Итоговая цена',
     confirmBooking: 'Подтвердить и забронировать',
     insufficientFunds: 'Недостаточно средств',
+    courseEnrollmentInsufficientFunds: 'Недостаточно средств для бронирования курса. Пополните баланс и попробуйте снова',
     addCreditsFirst:
       'Для завершения бронирования обратитесь к администратору курорта для пополнения баланса.',
     contactAdminForTopUp: 'Для пополнения баланса обратитесь к администратору курорта.',

@@ -6,18 +6,29 @@ import { useWalletStore } from './walletStore';
  */
 export async function withOptimisticBalance<T>(
   delta: number,
-  operation: () => Promise<T>
+  operation: () => Promise<T>,
+  options: { readonly settleOnSuccess?: boolean } = {}
 ): Promise<T> {
   if (delta === 0) {
     return operation();
   }
 
-  const { adjustOptimisticBalance } = useWalletStore.getState();
+  const { adjustOptimisticBalance, optimisticBalanceGeneration } = useWalletStore.getState();
+  const rollback = () => {
+    // A canonical snapshot/reset may have already consumed this overlay.
+    if (useWalletStore.getState().optimisticBalanceGeneration === optimisticBalanceGeneration) {
+      adjustOptimisticBalance(-delta);
+    }
+  };
   adjustOptimisticBalance(delta);
   try {
-    return await operation();
+    const result = await operation();
+    // Course command replays can return stored "created" without a new debit or
+    // wallet snapshot. Keep the overlay only while the command is in flight.
+    if (options.settleOnSuccess) rollback();
+    return result;
   } catch (error) {
-    adjustOptimisticBalance(-delta);
+    rollback();
     throw error;
   }
 }

@@ -6,7 +6,6 @@ import { useAuthStore } from '../auth/authStore';
 import { getCurrentAuthenticatedUser } from '../auth/authService';
 import { useProfileStore } from '../profile/profileStore';
 import { withOptimisticBalance } from '../wallet/walletService';
-import { useWalletStore } from '../wallet/walletStore';
 import { useCoursesStore } from './coursesStore';
 import {
   addCourseService,
@@ -23,7 +22,6 @@ import {
   useCourseEnrollmentCommands,
   useCourseEnrollmentStore,
 } from '../course-enrollments';
-import { presentCanonicalCommandErrorWithContext } from '../lesson-bookings';
 import type { ClientCallableCapability } from '../../lib/canonical/canonicalCommandClient';
 
 export interface AuthenticatedCourseEnrollmentSelection {
@@ -53,7 +51,7 @@ export function useCourseActions() {
   const userProfile = useProfileStore((state) => state.userProfile);
   const bookings = useBookingsStore((state) => state.bookings);
   const inFlightEnrollmentsRef = useRef<Set<string>>(new Set());
-  /** Same-session guard: idempotent replay returns stored outcome "created". */
+  /** Avoid resubmitting a completed selection while read models refresh. */
   const completedEnrollmentKeysRef = useRef<Set<string>>(new Set());
   const { createAuthenticatedEnrollment } = useCourseEnrollmentCommands(userProfile?.uid);
 
@@ -104,9 +102,9 @@ export function useCourseActions() {
 
   const handleBookCourse = useCallback(
     async (courseId: string, selection: AuthenticatedCourseEnrollmentSelection) => {
-      const enrollmentKey = `${courseId}:${selection.participantIds.join(',')}`;
+      const enrollmentKey = `${userProfile?.uid}:${courseId}:${[...selection.participantIds].sort().join(',')}`;
       if (inFlightEnrollmentsRef.current.has(enrollmentKey)) {
-        return;
+        return false;
       }
 
       const activeProfile = userProfile;
@@ -114,15 +112,15 @@ export function useCourseActions() {
 
       if (!activeProfile || !activeUser) {
         notify('warning', t('signInRequired'), t('signInRequiredDesc'));
-        return;
+        return false;
       }
       if (activeProfile.isClientActive === false) {
         notify('error', t('bookingRestricted'), t('bookingRestrictedDesc'));
-        return;
+        return false;
       }
       if (selection.participantIds.length === 0) {
         notify('warning', t('missingDetails'), t('bookingSelectParticipant'));
-        return;
+        return false;
       }
 
       const existingEnrollments = selectCourseEnrollmentItems(useCourseEnrollmentStore.getState());
@@ -131,36 +129,37 @@ export function useCourseActions() {
       );
       if (alreadyEnrolledLocally || completedEnrollmentKeysRef.current.has(enrollmentKey)) {
         notify('warning', t('alreadyEnrolled'), t('alreadyEnrolledDesc'));
-        return;
+        return false;
       }
 
       inFlightEnrollmentsRef.current.add(enrollmentKey);
       try {
         const course = courses.find((item) => item.id === courseId);
-        const estimatedPrice = course?.price ?? 0;
+        const coursePrice =
+          useCourseEnrollmentStore.getState().catalogByCourseId.get(courseId)?.priceMinorUnits ?? 0;
+        const estimatedPrice = coursePrice * new Set(selection.participantIds).size;
         const idempotencyKey = deriveAuthenticatedCreateEnrollmentIdempotencyKey(
           courseId,
           selection.participantIds
         );
 
-        const { outcome, refreshFailed } = await withOptimisticBalance(-estimatedPrice, () =>
-          createAuthenticatedEnrollment({
-            courseId,
-            participantIds: selection.participantIds,
-            exercisedCapability: selection.exercisedCapability,
-            identity: { enrollmentId: '', idempotencyKey },
-          })
+        const { outcome, refreshFailed } = await withOptimisticBalance(
+          -estimatedPrice,
+          () =>
+            createAuthenticatedEnrollment({
+              courseId,
+              participantIds: selection.participantIds,
+              exercisedCapability: selection.exercisedCapability,
+              identity: { enrollmentId: '', idempotencyKey },
+            }),
+          { settleOnSuccess: true }
         );
 
         completedEnrollmentKeysRef.current.add(enrollmentKey);
 
         if (outcome === 'already_exists') {
-          // Equivalent success: server did not debit; undo optimistic wallet mutation.
-          if (estimatedPrice !== 0) {
-            useWalletStore.getState().adjustOptimisticBalance(estimatedPrice);
-          }
           notify('warning', t('alreadyEnrolled'), t('alreadyEnrolledDesc'));
-          return;
+          return true;
         }
 
         const courseTitle = course?.title ?? courseId;
@@ -173,22 +172,7 @@ export function useCourseActions() {
           notify('warning', t('postCreateRefreshFailedTitle'), t('postCreateRefreshFailedBody'));
         }
         confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
-      } catch (error) {
-        const presented = presentCanonicalCommandErrorWithContext(error, {
-          t: t as (key: string) => string,
-        });
-        if (presented.code === 'validation' && presented.message.includes('conflict')) {
-          notify('warning', t('alreadyEnrolled'), t('alreadyEnrolledDesc'));
-        } else if (
-          presented.code === 'resource_conflict' ||
-          presented.code === 'participant_conflict'
-        ) {
-          notify('error', t('bookingFailed'), t('bookingFailedDesc'));
-        } else if (presented.code === 'insufficient_funds') {
-          notify('error', t('bookingFailed'), t('bookingFailedDesc'));
-        } else {
-          notify('error', t('bookingError'), presented.message || t('bookingRecordFailed'));
-        }
+        return true;
       } finally {
         inFlightEnrollmentsRef.current.delete(enrollmentKey);
       }

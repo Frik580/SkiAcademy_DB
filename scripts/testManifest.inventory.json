@@ -369,6 +369,7 @@
   "tests/unit/PaymentGateway.test.tsx": "app-unit",
   "tests/unit/ResortDataSection.resortName.test.tsx": "app-unit",
   "tests/unit/ResortSliderSection.bannerMedia.test.tsx": "app-unit",
+  "tests/unit/resortSeasonSettings.test.tsx": "app-unit",
   "tests/unit/StudentOpenChangeRequestNotice.test.tsx": "app-unit",
   "tests/unit/StudentSkillEvaluationModal.test.tsx": "app-unit",
   "tests/unit/TestSessionResetSection.test.tsx": "app-unit",

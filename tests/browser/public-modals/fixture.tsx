@@ -11,6 +11,7 @@ import { BookingAppleDatePicker } from '../../../src/features/bookings/component
 import { AdminModal } from '../../../src/features/admin/components/AdminModal';
 import React, { useState } from 'react';
 import { ContrastFixture } from './ContrastFixture';
+import { NavbarFixture } from './NavbarFixture';
 import { createRoot } from 'react-dom/client';
 import { LanguageProvider, useLanguage } from '../../../src/app/providers/LanguageContext';
 import { CurrencyProvider } from '../../../src/app/providers/CurrencyContext';
@@ -246,7 +247,9 @@ if (contrastPreview) {
   document.documentElement.classList.toggle('dark', localStorage.getItem('theme') === 'dark');
 }
 createRoot(document.getElementById('root')!).render(
-  contrastPreview ? (
+  new URLSearchParams(location.search).has('navigation') ? (
+    <NavbarFixture />
+  ) : contrastPreview ? (
     <LanguageProvider>
       <CurrencyProvider>
         <ContrastFixture />

@@ -17,6 +17,7 @@ import { buildBookingTimePickerOptions } from '../../bookings/components/booking
 import { formatDurationLabel } from '../../../lib/i18n/duration';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { ActionButton } from '../../../ui/ActionButton';
+import { useLessonBookingSeason } from '../../lesson-bookings/useLessonBookingSeason';
 
 const DURATION_HOURS_OPTIONS = [1, 2, 3, 4, 6] as const;
 
@@ -90,6 +91,7 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
     0,
     school.timeZone
   ).date;
+  const season = useLessonBookingSeason();
   const locale = language === 'ru' ? 'ru-RU' : 'en-US';
   const labelStyle = 'mb-1.5 flex items-center gap-1.5 type-caption text-[var(--ink-dim)]';
 
@@ -181,6 +183,7 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
   }
 
   const canSubmit =
+    season.allows(localDate, localTime, durationMinutes) &&
     school.ready &&
     !submitting &&
     !!localDate &&
@@ -257,11 +260,18 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
               <BookingAppleDatePicker
                 value={localDate}
                 onChange={setLocalDate}
-                min={minBookingDateStr}
+                min={season.minDate > minBookingDateStr ? season.minDate : minBookingDateStr}
+                max={season.maxDate}
+                disabled={season.disabled}
                 locale={locale}
                 placeholder={copy.t('selectDate')}
                 aria-label={copy.t('selectDate')}
               />
+              {season.message && (
+                <p role="status" className="mt-1.5 type-caption text-[var(--ink-dim)]">
+                  {season.message}
+                </p>
+              )}
             </div>
             <div>
               <label className={labelStyle}>

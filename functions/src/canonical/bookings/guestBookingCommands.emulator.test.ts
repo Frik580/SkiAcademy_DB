@@ -198,6 +198,34 @@ describe.skipIf(!runsOnFirestoreEmulator)('guest booking commands (firestore emu
     await seedFixture();
   }, 30_000);
 
+  it.each([{}, { startDate: '2026-02-01', endDate: '2026-04-15' }])(
+    'enforces guest season %j before participant, admission, slot or money writes',
+    async (season) => {
+      await firestore.doc('resort_data/config').set({ season });
+      const before = await Promise.all(
+        COLLECTIONS_TO_CLEAR.map(async (name) => [
+          name,
+          (await firestore.collection(name).get()).docs.map((doc) => [doc.id, doc.data()]),
+        ])
+      );
+      const envelope = guestCreateEnvelope({
+        bookingId: 'booking_guest_season',
+        idempotencyKey: 'guest-season-emulator',
+      });
+      expect(await createCommands('2026-01-01T10:00:00.000Z').execute(envelope)).toMatchObject({
+        status: 'error',
+        error: { details: { field: 'bookingSeason' } },
+      });
+      const after = await Promise.all(
+        COLLECTIONS_TO_CLEAR.map(async (name) => [
+          name,
+          (await firestore.collection(name).get()).docs.map((doc) => [doc.id, doc.data()]),
+        ])
+      );
+      expect(after).toEqual(before);
+    }
+  );
+
   it('enforces school timezone for guest creation', async () => {
     await firestore.doc('resort_data/config').set({ timeZone: 'UTC' });
     const envelope = guestCreateEnvelope({

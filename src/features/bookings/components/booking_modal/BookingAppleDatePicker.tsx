@@ -21,6 +21,7 @@ interface BookingAppleDatePickerProps {
   value: string;
   onChange: (value: string) => void;
   min?: string;
+  max?: string;
   disabled?: boolean;
   placeholder?: string;
   locale?: string;
@@ -28,17 +29,18 @@ interface BookingAppleDatePickerProps {
   'aria-label'?: string;
 }
 
-function resolveDateParts(value: string, minDate: Date | null, today: Date) {
+function resolveDateParts(value: string, minDate: Date | null, maxDate: Date | null, today: Date) {
   const parsed = value ? parseYmd(value) : null;
   const fallback = minDate ?? today;
   const base = parsed ?? fallback;
-  return clampDateParts(base.getFullYear(), base.getMonth(), base.getDate(), minDate);
+  return clampDateParts(base.getFullYear(), base.getMonth(), base.getDate(), minDate, maxDate);
 }
 
 export const BookingAppleDatePicker: React.FC<BookingAppleDatePickerProps> = ({
   value,
   onChange,
   min,
+  max,
   disabled = false,
   placeholder = '—',
   locale = 'en-US',
@@ -51,23 +53,30 @@ export const BookingAppleDatePicker: React.FC<BookingAppleDatePickerProps> = ({
   const [isOpen, setIsOpen] = useState(false);
 
   const minDate = useMemo(() => (min ? parseYmd(min) : null), [min]);
+  const maxDate = useMemo(() => (max ? parseYmd(max) : null), [max]);
   const today = useMemo(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), now.getDate());
   }, []);
 
-  const parts = useMemo(() => resolveDateParts(value, minDate, today), [value, minDate, today]);
+  const parts = useMemo(
+    () => resolveDateParts(value, minDate, maxDate, today),
+    [value, minDate, maxDate, today]
+  );
 
   const { minYear, maxYear } = useMemo(
-    () => getDateWheelYearRange(minDate, today),
-    [minDate, today]
+    () => ({
+      ...getDateWheelYearRange(minDate, today),
+      ...(maxDate ? { maxYear: maxDate.getFullYear() } : {}),
+    }),
+    [minDate, maxDate, today]
   );
 
   const monthLabels = useMemo(() => getMonthWheelLabels(locale), [locale]);
 
   const yearOptions = useMemo(
     () =>
-      Array.from({ length: maxYear - minYear + 1 }, (_, index) => {
+      Array.from({ length: Math.max(0, maxYear - minYear + 1) }, (_, index) => {
         const year = minYear + index;
         return { value: String(year), label: String(year) };
       }),
@@ -76,29 +85,34 @@ export const BookingAppleDatePicker: React.FC<BookingAppleDatePickerProps> = ({
 
   const monthOptions = useMemo(() => {
     const startMonth = parts.year === minYear && minDate ? minDate.getMonth() : 0;
-    return Array.from({ length: 12 - startMonth }, (_, index) => {
+    const endMonth = maxDate && parts.year === maxYear ? maxDate.getMonth() : 11;
+    return Array.from({ length: Math.max(0, endMonth - startMonth + 1) }, (_, index) => {
       const month = startMonth + index;
       return { value: String(month), label: monthLabels[month] };
     });
-  }, [minDate, minYear, monthLabels, parts.year]);
+  }, [minDate, minYear, maxDate, maxYear, monthLabels, parts.year]);
 
   const dayOptions = useMemo(() => {
     const startDay =
       parts.year === minYear && parts.month === (minDate?.getMonth() ?? -1) && minDate
         ? minDate.getDate()
         : 1;
-    const endDay = daysInMonth(parts.year, parts.month);
-    return Array.from({ length: endDay - startDay + 1 }, (_, index) => {
+    const endDay =
+      maxDate && parts.year === maxYear && parts.month === maxDate.getMonth()
+        ? maxDate.getDate()
+        : daysInMonth(parts.year, parts.month);
+    return Array.from({ length: Math.max(0, endDay - startDay + 1) }, (_, index) => {
       const day = startDay + index;
       return { value: String(day), label: String(day) };
     });
-  }, [minDate, minYear, parts.month, parts.year]);
+  }, [minDate, minYear, maxDate, maxYear, parts.month, parts.year]);
 
   const displayLabel = value ? formatDisplayDate(value, locale) : placeholder;
-  const isInteractive = !disabled;
+  const isInteractive = !disabled && !(min && max && min > max);
 
   const applyDateParts = (year: number, month: number, day: number) => {
-    const next = clampDateParts(year, month, day, minDate);
+    if (!isInteractive) return;
+    const next = clampDateParts(year, month, day, minDate, maxDate);
     onChange(formatYmd(new Date(next.year, next.month, next.day)));
   };
 
@@ -150,19 +164,12 @@ export const BookingAppleDatePicker: React.FC<BookingAppleDatePickerProps> = ({
 
   useEffect(() => {
     if (!value) return;
-    const parsed = parseYmd(value);
-    if (!parsed) return;
-    const clamped = clampDateParts(
-      parsed.getFullYear(),
-      parsed.getMonth(),
-      parsed.getDate(),
-      minDate
-    );
-    const clampedYmd = formatYmd(new Date(clamped.year, clamped.month, clamped.day));
-    if (clampedYmd !== value) {
-      onChange(clampedYmd);
-    }
-  }, [minDate, onChange, value]);
+    if ((min && value < min) || (max && value > max) || disabled) onChange('');
+  }, [min, max, disabled, onChange, value]);
+
+  useEffect(() => {
+    if (!isInteractive) setIsOpen(false);
+  }, [isInteractive]);
 
   useEffect(() => {
     if (!isOpen) return;

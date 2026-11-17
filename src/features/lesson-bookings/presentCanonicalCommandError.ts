@@ -52,6 +52,14 @@ export function presentCanonicalCommandErrorWithContext(
   }
 ): PresentedCanonicalCommandError {
   const presented = presentCanonicalCommandError(error);
+  if (presented.details?.field === 'bookingSeason') {
+    return {
+      ...presented,
+      message: context.t(
+        presented.details.reason === 'malformed' ? 'bookingSeasonInvalid' : 'bookingSeasonChanged'
+      ),
+    };
+  }
   switch (presented.code) {
     case 'insufficient_funds':
       return { ...presented, message: context.t('insufficientFunds') };

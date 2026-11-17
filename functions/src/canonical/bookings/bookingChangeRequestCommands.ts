@@ -1,3 +1,4 @@
+import { assertBookingSeason } from './schoolTimeZone';
 import {
   AggregateRevisionSchema,
   BookingChangeRequestSchema,
@@ -449,6 +450,7 @@ function resolveBookingChangeRequestHandler(
           schedule.durationMinutes
         );
         targetInterval = schedule.interval;
+        await assertBookingSeason(session, envelope, targetInterval);
         const targetInstructorId = booking.occurrence.instructorId;
 
         const instructorRead = await session.tx.get({

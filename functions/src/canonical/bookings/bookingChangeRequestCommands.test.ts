@@ -275,6 +275,41 @@ async function createOpenChangeRequest(
 }
 
 describe('booking change request commands', () => {
+  it('rejects admin request resolution outside season with no booking, request or claim writes', async () => {
+    const original = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(original);
+    await createOpenChangeRequest(original);
+    const docs = Object.fromEntries(
+      [...original.snapshot().docs].map(([path, doc]) => [path, doc.data])
+    );
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      ...docs,
+      'resort_data/config': { season: { startDate: '2026-01-15', endDate: '2026-01-15' } },
+    });
+    const before = executor.snapshot();
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-03T00:00:00.000Z'),
+      executor
+    );
+    expect(
+      await commands.execute({
+        kind: 'resolve_booking_change_request',
+        context: adminContext(
+          'season-request',
+          1,
+          { localDate: '2026-01-16', localTime: '12:00', durationMinutes: 60 },
+          { [BOOKING_REVISION_TRANSPORT_KEY]: '1' }
+        ),
+        intent: {
+          bookingChangeRequestId: changeRequestId,
+          resolution: 'rescheduled',
+          reasonExplanation: 'Agreed reschedule',
+        },
+      })
+    ).toMatchObject({ status: 'error', error: { details: { field: 'bookingSeason' } } });
+    expect(executor.snapshot()).toEqual(before);
+  });
+
   it('creates an open instructor_unavailable request without mutating the booking', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);

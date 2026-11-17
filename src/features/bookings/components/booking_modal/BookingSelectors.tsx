@@ -9,6 +9,7 @@ import { formatDurationLabel } from '../../../../lib/i18n/duration';
 import { BookingAppleDatePicker } from './BookingAppleDatePicker';
 import { BookingAppleWheelPicker } from './BookingAppleWheelPicker';
 import { buildBookingTimePickerOptions } from './bookingTimePickerOptions';
+import { useLessonBookingSeason } from '../../../lesson-bookings/useLessonBookingSeason';
 
 interface BookingSelectorsProps {
   date: string;
@@ -54,6 +55,7 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
   showDifficulty = true,
 }) => {
   const levels = useLessonLevelsStore((state) => state.levels);
+  const season = useLessonBookingSeason();
   const labelStyle = 'mb-1.5 flex items-center gap-1.5 type-caption text-[var(--ink-dim)]';
 
   const timeOptions = useMemo(
@@ -96,11 +98,18 @@ export const BookingSelectors: React.FC<BookingSelectorsProps> = ({
         <BookingAppleDatePicker
           value={date}
           onChange={setDate}
-          min={minBookingDateStr}
+          min={season.minDate > minBookingDateStr ? season.minDate : minBookingDateStr}
+          max={season.maxDate}
+          disabled={season.disabled}
           locale={locale}
           placeholder={t('selectDate')}
           aria-label={t('selectDate')}
         />
+        {season.message && (
+          <p role="status" className="mt-1.5 type-caption text-[var(--ink-dim)]">
+            {season.message}
+          </p>
+        )}
       </div>
 
       <div>

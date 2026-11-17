@@ -5,6 +5,15 @@ import { BookingSelectors } from '../../src/features/bookings/components/booking
 import { useLessonLevelsStore } from '../../src/features/settings/lessonLevelsStore';
 import { getDifficultyLabel } from '../../src/lib/i18n/bookingLabels';
 import { getParticipantSkillLabel } from '../../src/lib/i18n/participantSkillLabels';
+import { LanguageProvider } from '../../src/app/providers/LanguageContext';
+
+vi.mock('../../src/features/settings/schoolTimeZone', () => ({
+  useSchoolTimeZone: () => ({
+    timeZone: 'Asia/Almaty',
+    ready: true,
+    season: { kind: 'unconfigured' },
+  }),
+}));
 
 vi.mock('../../src/features/bookings/components/booking_modal/BookingAppleDatePicker', () => ({
   BookingAppleDatePicker: () => null,
@@ -23,8 +32,15 @@ vi.mock('../../src/features/bookings/components/booking_modal/BookingAppleWheelP
     </select>
   ),
 }));
-beforeEach(() => useLessonLevelsStore.setState({ levels: DEFAULT_LESSON_LEVELS }));
-afterEach(cleanup);
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-06-15T04:00:00Z'));
+  useLessonLevelsStore.setState({ levels: DEFAULT_LESSON_LEVELS });
+});
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 describe('lesson level selectors', () => {
   it('shows only active catalog IDs in admin order and updates names and new levels live', () => {
     render(
@@ -43,7 +59,8 @@ describe('lesson level selectors', () => {
         t={(key) => key}
         language="ru"
         getDifficultyLabel={getDifficultyLabel}
-      />
+      />,
+      { wrapper: LanguageProvider }
     );
     const select = screen.getByRole('combobox', { name: 'lessonStage' });
     expect([...select.querySelectorAll('option')].map((option) => option.value)).toEqual(

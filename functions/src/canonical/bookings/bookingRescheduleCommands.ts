@@ -1,3 +1,4 @@
+import { assertBookingSeason } from './schoolTimeZone';
 import {
   AggregateRevisionSchema,
   BookingSchema,
@@ -333,6 +334,7 @@ function rescheduleBookingHandler(
         booking.occurrence.timeZone
       );
       targetInterval = schedule.interval;
+      await assertBookingSeason(session, envelope, targetInterval);
       targetInstructorId = booking.occurrence.instructorId;
 
       if (mode === 'client_self_service') {
@@ -563,6 +565,7 @@ function changeBookingInstructorHandler(
       );
       newPrice = priceLessonPartyFromBase(envelope, booking, newBasePrice, durationMinutes);
       targetInterval = booking.occurrence.interval;
+      await assertBookingSeason(session, envelope, targetInterval);
 
       const paymentDocumentPath = paymentPath(booking.paymentId);
       const paymentRead = await session.tx.get({ path: paymentDocumentPath });
@@ -802,6 +805,7 @@ function changeBookingDurationHandler(
         booking.occurrence.interval.startsAt,
         envelope.intent.durationMinutes
       );
+      await assertBookingSeason(session, envelope, targetInterval);
 
       const instructorDocumentPath = instructorCatalogPath(booking.occurrence.instructorId);
       const instructorRead = await session.tx.get({ path: instructorDocumentPath });

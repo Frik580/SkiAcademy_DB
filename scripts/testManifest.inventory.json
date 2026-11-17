@@ -1,4 +1,6 @@
 {
+  "packages/shared-domain/src/lessonBookingSeason.test.ts": "shared-domain",
+  "tests/unit/lessonBookingSeasonUi.test.tsx": "app-unit",
   "e2e/school-timezone-setting.spec.ts": "playwright",
   "tests/unit/e2eFunctionsReadiness.test.ts": "app-unit",
   "tests/unit/schoolTimeZone.test.ts": "app-unit",

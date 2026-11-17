@@ -76,6 +76,21 @@ describe('confirmed school timezone subscription and compare-and-set', () => {
     expect(() => requireSchoolTimeZone()).toThrow('offline');
     view.unmount();
   });
+  it('publishes live season changes using the same shared config listener', () => {
+    const first = renderHook(useSchoolTimeZone);
+    const second = renderHook(useSchoolTimeZone);
+    emit({ timeZone: 'Asia/Almaty', season: { startDate: '2026-12-01', endDate: '2027-04-15' } });
+    expect(first.result.current.season).toEqual({
+      kind: 'configured',
+      startDate: '2026-12-01',
+      endDate: '2027-04-15',
+    });
+    emit({ timeZone: 'Asia/Almaty', season: { startDate: 'bad' } });
+    expect(second.result.current.season?.kind).toBe('invalid');
+    expect(mock.listen).toHaveBeenCalledTimes(1);
+    first.unmount();
+    second.unmount();
+  });
   it('merges only timezone and rejects a concurrent admin change', async () => {
     await saveSchoolTimeZone('Europe/Paris', 'Asia/Almaty');
     expect(mock.set).toHaveBeenCalledWith(

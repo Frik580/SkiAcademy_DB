@@ -1,11 +1,20 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { LanguageProvider } from '../../src/app/providers/LanguageContext';
 import type { AdminPlannerOccupancyItem } from '@ski-academy/shared-domain';
 import {
   filterAvailabilitySlotsExcludingBooking,
   filterOccupancyExcludingBooking,
   useRescheduleBookingAvailability,
 } from '../../src/features/booking-collaboration/useRescheduleBookingAvailability';
+
+vi.mock('../../src/features/settings/schoolTimeZone', () => ({
+  useSchoolTimeZone: () => ({
+    timeZone: 'Asia/Almaty',
+    ready: true,
+    season: { kind: 'unconfigured' },
+  }),
+}));
 
 const occupancyItem = (bookingId: string | undefined): AdminPlannerOccupancyItem =>
   ({
@@ -64,17 +73,26 @@ vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryInstructorOccupancyReadModels: queryOccupancy,
 }));
 describe('reschedule timezone availability', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-03T00:00:00Z'));
+    queryOccupancy.mockReset();
+  });
+  afterEach(() => vi.useRealTimers());
+
   it('queries both days in the original booking timezone', async () => {
     queryOccupancy.mockRejectedValue(new Error('fixture stop after query'));
-    const { result } = renderHook(() =>
-      useRescheduleBookingAvailability({
-        isOpen: true,
-        instructorId: 'instructor_01',
-        localDate: '2026-11-03',
-        durationHours: 1,
-        excludeBookingId: 'booking_current',
-        timeZone: 'Asia/Almaty',
-      })
+    const { result } = renderHook(
+      () =>
+        useRescheduleBookingAvailability({
+          isOpen: true,
+          instructorId: 'instructor_01',
+          localDate: '2026-11-03',
+          durationHours: 1,
+          excludeBookingId: 'booking_current',
+          timeZone: 'Asia/Almaty',
+        }),
+      { wrapper: LanguageProvider }
     );
     await waitFor(() => expect(result.current.isLoadingBookings).toBe(false));
     expect(queryOccupancy.mock.calls.map(([query]) => [query.localDate, query.timeZone])).toEqual([
@@ -84,15 +102,17 @@ describe('reschedule timezone availability', () => {
   });
   it.each([undefined, 'Invalid/Zone'])('fails closed for timezone %s', (timeZone) => {
     queryOccupancy.mockClear();
-    const { result } = renderHook(() =>
-      useRescheduleBookingAvailability({
-        isOpen: true,
-        instructorId: 'instructor_01',
-        localDate: '2026-11-03',
-        durationHours: 1,
-        excludeBookingId: 'booking_current',
-        timeZone,
-      })
+    const { result } = renderHook(
+      () =>
+        useRescheduleBookingAvailability({
+          isOpen: true,
+          instructorId: 'instructor_01',
+          localDate: '2026-11-03',
+          durationHours: 1,
+          excludeBookingId: 'booking_current',
+          timeZone,
+        }),
+      { wrapper: LanguageProvider }
     );
     expect(result.current.availableSlots).toEqual([]);
     expect(result.current.occupancyLoadFailed).toBe(true);

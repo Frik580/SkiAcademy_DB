@@ -1,4 +1,5 @@
 import { assertNoImplicitKaspiRefund } from '../finance/kaspiCancellation';
+import { assertBookingSeason } from './schoolTimeZone';
 import {
   AggregateRevisionSchema,
   BookingSchema,
@@ -201,6 +202,9 @@ function changeBookingPartyHandler(
       }
       booking = parsedBooking;
       assertPartyChangeEligibleBooking(envelope, booking);
+      if (participantIdsToAdd.length > 0) {
+        await assertBookingSeason(session, envelope, booking.occurrence.interval);
+      }
 
       const paymentDocumentPath = paymentPath(booking.paymentId);
       const paymentRead = await session.tx.get({ path: paymentDocumentPath });

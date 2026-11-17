@@ -223,6 +223,34 @@ function fixtureFirestore(executor: ReturnType<typeof createInMemoryCanonicalTra
 }
 
 describe('guest lesson profile completion canonical security', () => {
+  it.each([
+    {},
+    { startDate: '2026-02-01', endDate: '2026-04-15' },
+    { startDate: '2025-12-01', endDate: '2026-01-14' },
+  ])(
+    'rejects guest creation with season %j without admission counters, claims or other writes',
+    async (season) => {
+      const executor = createInMemoryCanonicalTransactionExecutor(
+        fixtureWithoutParticipant({ 'resort_data/config': { season } })
+      );
+      const before = executor.snapshot();
+      expect(await runCommands(executor).execute(guestCreateEnvelope())).toMatchObject({
+        status: 'error',
+        error: { details: { field: 'bookingSeason' } },
+      });
+      expect(executor.snapshot()).toEqual(before);
+    }
+  );
+
+  it('allows guest creation on a configured season boundary', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      fixtureWithoutParticipant({
+        'resort_data/config': { season: { startDate: '2026-01-15', endDate: '2026-01-15' } },
+      })
+    );
+    expect((await runCommands(executor).execute(guestCreateEnvelope())).status).toBe('success');
+  });
+
   it('does not grant profile authority or disclose profile data when creation reuses a foreign unmanaged guest', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
     const created = await runCommands(executor).execute(guestCreateEnvelope());

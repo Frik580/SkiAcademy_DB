@@ -7,6 +7,10 @@ import { useLanguage } from '../../../../../app/providers/LanguageContext';
 import { formatDurationLabel } from '../../../../../lib/i18n/duration';
 
 interface ActiveSlotMoveFormProps {
+  seasonMessage?: string;
+  seasonMoveAllowed?: boolean;
+  minMoveDate?: string;
+  maxMoveDate?: string;
   booking: Booking;
   canReassignInstructor: boolean;
   canChangeDuration: boolean;
@@ -31,6 +35,10 @@ interface ActiveSlotMoveFormProps {
 }
 
 export const ActiveSlotMoveForm: React.FC<ActiveSlotMoveFormProps> = ({
+  seasonMessage,
+  seasonMoveAllowed = true,
+  minMoveDate,
+  maxMoveDate,
   booking,
   canReassignInstructor,
   canChangeDuration,
@@ -93,6 +101,8 @@ export const ActiveSlotMoveForm: React.FC<ActiveSlotMoveFormProps> = ({
             </label>
             <input
               type="date"
+              min={minMoveDate}
+              max={maxMoveDate}
               required
               value={newMoveDate}
               onChange={(event) => setNewMoveDate(event.target.value)}
@@ -189,6 +199,11 @@ export const ActiveSlotMoveForm: React.FC<ActiveSlotMoveFormProps> = ({
         </button>
       )}
 
+      {seasonMessage && (
+        <p role="status" className="type-caption text-[var(--ink-dim)]">
+          {seasonMessage}
+        </p>
+      )}
       <div className="admin-modal-actions">
         <button
           type="button"
@@ -203,6 +218,7 @@ export const ActiveSlotMoveForm: React.FC<ActiveSlotMoveFormProps> = ({
           type="submit"
           pending={isSlotActionSubmitting}
           pendingLabel={t('applyMove')}
+          disabled={!seasonMoveAllowed}
           unstyled
           className={ADMIN_MODAL_PRIMARY_CLASS}
         >

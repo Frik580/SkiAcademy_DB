@@ -367,6 +367,41 @@ async function createOpenProposal(
 }
 
 describe('booking proposal commands', () => {
+  it('rechecks current season at acceptance without consuming proposal, wallet or slot', async () => {
+    const original = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    await createOpenProposal(original);
+    const docs = Object.fromEntries(
+      [...original.snapshot().docs].map(([path, doc]) => [path, doc.data])
+    );
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      ...docs,
+      'resort_data/config': {
+        timeZone: 'Pacific/Kiritimati',
+        season: { startDate: '2026-02-01', endDate: '2026-04-15' },
+      },
+    });
+    const before = executor.snapshot();
+    expect(await proposalCommands(executor).execute(acceptProposalEnvelope())).toMatchObject({
+      status: 'error',
+      error: { details: { field: 'bookingSeason' } },
+    });
+    expect(executor.snapshot()).toEqual(before);
+  });
+
+  it('rejects proposal creation outside the season without writes', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      baseFixture({
+        'resort_data/config': { season: { startDate: '2026-02-01', endDate: '2026-04-15' } },
+      })
+    );
+    const before = executor.snapshot();
+    expect(await proposalCommands(executor).execute(createProposalEnvelope())).toMatchObject({
+      status: 'error',
+      error: { details: { field: 'bookingSeason' } },
+    });
+    expect(executor.snapshot()).toEqual(before);
+  });
+
   it('creates an open proposal without booking, payment, wallet, or claims', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
     const result = await proposalCommands(executor).execute(createProposalEnvelope());

@@ -1,5 +1,9 @@
 vi.mock('../../src/features/settings/schoolTimeZone', () => ({
-  useSchoolTimeZone: () => ({ timeZone: 'Asia/Almaty', ready: true }),
+  useSchoolTimeZone: () => ({
+    timeZone: 'Asia/Almaty',
+    ready: true,
+    season: { kind: 'unconfigured' },
+  }),
 }));
 import {
   participantInstructorAccessKey,
@@ -8,7 +12,7 @@ import {
 import { useBookingCollaborationStore } from '../../src/features/booking-collaboration/bookingCollaborationStore';
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Instructor, UserProfile } from '../../src/types';
 import { CanonicalCommandClientError } from '../../src/lib/canonical/mapCanonicalCommandError';
 import { useWalletStore } from '../../src/features/wallet/walletStore';
@@ -277,7 +281,10 @@ describe('booking modal submit success UX', () => {
     expect(screen.getByText('30000')).toBeInTheDocument();
   });
   beforeEach(() => {
-    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-06-15T04:00:00Z'));
+    // Booking defaults to school today even without a configured season. Freeze both
+    // new Date() and Date.now(), leaving async waits and reservation timers real.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-06-15T04:00:00Z'));
     useBookingCollaborationStore.getState().reset();
     mocks.queryParticipantAccess.mockReset().mockResolvedValue({ item: undefined });
     // jsdom lacks element scrolling used by the real booking wheel controls.
@@ -321,6 +328,8 @@ describe('booking modal submit success UX', () => {
       },
     });
   });
+
+  afterEach(() => vi.useRealTimers());
 
   it.each(['ski', 'snowboard'] as const)(
     'automatically submits %s for a single-specialty instructor without a discipline selector',

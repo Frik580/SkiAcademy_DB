@@ -71,7 +71,10 @@ vi.mock('../../src/app/providers/LanguageContext', () => ({
           guestCoursePrice: 'Course price: {amount}.',
           guestAdminContactPayment: 'An administrator will contact you to arrange payment.',
         }) as Record<string, string>
-      )[key] ?? key,
+      )[key] ??
+      (key === 'courseEnrollmentInsufficientFunds'
+        ? translations[mocks.language].courseEnrollmentInsufficientFunds
+        : key),
     language: mocks.language,
   }),
   getGroupCourseLabel: (title: string) => title,
@@ -194,6 +197,71 @@ describe('CourseEnrollmentModal authenticated enrollment', () => {
     mocks.isAnySelectedParticipantEnrolledInCourse.mockReturnValue(false);
     mocks.selectActiveGuestCourseEnrollment.mockReturnValue(undefined);
     onEnroll.mockResolvedValue(undefined);
+  });
+
+  it.each(['en', 'ru'] as const)(
+    'keeps the mixed selection and displays insufficient funds inline in %s, then retries',
+    async (language) => {
+      mocks.language = language;
+      mocks.participants = [selfOnly, dependent];
+      mocks.selectedParticipantIds = ['participant_self', 'participant_dependent'];
+      const onClose = vi.fn();
+      const onSuccess = vi.fn();
+      onEnroll.mockRejectedValueOnce(
+        new CanonicalCommandClientError('insufficient_funds', { correlationId: 'course_funds' })
+      );
+      render(
+        <CourseEnrollmentModal
+          isOpen
+          onClose={onClose}
+          course={course}
+          userProfile={userProfile}
+          onEnroll={onEnroll}
+          onSuccess={onSuccess}
+        />
+      );
+      const submit = screen.getByRole('button', { name: /enroll/i });
+      await userEvent.click(submit);
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        language === 'ru'
+          ? 'Недостаточно средств для бронирования курса. Пополните баланс и попробуйте снова'
+          : 'Insufficient funds to book this course. Please top up your balance and try again'
+      );
+      expect(onClose).not.toHaveBeenCalled();
+      expect(onSuccess).not.toHaveBeenCalled();
+      expect(mocks.resetSelection).not.toHaveBeenCalled();
+      expect(mocks.addNotification).not.toHaveBeenCalled();
+      expect(mocks.confetti).not.toHaveBeenCalled();
+      expect(screen.getAllByRole('button', { pressed: true })).toHaveLength(2);
+      expect(submit).toBeEnabled();
+      await userEvent.click(submit);
+      await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+      expect(onSuccess).toHaveBeenCalledTimes(1);
+      expect(onEnroll).toHaveBeenCalledTimes(2);
+      expect(onEnroll.mock.calls[1]).toEqual(onEnroll.mock.calls[0]);
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    }
+  );
+
+  it('keeps the modal open after an internal server error without a duplicate notification', async () => {
+    const onClose = vi.fn();
+    onEnroll.mockRejectedValueOnce(
+      new CanonicalCommandClientError('internal', { correlationId: 'course_internal' })
+    );
+    render(
+      <CourseEnrollmentModal
+        isOpen
+        onClose={onClose}
+        course={course}
+        userProfile={userProfile}
+        onEnroll={onEnroll}
+      />
+    );
+    await userEvent.click(screen.getByRole('button', { name: /enroll/i }));
+    expect(await screen.findByRole('alert')).toBeVisible();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(mocks.addNotification).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /enroll/i })).toBeEnabled();
   });
 
   it('hides the picker and enrolls the sole participant without an explicit selection', async () => {

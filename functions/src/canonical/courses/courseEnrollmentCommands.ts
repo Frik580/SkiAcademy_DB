@@ -118,6 +118,7 @@ import {
 } from './courseStore';
 import {
   assertAdminEnrollmentUnderpaymentReason,
+  assertEnrollmentPartyCapability,
   assertManagedParticipantRecord,
   resolveCourseEnrollmentCreationAuthorization,
   resolveManagedEnrollmentAuthorization,
@@ -382,7 +383,7 @@ function assertNoBlocksForCourseDays(
   }
 }
 
-function createCourseEnrollmentsHandler(
+async function createCourseEnrollmentsHandler(
   envelope: CommandEnvelope<'create_course_enrollments'>,
   environment: GuestCourseEnrollmentCommandEnvironment & {
     readonly guestReservationAdmission?: GuestReservationAdmissionPolicy;
@@ -534,6 +535,75 @@ function createCourseEnrollmentsHandler(
         { readonly exists: boolean; readonly data?: Record<string, unknown> }
       >();
 
+      const readManagedAuthorization = async (
+        existingParticipant: ReturnType<typeof parseParticipant>
+      ) => {
+        const participantRecord = assertManagedParticipantRecord(envelope, existingParticipant);
+        assertTestMutableSubjectScope({
+          correlationId: envelope.context.correlationId,
+          scope: session.scope,
+          persisted: participantRecord,
+        });
+        if (participantRecord.management.kind !== 'managed') {
+          throw new CanonicalCommandError('forbidden', {
+            correlationId: envelope.context.correlationId,
+            details: { resourceKind: 'participant', reason: 'conflict' },
+          });
+        }
+        const managementRead = await session.tx.get({
+          path: participantManagementPath(participantRecord.management.participantManagementId),
+        });
+        session.plan.planRead({
+          path: participantManagementPath(participantRecord.management.participantManagementId),
+          category: 'authorization_check',
+        });
+        const managementRecord = parseParticipantManagement(
+          managementRead.exists ? managementRead.data : undefined
+        );
+        if (!managementRecord || managementRecord.status !== 'active') {
+          throw new CanonicalCommandError('forbidden', {
+            correlationId: envelope.context.correlationId,
+            details: { resourceKind: 'participant', reason: 'conflict' },
+          });
+        }
+
+        const actor = requireAccountActor(envelope);
+        const actorAccountRead = await readAuthorizationAccount(accountPath(actor.accountId));
+        const actorAccount = parseAccount(
+          actorAccountRead.exists ? actorAccountRead.data : undefined
+        );
+        if (!actorAccount || actorAccount.lifecycle.status !== 'active') {
+          throw new CanonicalCommandError('forbidden', {
+            correlationId: envelope.context.correlationId,
+          });
+        }
+
+        const authorization = resolveManagedEnrollmentAuthorization(envelope, mode, {
+          account: actorAccount,
+          participant: participantRecord,
+          management: managementRecord,
+        });
+
+        const payerRead = await readAuthorizationAccount(
+          accountPath(authorization.payerAccountId!)
+        );
+        const payerAccount = parseAccount(payerRead.exists ? payerRead.data : undefined);
+        if (!payerAccount || payerAccount.lifecycle.status !== 'active') {
+          throw new CanonicalCommandError('validation', {
+            correlationId: envelope.context.correlationId,
+            details: { resourceKind: 'participant', reason: 'conflict' },
+          });
+        }
+        await assertPayerAccountAuthority({
+          session,
+          correlationId: envelope.context.correlationId,
+          accountId: authorization.payerAccountId!,
+          account: payerAccount,
+        });
+
+        return { participantRecord, authorization };
+      };
+
       for (const [index, participantId] of envelope.intent.participantIds.entries()) {
         const enrollmentId = enrollmentIds[index]!;
         const paymentId = paymentIdFromCourseEnrollmentId(enrollmentId);
@@ -567,11 +637,22 @@ function createCourseEnrollmentsHandler(
             paymentId,
             mode,
           });
+          // A different command key may replay existing seats alongside new ones.
+          // Verify their current management too before deriving the party capability.
+          let replayAuthorization: CourseEnrollmentCreationAuthorization = { mode };
+          if (mode === 'account_self_service') {
+            const path = participantPath(participantId);
+            session.plan.planRead({ path, category: 'authorization_check' });
+            const read = await session.tx.get({ path });
+            replayAuthorization = (
+              await readManagedAuthorization(parseParticipant(read.exists ? read.data : undefined))
+            ).authorization;
+          }
           nextPlanned.push({
             participantId,
             enrollmentId,
             paymentId,
-            authorization: { mode },
+            authorization: replayAuthorization,
             paymentProjection: {
               originalPrice: existingPayment.originalPrice,
               price: existingPayment.price,
@@ -684,68 +765,9 @@ function createCourseEnrollmentsHandler(
             participantBlocks: guestBlocks,
           });
         } else {
-          participantRecord = assertManagedParticipantRecord(envelope, existingParticipant);
-          assertTestMutableSubjectScope({
-            correlationId: envelope.context.correlationId,
-            scope: session.scope,
-            persisted: participantRecord,
-          });
-          if (participantRecord.management.kind !== 'managed') {
-            throw new CanonicalCommandError('forbidden', {
-              correlationId: envelope.context.correlationId,
-              details: { resourceKind: 'participant', reason: 'conflict' },
-            });
-          }
-          const managementRead = await session.tx.get({
-            path: participantManagementPath(participantRecord.management.participantManagementId),
-          });
-          session.plan.planRead({
-            path: participantManagementPath(participantRecord.management.participantManagementId),
-            category: 'authorization_check',
-          });
-          const managementRecord = parseParticipantManagement(
-            managementRead.exists ? managementRead.data : undefined
-          );
-          if (!managementRecord || managementRecord.status !== 'active') {
-            throw new CanonicalCommandError('forbidden', {
-              correlationId: envelope.context.correlationId,
-              details: { resourceKind: 'participant', reason: 'conflict' },
-            });
-          }
-
-          const actor = requireAccountActor(envelope);
-          const actorAccountRead = await readAuthorizationAccount(accountPath(actor.accountId));
-          const actorAccount = parseAccount(
-            actorAccountRead.exists ? actorAccountRead.data : undefined
-          );
-          if (!actorAccount || actorAccount.lifecycle.status !== 'active') {
-            throw new CanonicalCommandError('forbidden', {
-              correlationId: envelope.context.correlationId,
-            });
-          }
-
-          authorization = resolveManagedEnrollmentAuthorization(envelope, mode, {
-            account: actorAccount,
-            participant: participantRecord,
-            management: managementRecord,
-          });
-
-          const payerRead = await readAuthorizationAccount(
-            accountPath(authorization.payerAccountId!)
-          );
-          const payerAccount = parseAccount(payerRead.exists ? payerRead.data : undefined);
-          if (!payerAccount || payerAccount.lifecycle.status !== 'active') {
-            throw new CanonicalCommandError('validation', {
-              correlationId: envelope.context.correlationId,
-              details: { resourceKind: 'participant', reason: 'conflict' },
-            });
-          }
-          await assertPayerAccountAuthority({
-            session,
-            correlationId: envelope.context.correlationId,
-            accountId: authorization.payerAccountId!,
-            account: payerAccount,
-          });
+          const managed = await readManagedAuthorization(existingParticipant);
+          participantRecord = managed.participantRecord;
+          authorization = managed.authorization;
 
           const participantBlocks = await loadParticipantBlocksForCourseDays(session, {
             participantId,
@@ -839,6 +861,12 @@ function createCourseEnrollmentsHandler(
         });
       }
 
+      if (mode === 'account_self_service') {
+        assertEnrollmentPartyCapability(
+          envelope,
+          nextPlanned.map((planned) => planned.authorization)
+        );
+      }
       const newPlanned = nextPlanned.filter((planned) => !planned.alreadyApplied);
       planResourceClaimBatch(
         session,
@@ -1381,7 +1409,8 @@ function createCourseEnrollmentsHandler(
     },
   };
 
-  return executeAuthoritativeIdempotentCanonicalCommand({
+  let replayed = false;
+  const result = await executeAuthoritativeIdempotentCanonicalCommand({
     envelope,
     environment,
     executor,
@@ -1390,7 +1419,16 @@ function createCourseEnrollmentsHandler(
       requireExpectedRevision: envelope.context.expectedRevision !== undefined,
     },
     handler,
+    onSettled: (observation) => {
+      replayed = observation.replayed;
+    },
   });
+  // Stored creation results still say "created". Expose an equivalent success
+  // for self-service replay so the client does not repeat debit/success effects.
+  if (mode === 'account_self_service' && replayed && result.status === 'success') {
+    return { ...result, payload: { ...result.payload, outcome: 'already_exists' } };
+  }
+  return result;
 }
 
 export function createCourseEnrollmentCommandHandlers(

@@ -57,7 +57,10 @@ interface CourseEnrollmentModalProps {
   course: Course | null;
   userProfile?: UserProfile | null;
   onAuthSuccess?: (profile: UserProfile) => void;
-  onEnroll: (courseId: string, selection: AuthenticatedCourseEnrollmentSelection) => void;
+  onEnroll: (
+    courseId: string,
+    selection: AuthenticatedCourseEnrollmentSelection
+  ) => void | boolean | Promise<void | boolean>;
   onSuccess?: () => void;
 }
 
@@ -506,15 +509,19 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     setIsSubmitting(true);
     try {
       const selection = resolveSelectedParticipantCommand(participants, effectiveParticipantIds);
-      await Promise.resolve(onEnroll(course.id, selection));
+      const enrolled = await onEnroll(course.id, selection);
+      if (enrolled === false) return;
       onClose();
       onSuccess?.();
     } catch (err) {
       const presented = presentCanonicalCommandErrorWithContext(err, {
         t: t as (key: string) => string,
       });
-      setSubmissionError(presented.message || t('bookingRecordFailed'));
-      addNotification('error', t('bookingError'), presented.message || t('bookingRecordFailed'));
+      setSubmissionError(
+        presented.code === 'insufficient_funds'
+          ? t('courseEnrollmentInsufficientFunds')
+          : presented.message || t('bookingRecordFailed')
+      );
     } finally {
       isSubmittingRef.current = false;
       setIsSubmitting(false);

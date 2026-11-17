@@ -229,6 +229,192 @@ async function runCommand(
 }
 
 describe('create_course_enrollments command', () => {
+  function partyFixture(mixed: boolean, balance: number, foreignIndex = -1) {
+    const ids = Array.from({ length: 4 }, (_, index) =>
+      ParticipantIdSchema.parse(`participant_enrollment_party_${index}`)
+    );
+    const extra: Record<string, unknown> = {
+      [`users/${accountId}/wallet/state`]: seedWallet(balance),
+    };
+    ids.forEach((id, index) => {
+      const management = ParticipantManagementIdSchema.parse(
+        `management_enrollment_party_${index}`
+      );
+      extra[`participants/${id}`] = {
+        ...seedParticipant(),
+        participantId: id,
+        management: { kind: 'managed', participantManagementId: management },
+      };
+      extra[`participant_management/${management}`] = {
+        ...seedManagement(),
+        participantId: id,
+        participantManagementId: management,
+        authority: mixed && index === 0 ? 'self' : 'parent_guardian',
+        accountId:
+          index === foreignIndex ? AccountIdSchema.parse('account_foreign_party') : accountId,
+      };
+    });
+    return { ids, executor: createInMemoryCanonicalTransactionExecutor(baseFixture(extra)) };
+  }
+
+  it.each([false, true])(
+    'authorizes four participants atomically (mixed=%s) and charges once',
+    async (mixed) => {
+      const { ids, executor } = partyFixture(mixed, COURSE_PRICE_KZT * 4);
+      const envelope = createEnvelope({
+        context: accountContext('parent_guardian', accountId, `party-funded-${mixed}`),
+        intent: { courseId, participantIds: ids },
+      });
+      const first = await runCommand(executor, envelope);
+      expect(first).toMatchObject({ status: 'success', payload: { outcome: 'created' } });
+      const after = executor.snapshot();
+      expect(after.docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(0);
+      expect(after.docs.get(`courses/${courseId}`)?.data.capacity.availableSeats).toBe(4);
+      for (const prefix of ['course_enrollments/', 'payments/', 'monetary_events/']) {
+        expect([...after.docs.keys()].filter((path) => path.startsWith(prefix))).toHaveLength(4);
+      }
+      expect(await runCommand(executor, envelope)).toMatchObject({
+        status: 'success',
+        payload: { outcome: 'already_exists' },
+      });
+      expect(executor.snapshot()).toEqual(after);
+      const enrollmentIds = ids.map((id) =>
+        courseEnrollmentIdFromCommandParticipant({
+          commandId: resolveCommandIdempotencyIdentity(envelope).commandKey,
+          participantId: id,
+        })
+      );
+      expect(
+        await runCommand(executor, {
+          ...envelope,
+          context: accountContext('parent_guardian', accountId, `party-equivalent-${mixed}`),
+          intent: { ...envelope.intent, enrollmentIds },
+        })
+      ).toMatchObject({ status: 'success', payload: { outcome: 'already_exists' } });
+      expect(executor.snapshot().docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(0);
+      expect(
+        [...executor.snapshot().docs.keys()].filter((path) => path.startsWith('monetary_events/'))
+      ).toHaveLength(4);
+    }
+  );
+
+  it.each([false, true])(
+    'returns insufficient_funds for the whole party and retries after funding (mixed=%s)',
+    async (mixed) => {
+      const { ids, executor } = partyFixture(mixed, COURSE_PRICE_KZT * 3);
+      const envelope = createEnvelope({
+        context: accountContext('parent_guardian', accountId, `party-topup-${mixed}`),
+        intent: { courseId, participantIds: ids },
+      });
+      const before = executor.snapshot();
+      expect(await runCommand(executor, envelope)).toMatchObject({
+        status: 'error',
+        error: { code: 'insufficient_funds' },
+      });
+      expect(executor.snapshot()).toEqual(before);
+      const commands = createProductionCanonicalCommands(environment(), executor);
+      expect(
+        await commands.execute({
+          kind: 'record_manual_wallet_funding',
+          context: {
+            ...accountContext('administrator', accountId, `party-funding-${mixed}`),
+            expectedRevision: AggregateRevisionSchema.parse(1),
+          },
+          intent: { accountId, amount: COURSE_PRICE_KZT, reasonExplanation: 'Course party top up' },
+        })
+      ).toMatchObject({ status: 'success' });
+      expect(await runCommand(executor, envelope)).toMatchObject({ status: 'success' });
+      const after = executor.snapshot();
+      expect(after.docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(0);
+      expect(
+        [...after.docs.keys()].filter((path) => path.startsWith('course_enrollments/'))
+      ).toHaveLength(4);
+      expect(await runCommand(executor, envelope)).toMatchObject({ status: 'success' });
+      expect(executor.snapshot()).toEqual(after);
+    }
+  );
+
+  it.each([0, 3])(
+    'rejects foreign participant at index %s before wallet validation with no partial writes',
+    async (foreignIndex) => {
+      const { ids, executor } = partyFixture(true, 0, foreignIndex);
+      const before = executor.snapshot();
+      expect(
+        await runCommand(
+          executor,
+          createEnvelope({
+            context: accountContext('parent_guardian'),
+            intent: { courseId, participantIds: ids },
+          })
+        )
+      ).toMatchObject({ status: 'error', error: { code: 'forbidden' } });
+      expect(executor.snapshot()).toEqual(before);
+    }
+  );
+
+  it.each([false, true])(
+    'charges only a new seat when replaying part of a mixed party (guardianAlreadyExists=%s)',
+    async (guardianAlreadyExists) => {
+      const { ids, executor } = partyFixture(true, COURSE_PRICE_KZT * 2);
+      const selfId = ids[0]!;
+      const guardianId = ids[1]!;
+      const existingId = guardianAlreadyExists ? guardianId : selfId;
+      const existingEnrollmentId = CourseEnrollmentIdSchema.parse(
+        `enrollment_party_existing_${guardianAlreadyExists}`
+      );
+      const newEnrollmentId = CourseEnrollmentIdSchema.parse(
+        `enrollment_party_new_${guardianAlreadyExists}`
+      );
+      expect(
+        await runCommand(
+          executor,
+          createEnvelope({
+            context: accountContext(guardianAlreadyExists ? 'parent_guardian' : 'account_owner'),
+            intent: {
+              courseId,
+              participantIds: [existingId],
+              enrollmentIds: [existingEnrollmentId],
+            },
+          })
+        )
+      ).toMatchObject({ status: 'success' });
+      const fullParty = createEnvelope({
+        context: accountContext('parent_guardian'),
+        intent: {
+          courseId,
+          participantIds: [selfId, guardianId],
+          enrollmentIds: guardianAlreadyExists
+            ? [newEnrollmentId, existingEnrollmentId]
+            : [existingEnrollmentId, newEnrollmentId],
+        },
+      });
+      expect(await runCommand(executor, fullParty)).toMatchObject({
+        status: 'success',
+        payload: { outcome: 'created' },
+      });
+      const after = executor.snapshot();
+      expect(after.docs.get(`users/${accountId}/wallet/state`)?.data.balance).toBe(0);
+      expect(after.docs.get(`courses/${courseId}`)?.data.capacity.availableSeats).toBe(6);
+      for (const prefix of ['course_enrollments/', 'payments/', 'monetary_events/']) {
+        expect([...after.docs.keys()].filter((path) => path.startsWith(prefix))).toHaveLength(2);
+      }
+      expect(await runCommand(executor, fullParty)).toMatchObject({
+        status: 'success',
+        payload: { outcome: 'already_exists' },
+      });
+      expect(executor.snapshot()).toEqual(after);
+    }
+  );
+
+  it('rejects account_owner capability for a mixed party', async () => {
+    const { ids, executor } = partyFixture(true, COURSE_PRICE_KZT * 4);
+    const before = executor.snapshot();
+    expect(
+      await runCommand(executor, createEnvelope({ intent: { courseId, participantIds: ids } }))
+    ).toMatchObject({ status: 'error', error: { code: 'forbidden' } });
+    expect(executor.snapshot()).toEqual(before);
+  });
+
   it.each([undefined, 'Own board', '  Own board\nFirst time  ', 'x'.repeat(500)])(
     'persists parsed guest comment only on the enrollment and preserves replay (%s)',
     async (guestComment) => {
@@ -479,10 +665,10 @@ describe('create_course_enrollments command', () => {
       status: 'success',
       payload: { outcome: 'created' },
     });
-    // Same idempotency key replays the stored success payload.
+    // Same idempotency key returns equivalent success without another charge.
     expect(await runCommand(executor, firstEnvelope)).toMatchObject({
       status: 'success',
-      payload: { outcome: 'created' },
+      payload: { outcome: 'already_exists' },
     });
     expect(
       await runCommand(

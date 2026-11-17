@@ -248,6 +248,10 @@ describe('useCourseActions.handleBookCourse equivalent enrollment', () => {
       useCourseEnrollmentStore
         .getState()
         .mergeItems(new Map([['enrollment_fixture_01', enrollmentItem()]]));
+      useWalletStore.getState().syncCanonicalWalletFromSnapshot({
+        exists: true,
+        balanceKzt: INITIAL_BALANCE,
+      });
       // Catalog stays at the already-decremented seats after equivalent replay.
       useCourseEnrollmentStore
         .getState()
@@ -280,6 +284,11 @@ describe('useCourseActions.handleBookCourse equivalent enrollment', () => {
 
   it('applies a single optimistic debit and success toast on first created enrollment', async () => {
     mockCreateAuthenticatedEnrollment.mockImplementation(async () => {
+      expect(useWalletStore.getState().optimisticBalanceDelta).toBe(-COURSE_PRICE);
+      useWalletStore.getState().syncCanonicalWalletFromSnapshot({
+        exists: true,
+        balanceKzt: INITIAL_BALANCE - COURSE_PRICE,
+      });
       useCourseEnrollmentStore
         .getState()
         .mergeItems(new Map([['enrollment_fixture_01', enrollmentItem()]]));
@@ -299,7 +308,7 @@ describe('useCourseActions.handleBookCourse equivalent enrollment', () => {
 
     expect(mockCreateAuthenticatedEnrollment).toHaveBeenCalledTimes(1);
     expect(selectEffectiveBalance(useWalletStore.getState())).toBe(INITIAL_BALANCE - COURSE_PRICE);
-    expect(useWalletStore.getState().optimisticBalanceDelta).toBe(-COURSE_PRICE);
+    expect(useWalletStore.getState().optimisticBalanceDelta).toBe(0);
     expect(useCourseEnrollmentStore.getState().items.has('enrollment_fixture_01')).toBe(true);
     expect(
       useCourseEnrollmentStore.getState().catalogByCourseId.get(COURSE_ID)?.availableSeats
@@ -322,10 +331,12 @@ describe('useCourseActions.handleBookCourse equivalent enrollment', () => {
 
     const { result } = renderHook(() => useCourseActions());
     await act(async () => {
-      await result.current.handleBookCourse(COURSE_ID, {
-        participantIds: [PARTICIPANT_ID],
-        exercisedCapability: 'account_owner',
-      });
+      await expect(
+        result.current.handleBookCourse(COURSE_ID, {
+          participantIds: [PARTICIPANT_ID],
+          exercisedCapability: 'account_owner',
+        })
+      ).rejects.toMatchObject({ code: 'insufficient_funds' });
     });
 
     expect(selectEffectiveBalance(useWalletStore.getState())).toBe(INITIAL_BALANCE);
@@ -335,7 +346,7 @@ describe('useCourseActions.handleBookCourse equivalent enrollment', () => {
       useCourseEnrollmentStore.getState().catalogByCourseId.get(COURSE_ID)?.availableSeats
     ).toBe(seatsBefore);
     expect(mockConfetti).not.toHaveBeenCalled();
-    expect(mockNotify).toHaveBeenCalledWith('error', 'bookingFailed', 'bookingFailedDesc');
+    expect(mockNotify).not.toHaveBeenCalled();
   });
 
   it('blocks command only for the selected enrolled participant, not siblings', async () => {
@@ -374,5 +385,81 @@ describe('useCourseActions.handleBookCourse equivalent enrollment', () => {
       'enrollmentConfirmed',
       expect.stringContaining('Beginner Camp')
     );
+  });
+  it.each(['insufficient_funds', 'internal'])(
+    'rolls back all four seats and rethrows %s without notifications, then retries',
+    async (code) => {
+      const ids = ['participant_a', 'participant_b', 'participant_c', 'participant_d'];
+      const selection = { participantIds: ids, exercisedCapability: 'parent_guardian' as const };
+      const error = Object.assign(new Error('server failure'), { code });
+      let firstKey: string | undefined;
+      mockCreateAuthenticatedEnrollment.mockImplementationOnce(async (input) => {
+        firstKey = input.identity.idempotencyKey;
+        expect(useWalletStore.getState().optimisticBalanceDelta).toBe(-COURSE_PRICE * 4);
+        throw error;
+      });
+      const { result } = renderHook(() => useCourseActions());
+      await act(async () => {
+        await expect(result.current.handleBookCourse(COURSE_ID, selection)).rejects.toBe(error);
+      });
+      expect(useWalletStore.getState().canonicalBalanceKzt).toBe(INITIAL_BALANCE);
+      expect(useWalletStore.getState().optimisticBalanceDelta).toBe(0);
+      expect(mockNotify).not.toHaveBeenCalled();
+      expect(mockConfetti).not.toHaveBeenCalled();
+      expect(useCourseEnrollmentStore.getState().items.size).toBe(0);
+      useWalletStore
+        .getState()
+        .syncCanonicalWalletFromSnapshot({ exists: true, balanceKzt: COURSE_PRICE * 5 });
+      mockCreateAuthenticatedEnrollment.mockImplementationOnce(async (input) => {
+        expect(input.identity.idempotencyKey).toBe(firstKey);
+        expect(useWalletStore.getState().optimisticBalanceDelta).toBe(-COURSE_PRICE * 4);
+        useWalletStore
+          .getState()
+          .syncCanonicalWalletFromSnapshot({ exists: true, balanceKzt: COURSE_PRICE });
+        return { outcome: 'created' };
+      });
+      await act(async () => {
+        await result.current.handleBookCourse(COURSE_ID, selection);
+      });
+      expect(selectEffectiveBalance(useWalletStore.getState())).toBe(COURSE_PRICE);
+      expect(mockNotify).toHaveBeenCalledTimes(1);
+      expect(mockConfetti).toHaveBeenCalledTimes(1);
+      mockNotify.mockClear();
+      await act(async () => {
+        await result.current.handleBookCourse(COURSE_ID, {
+          ...selection,
+          participantIds: [...ids].reverse(),
+        });
+      });
+      expect(mockCreateAuthenticatedEnrollment).toHaveBeenCalledTimes(2);
+      expect(selectEffectiveBalance(useWalletStore.getState())).toBe(COURSE_PRICE);
+      expect(mockNotify).toHaveBeenCalledTimes(1);
+      expect(mockNotify).toHaveBeenCalledWith('warning', 'alreadyEnrolled', 'alreadyEnrolledDesc');
+      expect(mockConfetti).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  it('does not repeat a debit or success effects on replay after the hook remounts', async () => {
+    mockCreateAuthenticatedEnrollment.mockResolvedValue({ outcome: 'created' });
+    const first = renderHook(() => useCourseActions());
+    await act(async () => {
+      await first.result.current.handleBookCourse(COURSE_ID, {
+        participantIds: [PARTICIPANT_ID],
+        exercisedCapability: 'account_owner',
+      });
+    });
+    first.unmount();
+    mockCreateAuthenticatedEnrollment.mockResolvedValue({ outcome: 'already_exists' });
+    const second = renderHook(() => useCourseActions());
+    await act(async () => {
+      await second.result.current.handleBookCourse(COURSE_ID, {
+        participantIds: [PARTICIPANT_ID],
+        exercisedCapability: 'account_owner',
+      });
+    });
+    expect(useWalletStore.getState().optimisticBalanceDelta).toBe(0);
+    expect(useWalletStore.getState().canonicalBalanceKzt).toBe(INITIAL_BALANCE);
+    expect(mockNotify.mock.calls.filter(([kind]) => kind === 'success')).toHaveLength(1);
+    expect(mockConfetti).toHaveBeenCalledTimes(1);
   });
 });

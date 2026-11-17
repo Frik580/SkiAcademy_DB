@@ -2,6 +2,7 @@ export {
   getResortWeatherCache,
   readCachedResortConfig,
   saveResortConfig,
+  saveResortSeason,
   saveResortWeatherCache,
   subscribeResortConfig,
   writeCachedResortConfig,

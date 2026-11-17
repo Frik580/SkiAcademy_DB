@@ -1,5 +1,6 @@
 import { db, doc, getDoc, onSnapshot, setDoc } from '../../infrastructure/firebase';
-import type { ResortConfig } from '../../types';
+import type { ResortConfig, ResortSeasonSettings } from '../../types';
+import { getResortSeasonValidationError } from './resortSeason';
 
 const resortConfigRef = doc(db, 'resort_data', 'config');
 const resortCacheRef = doc(db, 'resort_data', 'cache');
@@ -55,6 +56,12 @@ export function subscribeResortConfig(
 
 export async function saveResortConfig(update: Partial<ResortConfig>): Promise<void> {
   await setDoc(resortConfigRef, update, { merge: true });
+}
+
+export async function saveResortSeason(season: ResortSeasonSettings): Promise<void> {
+  const error = getResortSeasonValidationError(season);
+  if (error) throw new Error(error);
+  await saveResortConfig({ season });
 }
 
 export async function getResortWeatherCache(): Promise<ResortWeatherCache | null> {

@@ -1,4 +1,5 @@
 import { SchoolTimeZoneSetting } from '../resort/sections/SchoolTimeZoneSetting';
+import { ResortSeasonSection } from '../resort/sections/ResortSeasonSection';
 import React from 'react';
 import { Mountain, Sliders, Users } from 'lucide-react';
 import { ResortDataSection, ResortSliderSection } from '../resort/ResortConfigForm';
@@ -30,6 +31,7 @@ export const AdminProductSettings: React.FC = () => {
         defaultOpen={false}
       >
         <SchoolTimeZoneSetting />
+        <ResortSeasonSection />
         <ResortDataSection />
       </AdminCollapsibleSection>
 

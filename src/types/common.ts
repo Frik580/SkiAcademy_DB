@@ -64,6 +64,8 @@ export interface CustomHeroSlide {
 
 export interface ResortConfig {
   timeZone?: string;
+  /** Calendar dates (YYYY-MM-DD) in the resort's configured time zone. */
+  season?: ResortSeasonSettings;
   nameEn: string;
   nameRu: string;
   subNameEn: string;
@@ -81,4 +83,14 @@ export interface ResortConfig {
   usdToKztRate?: number;
   /** @deprecated Display currency is always KZT; retained for reading legacy resort_data/config. */
   currency?: 'USD' | 'KZT';
+}
+
+export interface ResortSeasonPeriod {
+  startDate: string;
+  endDate: string;
+}
+
+export interface ResortSeasonSettings extends ResortSeasonPeriod {
+  /** No high-season period when null or absent. */
+  highSeason?: ResortSeasonPeriod | null;
 }

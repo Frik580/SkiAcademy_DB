@@ -4,28 +4,38 @@ for (const width of [390, 768, 1440])
     test(`prelesson read and clock transition ${width} ${language}`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await page.clock.install();
+      await page.route(/googleapis\.com|firebaseio\.com|cloudfunctions\.net/, (route) =>
+        route.abort()
+      );
       await page.goto(
         `/tests/browser/participant-levels/index.html?scenario=prelesson&language=${language}`
       );
-      await page
-        .getByRole('button', {
-          name: language === 'ru' ? 'Действия с инструктором' : 'Instructor actions',
-        })
-        .click();
       await page
         .getByRole('button', {
           name: language === 'ru' ? 'Заблокировать инструктора' : 'Block instructor',
           exact: true,
         })
         .click();
-      const confirm = page.getByRole('button', {
-        name: language === 'ru' ? 'Подтверждение' : 'Confirm Action',
+      const dialog = page.getByRole('dialog', {
+        name: language === 'ru' ? 'Заблокировать инструктора?' : 'Block instructor?',
+        exact: true,
+      });
+      await expect(dialog).toBeVisible();
+      const confirm = dialog.getByRole('button', {
+        name: language === 'ru' ? 'Заблокировать' : 'Block',
         exact: true,
       });
       await expect(confirm).toBeDisabled();
-      await page.getByRole('textbox').fill('Reason');
+      await dialog.getByRole('textbox').fill('Reason');
       await confirm.click();
       await expect(page.getByTestId('block')).toHaveText('true');
+      await expect(dialog).toHaveCount(0);
+      await expect(
+        page.getByRole('button', {
+          name: language === 'ru' ? 'Разблокировать инструктора' : 'Unblock instructor',
+          exact: true,
+        })
+      ).toBeEnabled();
       await page.getByRole('button', { name: 'Open progress' }).click();
       const status = page
         .getByRole('status')

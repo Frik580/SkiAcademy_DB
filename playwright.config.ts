@@ -43,7 +43,7 @@ export default defineConfig({
           ? [
               {
                 command: `npm exec vite -- --mode e2e --config e2e/vite.live.config.ts --host 127.0.0.1 --port ${E2E_LIVE_APP_PORT} --strictPort`,
-                url: `${E2E_LIVE_APP_URL}/src/app/routes/CabinetRouteContainer.tsx`,
+                url: `${E2E_LIVE_APP_URL}/__e2e/cabinet-ready`,
                 reuseExistingServer: false,
                 timeout: 120_000,
               },

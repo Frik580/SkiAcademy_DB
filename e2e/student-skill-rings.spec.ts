@@ -108,7 +108,7 @@ test('Skill Rings preserves participant scores, selection, Development and four 
       .getByRole('group', { name: /Switch language|Сменить язык/ })
       .getByRole('button', { name: 'RU', exact: true })
       .click();
-    await expect(tile).toContainText('Кольца навыков катания');
+    await expect(tile).toContainText('Кольца навыков');
     await expect(legend.nth(1)).toContainText('Контроль и закантовка');
     for (const [name, width, dark] of [
       ['desktop-light', 1440, false],

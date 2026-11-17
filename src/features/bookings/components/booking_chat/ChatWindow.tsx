@@ -2,7 +2,7 @@ import React from 'react';
 import { MessageSquare, X } from 'lucide-react';
 import { Booking } from '../../../../types';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
-import { BodyScrollLock } from '../../../../ui/BodyScrollLock';
+import { ModalLayer } from '../../../../ui/ModalLayer';
 import { AdminModal } from '../../../admin/components/AdminModal';
 
 interface ChatWindowProps {
@@ -38,34 +38,40 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   }
 
   return (
-    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
-      <BodyScrollLock />
-      <div className="ui-modal shadow-2xl w-full max-w-lg h-[550px] max-h-[80vh] flex flex-col overflow-hidden relative rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]">
-        <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="p-2 rounded-lg bg-accent-muted border border-accent text-accent">
-              <MessageSquare className="w-4.5 h-4.5" />
+    <ModalLayer onClose={onClose}>
+      <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('chatDiscussionTitle')}
+          className="ui-modal shadow-2xl w-full max-w-lg h-[550px] max-h-[80vh] flex flex-col overflow-hidden relative rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]"
+        >
+          <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="p-2 rounded-lg bg-accent-muted border border-accent text-accent">
+                <MessageSquare className="w-4.5 h-4.5" />
+              </div>
+              <div className="min-w-0">
+                <h4 className="type-card-title text-[var(--ink)] truncate">
+                  {t('chatDiscussionTitle')}
+                </h4>
+                <p className="type-caption uppercase text-[var(--ink-dim)] truncate mt-0.5">
+                  {t('lessonWith')} {booking.instructorName} • {booking.date} @ {booking.time}
+                </p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <h4 className="type-card-title text-[var(--ink)] truncate">
-                {t('chatDiscussionTitle')}
-              </h4>
-              <p className="type-caption uppercase text-[var(--ink-dim)] truncate mt-0.5">
-                {t('lessonWith')} {booking.instructorName} • {booking.date} @ {booking.time}
-              </p>
-            </div>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-full hover:bg-[var(--profile-bg)] transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
+              title={t('closeBtn')}
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full hover:bg-[var(--profile-bg)] transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
-            title={t('closeBtn')}
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
 
-        {children}
+          {children}
+        </div>
       </div>
-    </div>
+    </ModalLayer>
   );
 };

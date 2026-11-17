@@ -173,20 +173,26 @@ export const BookingAppleDatePicker: React.FC<BookingAppleDatePickerProps> = ({
       }
     };
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsOpen(false);
-    };
-
     document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen]);
 
   return (
-    <div ref={rootRef} className="relative h-10">
+    <div
+      ref={rootRef}
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape' || !isOpen) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setIsOpen(false);
+        rootRef.current
+          ?.querySelector<HTMLButtonElement>('button[aria-expanded]')
+          ?.focus({ preventScroll: true });
+      }}
+      className="relative h-10"
+    >
       <motion.div
         animate={{
           height: isOpen ? WHEEL_OPEN_HEIGHT : WHEEL_FIELD_HEIGHT,

@@ -541,6 +541,21 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
   return (
     <div
       className="relative w-full min-w-0"
+      {...(import.meta.env.MODE === 'e2e' &&
+      import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true'
+        ? {
+            'data-testid': 'student-cabinet',
+            'data-cabinet-participant-id': selectedProgressParticipantId,
+            'data-cabinet-state': participantsError
+              ? 'error'
+              : !participantsLoading &&
+                  participants.some(
+                    (participant) => participant.participantId === selectedProgressParticipantId
+                  )
+                ? 'ready'
+                : 'loading',
+          }
+        : {})}
       style={{
         paddingBottom: studentCabinetFooterHeight,
       }}

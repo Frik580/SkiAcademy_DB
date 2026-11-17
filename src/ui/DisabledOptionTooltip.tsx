@@ -67,7 +67,7 @@ export function DisabledOptionTooltip({
       }}
       onBlur={() => setFocused(false)}
       onKeyDown={(event) => {
-        if (event.key === 'Escape') {
+        if (event.key === 'Escape' && visible) {
           setDismissed(true);
           event.stopPropagation();
         }

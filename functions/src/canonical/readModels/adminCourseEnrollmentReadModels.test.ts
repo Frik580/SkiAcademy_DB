@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Firestore } from 'firebase-admin/firestore';
 import {
   AccountIdSchema,
@@ -359,6 +359,16 @@ function seed() {
 }
 
 describe('Admin CourseEnrollment read-model callable', () => {
+  beforeEach(() => {
+    // Keep time-dependent actions before the seeded reservation expiry and course start.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-10T00:00:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it.each([undefined, 'Own board\n<script>alert(1)</script>'])(
     'projects comments only into admin detail without additional reads (%s)',
     async (guestComment) => {
@@ -521,6 +531,36 @@ describe('Admin CourseEnrollment read-model callable', () => {
       scope: 'admin_history',
       items: [{ lifecycleStatus: 'cancelled' }],
     });
+  });
+
+  it.each([
+    { at: '2026-11-14T23:59:59.999Z', allowed: true },
+    { at: '2026-11-15T00:00:00.000Z', allowed: false },
+    { at: '2026-11-15T00:00:00.001Z', allowed: false },
+  ])('gates pending guest linking and payment at reservation expiry ($at)', async ({ at, allowed }) => {
+    vi.setSystemTime(new Date(at));
+    const handler = createQueryAdminCourseEnrollmentReadModelsHandler(fakeFirestore(seed()));
+    const response = await handler({
+      auth: { uid: adminId },
+      data: { scope: 'admin_pending_guest' },
+    } as never);
+
+    expect(response.scope).toBe('admin_pending_guest');
+    if (response.scope !== 'admin_pending_guest') throw new Error('Unexpected scope');
+    expect(response.items).toHaveLength(1);
+    expect(response.items[0]).toMatchObject({
+      guestState: 'pending_unlinked',
+      lifecycleStatus: 'pending',
+      authorizedActions: {
+        canApproveGuest: false,
+        canCancelUnpaidGuest: false,
+        canLinkGuest: allowed,
+        canRecordPayment: allowed,
+      },
+    });
+    expect(response.items[0]?.guestIdentityLinkUnavailableReason).toBe(
+      allowed ? undefined : 'expired_reservation'
+    );
   });
 
   it('paginates 63 equal-timestamp enrollments without duplicate or missing rows', async () => {

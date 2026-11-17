@@ -1,3 +1,4 @@
+import { ModalLayer } from '../../../ui/ModalLayer';
 import { useSchoolTimeZone } from '../../settings/schoolTimeZone';
 import { SchoolTimeZoneNotice } from '../../settings/SchoolTimeZoneNotice';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -190,145 +191,152 @@ export const CreateProposalModal: React.FC<CreateProposalModalProps> = ({
     availableSlots.includes(localTime);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-xl bg-[var(--card-bg)] p-5 shadow-xl space-y-4">
-        <h3 className="type-section-title text-[var(--ink)]">{copy.createProposal}</h3>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-2 type-caption text-[var(--ink-dim)]">
-            <span>{copy.proposalParticipantsLabel}</span>
-            <span>
-              {copy.proposalParticipantCount(selectedParticipantIds.length, maxParticipants)}
-            </span>
+    <ModalLayer onClose={onClose} closeDisabled={submitting}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={copy.createProposal}
+          className="w-full max-w-md rounded-xl bg-[var(--card-bg)] p-5 shadow-xl space-y-4"
+        >
+          <h3 className="type-section-title text-[var(--ink)]">{copy.createProposal}</h3>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2 type-caption text-[var(--ink-dim)]">
+              <span>{copy.proposalParticipantsLabel}</span>
+              <span>
+                {copy.proposalParticipantCount(selectedParticipantIds.length, maxParticipants)}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {participants.map((participant) => {
+                const selected = selectedParticipantIds.includes(participant.participantId);
+                const disabled = !participant.selectable || (!selected && atMax);
+                return (
+                  <button
+                    key={participant.participantId}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => {
+                      setSelectedParticipantIds((current) =>
+                        current.includes(participant.participantId)
+                          ? current.filter((id) => id !== participant.participantId)
+                          : [...current, participant.participantId]
+                      );
+                    }}
+                    className={`rounded-lg border px-3 py-1.5 type-button ${
+                      selected
+                        ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--ink)]'
+                        : 'border-[var(--border-subtle)] text-[var(--ink-dim)]'
+                    } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {participant.label}
+                    {participant.disabledReason === 'no_authority'
+                      ? ` — ${copy.proposalParticipantNoAuthority}`
+                      : ''}
+                  </button>
+                );
+              })}
+            </div>
+            {selectedLabels.length > 0 && (
+              <p className="type-caption text-[var(--ink)]">
+                {copy.proposalSelectedParticipants}: {selectedLabels.join(' · ')}
+              </p>
+            )}
           </div>
-          <div className="flex flex-wrap gap-2">
-            {participants.map((participant) => {
-              const selected = selectedParticipantIds.includes(participant.participantId);
-              const disabled = !participant.selectable || (!selected && atMax);
-              return (
-                <button
-                  key={participant.participantId}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => {
-                    setSelectedParticipantIds((current) =>
-                      current.includes(participant.participantId)
-                        ? current.filter((id) => id !== participant.participantId)
-                        : [...current, participant.participantId]
-                    );
-                  }}
-                  className={`rounded-lg border px-3 py-1.5 type-button ${
-                    selected
-                      ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--ink)]'
-                      : 'border-[var(--border-subtle)] text-[var(--ink-dim)]'
-                  } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  {participant.label}
-                  {participant.disabledReason === 'no_authority'
-                    ? ` — ${copy.proposalParticipantNoAuthority}`
-                    : ''}
-                </button>
-              );
-            })}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className={labelStyle}>
+                <Calendar className="h-3.5 w-3.5" /> {copy.t('selectDate')}
+              </label>
+              <SchoolTimeZoneNotice
+                timeZone={school.timeZone}
+                localDate={localDate}
+                localTime={localTime}
+                ready={school.ready}
+              />
+              <BookingAppleDatePicker
+                value={localDate}
+                onChange={setLocalDate}
+                min={minBookingDateStr}
+                locale={locale}
+                placeholder={copy.t('selectDate')}
+                aria-label={copy.t('selectDate')}
+              />
+            </div>
+            <div>
+              <label className={labelStyle}>
+                <Clock className="h-3.5 w-3.5" /> {copy.t('collabSelectTime')}
+              </label>
+              <BookingAppleWheelPicker
+                value={localTime}
+                onChange={setLocalTime}
+                options={timeOptions}
+                disabled={isLoadingBookings || occupancyLoadFailed || availableSlots.length === 0}
+                placeholder={
+                  isLoadingBookings
+                    ? `${copy.t('loading')}...`
+                    : occupancyLoadFailed
+                      ? copy.t('instructorOccupancyLoadFailed')
+                      : availableSlots.length === 0
+                        ? copy.t('noSlotsAvailable')
+                        : ''
+                }
+                aria-label={copy.t('collabSelectTime')}
+              />
+            </div>
+            <div>
+              <label className={labelStyle}>
+                <Clock className="h-3.5 w-3.5" /> {copy.t('durationHours')}
+              </label>
+              <BookingAppleWheelPicker
+                value={String(durationHours)}
+                onChange={(value) => setDurationHours(Number(value))}
+                options={durationOptions}
+                aria-label={copy.t('durationHours')}
+              />
+            </div>
           </div>
-          {selectedLabels.length > 0 && (
-            <p className="type-caption text-[var(--ink)]">
-              {copy.proposalSelectedParticipants}: {selectedLabels.join(' · ')}
-            </p>
+          {pricePreviewLabel && (
+            <p className="type-caption text-[var(--ink-dim)]">{pricePreviewLabel}</p>
           )}
-        </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <label className={labelStyle}>
-              <Calendar className="h-3.5 w-3.5" /> {copy.t('selectDate')}
-            </label>
-            <SchoolTimeZoneNotice
-              timeZone={school.timeZone}
-              localDate={localDate}
-              localTime={localTime}
-              ready={school.ready}
-            />
-            <BookingAppleDatePicker
-              value={localDate}
-              onChange={setLocalDate}
-              min={minBookingDateStr}
-              locale={locale}
-              placeholder={copy.t('selectDate')}
-              aria-label={copy.t('selectDate')}
-            />
+          <div className="flex justify-end gap-2">
+            <ActionButton
+              type="button"
+              unstyled
+              disabled={submitting}
+              onClick={onClose}
+              className="px-4 py-2 type-button rounded-lg border border-[var(--border-subtle)]"
+            >
+              {copy.t('cancel')}
+            </ActionButton>
+            <ActionButton
+              type="button"
+              unstyled
+              pending={submitting}
+              pendingLabel={copy.t('submitting')}
+              disabled={!canSubmit}
+              onClick={async () => {
+                setSubmitting(true);
+                try {
+                  await onSubmit({
+                    timezone: school.timeZone,
+                    participantIds: selectedParticipantIds,
+                    localDate,
+                    localTime,
+                    durationMinutes,
+                  });
+                  onClose();
+                } finally {
+                  setSubmitting(false);
+                }
+              }}
+              className="px-4 py-2 type-button rounded-lg bg-[var(--accent)] text-white disabled:opacity-50"
+            >
+              {copy.createProposal}
+            </ActionButton>
           </div>
-          <div>
-            <label className={labelStyle}>
-              <Clock className="h-3.5 w-3.5" /> {copy.t('collabSelectTime')}
-            </label>
-            <BookingAppleWheelPicker
-              value={localTime}
-              onChange={setLocalTime}
-              options={timeOptions}
-              disabled={isLoadingBookings || occupancyLoadFailed || availableSlots.length === 0}
-              placeholder={
-                isLoadingBookings
-                  ? `${copy.t('loading')}...`
-                  : occupancyLoadFailed
-                    ? copy.t('instructorOccupancyLoadFailed')
-                    : availableSlots.length === 0
-                      ? copy.t('noSlotsAvailable')
-                      : ''
-              }
-              aria-label={copy.t('collabSelectTime')}
-            />
-          </div>
-          <div>
-            <label className={labelStyle}>
-              <Clock className="h-3.5 w-3.5" /> {copy.t('durationHours')}
-            </label>
-            <BookingAppleWheelPicker
-              value={String(durationHours)}
-              onChange={(value) => setDurationHours(Number(value))}
-              options={durationOptions}
-              aria-label={copy.t('durationHours')}
-            />
-          </div>
-        </div>
-        {pricePreviewLabel && (
-          <p className="type-caption text-[var(--ink-dim)]">{pricePreviewLabel}</p>
-        )}
-        <div className="flex justify-end gap-2">
-          <ActionButton
-            type="button"
-            unstyled
-            disabled={submitting}
-            onClick={onClose}
-            className="px-4 py-2 type-button rounded-lg border border-[var(--border-subtle)]"
-          >
-            {copy.t('cancel')}
-          </ActionButton>
-          <ActionButton
-            type="button"
-            unstyled
-            pending={submitting}
-            pendingLabel={copy.t('submitting')}
-            disabled={!canSubmit}
-            onClick={async () => {
-              setSubmitting(true);
-              try {
-                await onSubmit({
-                  timezone: school.timeZone,
-                  participantIds: selectedParticipantIds,
-                  localDate,
-                  localTime,
-                  durationMinutes,
-                });
-                onClose();
-              } finally {
-                setSubmitting(false);
-              }
-            }}
-            className="px-4 py-2 type-button rounded-lg bg-[var(--accent)] text-white disabled:opacity-50"
-          >
-            {copy.createProposal}
-          </ActionButton>
         </div>
       </div>
-    </div>
+    </ModalLayer>
   );
 };

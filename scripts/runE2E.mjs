@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import { runE2EProcess } from './e2eProcess.mjs';
 import { diagnose, heartbeat } from './e2eDiagnostics.mjs';
 import { fileURLToPath } from 'node:url';
-import { resolve } from 'node:path';
+import { isAbsolute, relative, resolve } from 'node:path';
 
 const lifecycleStarted = Date.now();
 const lifecyclePath = process.env.CARVE_E2E_TIMING_PATH;
@@ -16,6 +16,16 @@ function markTiming(key) {
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const projectId = 'demo-ski-school-e2e';
+const manifestRoot = resolve(root, '.scratch/test-manifest');
+const fallbackRunDirectory = resolve(manifestRoot, `local-${Date.now()}-${process.pid}`);
+const requestedRunDirectory = resolve(process.env.CARVE_MANIFEST_RUN_DIR ?? fallbackRunDirectory);
+const runRelativePath = relative(manifestRoot, requestedRunDirectory);
+// Keep emulator output under the ignored manifest tree, including direct runs.
+const emulatorLogDirectory =
+  runRelativePath && !runRelativePath.startsWith('..') && !isAbsolute(runRelativePath)
+    ? requestedRunDirectory
+    : fallbackRunDirectory;
+process.env.CARVE_MANIFEST_RUN_DIR ??= emulatorLogDirectory;
 const secretPath = fileURLToPath(new URL('../functions/.secret.local', import.meta.url));
 const testSecret = 'GUEST_ACTION_TOKEN_SECRET=e2e-guest-action-token-secret\n';
 const { assertEmulators } = createRequire(import.meta.url)('./testFirestoreNetworkGuard.cjs');
@@ -74,6 +84,7 @@ async function run(relativeCli, args, env = process.env, timeoutMs) {
       env,
       timeoutMs,
       group: relativeCli.includes('firebase-tools'),
+      ...(relativeCli.includes('firebase-tools') ? { emulatorLogDirectory } : {}),
       stage: relativeCli.includes('firebase-tools')
         ? 'emulator-lifecycle'
         : args[0] === '--snapshot'

@@ -83,6 +83,46 @@ describe('AdminIssueCenter', () => {
     });
   });
 
+  it('mobile detail traps focus, blocks Escape while pending and restores the inbox', async () => {
+    const previous = window.matchMedia;
+    window.matchMedia = vi.fn(() => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })) as never;
+    useReadModelsMock.mockReturnValue({
+      list: { items: [], loading: false },
+      detail: { loading: true },
+      retryList: vi.fn(),
+      retryDetail: vi.fn(),
+    });
+    attendanceMock.mockReturnValue({ loading: false, pending: true, submit: vi.fn() });
+    try {
+      const view = render(
+        <MemoryRouter initialEntries={[`/?issue=${issueId}`]}>
+          <AdminIssueCenter adminAccountId="admin_account_01" />
+        </MemoryRouter>
+      );
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toHaveFocus();
+      fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true });
+      expect(dialog).toHaveFocus();
+      fireEvent.keyDown(dialog, { key: 'Escape' });
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      attendanceMock.mockReturnValue({ loading: false, pending: false, submit: vi.fn() });
+      view.rerender(
+        <MemoryRouter initialEntries={[`/?issue=${issueId}`]}>
+          <AdminIssueCenter adminAccountId="admin_account_01" />
+        </MemoryRouter>
+      );
+      fireEvent.keyDown(dialog, { key: 'Escape' });
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(document.documentElement).not.toHaveClass('modal-scroll-lock');
+    } finally {
+      window.matchMedia = previous;
+    }
+  });
+
   it('renders an empty canonical inbox state', () => {
     useReadModelsMock.mockReturnValue({
       list: {

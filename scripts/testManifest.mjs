@@ -211,7 +211,11 @@ export const releaseGroups = [
   { id: 'contracts', checks: ['test:contracts'], emulators: [] },
   {
     id: 'fixtures',
-    checks: ['test:fixture:planner:build', 'test:fixture:admin-modals:build'],
+    checks: [
+      'test:fixture:planner:build',
+      'test:fixture:admin-modals:build',
+      'test:fixture:public-modals:build',
+    ],
     emulators: [],
   },
   {
@@ -277,6 +281,8 @@ export const releaseSuites = deferredSuites.flatMap((item) => {
         'playwright.participant-levels.config.ts',
         'playwright.journey-geometry.config.ts',
         'tests/browser/planner-overlap/playwright.config.ts',
+        'playwright.instructor-card.config.ts',
+        'playwright.public-modals.config.ts',
       ],
     },
   ];

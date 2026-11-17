@@ -10,7 +10,8 @@ import {
   captureBrowserFailure,
   watchBrowserFailures,
 } from './fixtures';
-import { E2E_LIVE_APP_URL, E2E_PROJECT_ID, FIRESTORE_EMULATOR_HOST } from './emulator-config';
+import { E2E_PROJECT_ID, FIRESTORE_EMULATOR_HOST } from './emulator-config';
+import type { E2EAppProbe } from './app-probe';
 
 const domain = createRequire(`${process.cwd()}/package.json`)(
   '@ski-academy/shared-domain'
@@ -18,6 +19,7 @@ const domain = createRequire(`${process.cwd()}/package.json`)(
 
 test('two instructors cannot overwrite an open assessment after a background refresh', async ({
   browser,
+  baseURL,
 }, info) => {
   test.setTimeout(300_000);
   expect(process.env.GCLOUD_PROJECT).toBe(E2E_PROJECT_ID);
@@ -147,7 +149,7 @@ test('two instructors cannot overwrite an open assessment after a background ref
     })
   );
   const contexts = await Promise.all(
-    [0, 1].map(() => browser.newContext({ baseURL: E2E_LIVE_APP_URL, timezoneId: 'Asia/Almaty' }))
+    [0, 1].map(() => browser.newContext({ baseURL, timezoneId: 'Asia/Almaty' }))
   );
   const [a, b] = await Promise.all(contexts.map((context) => context.newPage()));
   const remote: string[] = [];
@@ -222,10 +224,9 @@ test('two instructors cannot overwrite an open assessment after a background ref
     // Real authenticated read through the application's own service and Zustand
     // module instance; no request mocks and no direct store/data injection.
     const refreshedRevision = await b.evaluate(async (id) => {
-      const serviceUrl = '/src/features/participant-progress/participantProgressService.ts';
-      const storeUrl = '/src/features/participant-progress/participantProgressStore.ts';
-      await (await import(serviceUrl)).refreshInstructorParticipantProgress([id]);
-      return (await import(storeUrl)).useParticipantProgressStore.getState().byId[id].revision;
+      const probe = (window as Window & { __carveE2E?: E2EAppProbe }).__carveE2E;
+      if (!probe) throw new Error('Bundled E2E app probe is unavailable. Run build:e2e first.');
+      return await probe.refreshInstructorParticipantProgress(id);
     }, participantId);
     expect(refreshedRevision).toBe(2);
     await expect(input(b)).toHaveValue('Работать над балансом');

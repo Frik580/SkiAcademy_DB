@@ -231,10 +231,8 @@ test('Coach recommendations paginate within a lesson and preserve participant sc
     await expect(tile).toContainText('Completed balance practice for B');
     await expect(tile.getByText('Completed', { exact: true })).toHaveCount(2);
     await expect(tile.getByRole('listitem')).toHaveCount(2);
-    await expect(tile.getByRole('button', { name: 'Next', exact: true })).toHaveAttribute(
-      'aria-disabled',
-      'true'
-    );
+    await expect(tile.getByRole('button', { name: 'Next', exact: true })).toHaveCount(0);
+    await expect(tile.getByRole('button', { name: 'Back', exact: true })).toHaveCount(0);
     await tile.getByRole('button', { name: 'Details', exact: true }).first().click();
     const coldDialog = page.getByRole('dialog');
     await expect(coldDialog).toContainText('Completed balance practice for B');
@@ -276,7 +274,7 @@ test('Coach recommendations paginate within a lesson and preserve participant sc
         id
       );
       await expect(tile).toContainText(coachNames[i]);
-      await expect(tile.getByText('Page 1', { exact: true })).toBeVisible();
+      await expect(tile.getByRole('button', { name: 'Back', exact: true })).toHaveCount(0);
       await expect(tile.getByText('Not completed', { exact: true })).toHaveCount(i ? 0 : 4);
       await expect(tile.getByRole('listitem')).toHaveCount(i ? 2 : 5);
       await expect(journey).toBeVisible();
@@ -297,14 +295,11 @@ test('Coach recommendations paginate within a lesson and preserve participant sc
       await expect(weather).toHaveCount(0);
       if (!i) {
         await tile.getByRole('button', { name: 'Next', exact: true }).press('Enter');
-        await expect(tile.getByText('Page 2', { exact: true })).toBeVisible();
+        await expect(tile.getByRole('button', { name: 'Back', exact: true })).toBeVisible();
         await expect(tile.getByRole('listitem')).toHaveCount(2);
         await expect(tile).toContainText('Additional practice 5 for A');
         await expect(tile).not.toContainText(quoteA);
-        await expect(tile.getByRole('button', { name: 'Next', exact: true })).toHaveAttribute(
-          'aria-disabled',
-          'true'
-        );
+        await expect(tile.getByRole('button', { name: 'Next', exact: true })).toHaveCount(0);
       }
     }
     await tile.getByRole('button', { name: 'Back', exact: true }).press('Space');

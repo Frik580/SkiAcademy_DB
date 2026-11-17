@@ -80,7 +80,8 @@ for (const width of [390, 768, 1440]) {
           expect(metrics.circleScale).toBeCloseTo(1, 2);
           expect(metrics.circleWidth).toBe(width < 640 ? 32 : 44);
           expect(metrics.circleHeight).toBe(metrics.circleWidth);
-          expect(metrics.avatarWidth).toBe(32);
+          // Cabinet avatars share the level-circle diameter at each breakpoint.
+          expect(metrics.avatarWidth).toBe(width < 640 ? 32 : 44);
           expect(Math.abs(metrics.markerCenterOffset)).toBeLessThanOrEqual(1);
           expect(metrics.summaryWidth).toBeGreaterThan(0);
           expect(metrics.summaryHeight).toBeGreaterThan(0);

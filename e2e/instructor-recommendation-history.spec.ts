@@ -1,10 +1,11 @@
 import { createRequire } from 'node:module';
+import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { DEFAULT_SKILL_CONFIG, getSkillItemTitle } from '../src/domain/achievements';
 import { MASTERY_LEVELS } from '@ski-academy/shared-domain/canonical/participantLevelProgression';
 import { translations } from '../src/lib/i18n/translations';
 import { AUTH_EMULATOR_HOST, functionsCallableUrl } from './emulator-config';
-import { loadRuntimeConfig, signInAccount } from './fixtures';
+import { loadRuntimeConfig, signInAccount, signOutAccount } from './fixtures';
 import { ensureFirestore } from './firestore-admin';
 
 const requireRoot = createRequire(import.meta.url);
@@ -15,6 +16,8 @@ const {
   BookingIdSchema,
   BookingSchema,
   ParticipantIdSchema,
+  ParticipantSchema,
+  ParticipantManagementSchema,
   ParticipantProgressSchema,
   QueryInstructorParticipantRecommendationHistoryReadModelsResultSchema,
   attendanceIdFromBookingIdentity,
@@ -25,6 +28,45 @@ const {
 const callable = 'queryInstructorParticipantRecommendationHistoryReadModels';
 const progressHistoryCallable = 'queryParticipantProgressHistoryReadModels';
 
+// This file has one scenario; retain ownership from the first setup operation so
+// afterEach can clean up partial setup as well as a timed-out test body.
+let cleanupData: {
+  db: ReturnType<typeof ensureFirestore>;
+  paths: string[];
+  authTokens: string[];
+} | undefined;
+
+test.afterEach(async ({ playwright }) => {
+  const data = cleanupData;
+  cleanupData = undefined;
+  if (!data) return;
+  // The test-scoped request fixture can already be closed after a body timeout.
+  const cleanupRequest = await playwright.request.newContext();
+  try {
+    const results = await Promise.allSettled([
+      (async () => {
+        const batch = data.db.batch();
+        for (const path of data.paths) batch.delete(data.db.doc(path));
+        await batch.commit();
+      })(),
+      ...data.authTokens.map(async (idToken) => {
+        const response = await cleanupRequest.post(
+          `${AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:delete?key=fake-api-key`,
+          { data: { idToken } }
+        );
+        expect(response.ok(), await response.text()).toBe(true);
+      }),
+    ]);
+    const errors = results.flatMap((result) =>
+      result.status === 'rejected' ? [result.reason] : []
+    );
+    // Report cleanup failures separately without replacing the body's failure.
+    if (errors.length) throw new AggregateError(errors, 'Recommendation history cleanup failed');
+  } finally {
+    await cleanupRequest.dispose();
+  }
+});
+
 test('instructor lesson context combines live progress, homework and recommendations and reauthorizes both histories', async ({
   page,
   request,
@@ -32,9 +74,9 @@ test('instructor lesson context combines live progress, homework and recommendat
   test.setTimeout(300_000);
   const fixture = loadRuntimeConfig();
   const db = ensureFirestore();
-  const prefix = `rec_history_${info.repeatEachIndex}_${info.retry}`;
-  const participantId = ParticipantIdSchema.parse(fixture.studentParticipantId);
-  const siblingId = ParticipantIdSchema.parse(fixture.studentChildParticipantId);
+  const prefix = `rec_history_${info.repeatEachIndex}_${info.retry}_${randomUUID()}`;
+  const participantId = ParticipantIdSchema.parse(`${prefix}_participant`);
+  const siblingId = ParticipantIdSchema.parse(`${prefix}_sibling`);
   const instructorId = `${prefix}_author`;
   const authorName = 'Recommendation History Coach';
   const authorEmail = `${prefix}-author@e2e.test`;
@@ -52,11 +94,44 @@ test('instructor lesson context combines live progress, homework and recommendat
   };
   const metadata = { revision: 1, createdAt: at, updatedAt: at, audit };
   const ownedPaths: string[] = [];
+  const authTokens: string[] = [];
+  cleanupData = { db, paths: ownedPaths, authTokens };
   const batch = db.batch();
   const seed = (path: string, data: FirebaseFirestore.DocumentData) => {
     ownedPaths.push(path);
     batch.create(db.doc(path), data);
   };
+  // Both histories are Participant-scoped. Never reuse progress/homework from
+  // the suite's shared people or delete their progress during fixture cleanup.
+  for (const [id, sourceId] of [
+    [participantId, fixture.studentParticipantId],
+    [siblingId, fixture.studentChildParticipantId],
+  ]) {
+    const source = await db.doc(`participants/${sourceId}`).get();
+    expect(source.exists).toBe(true);
+    const managementId = `${id}_management`;
+    seed(
+      `participants/${id}`,
+      ParticipantSchema.parse({
+        ...source.data(),
+        participantId: id,
+        management: { kind: 'managed', participantManagementId: managementId },
+        ...metadata,
+      })
+    );
+    seed(
+      `participant_management/${managementId}`,
+      ParticipantManagementSchema.parse({
+        participantManagementId: managementId,
+        participantId: id,
+        accountId: fixture.studentUid,
+        role: 'owner',
+        authority: 'parent_guardian',
+        status: 'active',
+        ...metadata,
+      })
+    );
+  }
 
   const signup = await request.post(
     `${AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key`,
@@ -64,12 +139,14 @@ test('instructor lesson context combines live progress, homework and recommendat
   );
   expect(signup.ok()).toBe(true);
   const { localId: accountId, idToken } = await signup.json();
+  authTokens.push(idToken);
   const unrelatedSignup = await request.post(
     `${AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key`,
     { data: { returnSecureToken: true } }
   );
   expect(unrelatedSignup.ok()).toBe(true);
   const unrelated = await unrelatedSignup.json();
+  authTokens.push(unrelated.idToken);
   for (const [uid, coach, name, email] of [
     [accountId, instructorId, authorName, authorEmail],
     [unrelated.localId, `${prefix}_unrelated`, 'Unrelated History Coach', null],
@@ -256,10 +333,8 @@ test('instructor lesson context combines live progress, homework and recommendat
   }
   const authorText = 'Practice weight transfer';
   const longText = 'ПереносВеса'.repeat(160);
-  let seeded = false;
-  try {
+  await test.step('Exercise lesson context and reauthorization', async () => {
     await batch.commit();
-    seeded = true;
     ownedPaths.push(`participant_lesson_feedback/${feedbackId(participantId, authoredLessonId)}`);
     const saved = await request.post(functionsCallableUrl('executeCanonicalCommand'), {
       headers: { Authorization: `Bearer ${idToken}` },
@@ -406,11 +481,6 @@ test('instructor lesson context combines live progress, homework and recommendat
       expectedPath: '/instructor',
     });
 
-    const open = (name: string, language: 'en' | 'ru' = 'en') =>
-      page.getByRole('button', {
-        name: `${name}: ${translations[language].lessonContextTitle}`,
-        exact: true,
-      });
     traffic.push(snapshot('schedule'));
     expect(requests).toEqual({ recommendations: 0, progress: 0, homework: 0 });
     const dialog = page.getByTestId('instructor-lesson-context');
@@ -418,9 +488,9 @@ test('instructor lesson context combines live progress, homework and recommendat
     const toggle = section.getByRole('button', { name: translations.en.recommendationHistory });
     const more = section.getByRole('button', { name: translations.en.historyShowMore });
     await page.setViewportSize({ width: 375, height: 812 });
-    const fromBooking = (id: string, name: string) =>
+    const fromBooking = (id: string, name: string, language: 'en' | 'ru' = 'en') =>
       page.locator(`#instructor-lesson-${id}`).getByRole('button', {
-        name: `${name}: ${translations.en.lessonContextTitle}`,
+        name: `${name}: ${translations[language].lessonContextTitle}`,
         exact: true,
       });
     const primary = fromBooking(bookedA, fixture.studentDisplayName);
@@ -726,7 +796,7 @@ test('instructor lesson context combines live progress, homework and recommendat
     await page.getByRole('button', { name: 'RU', exact: true }).click();
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.locator('html')).not.toHaveClass(/\bdark\b/);
-    await open(fixture.studentChildDisplayName, 'ru').click();
+    await fromBooking(bookedA, fixture.studentChildDisplayName, 'ru').click();
     const russianSection = dialog.getByRole('region', {
       name: translations.ru.recommendationHistory,
     });
@@ -745,10 +815,7 @@ test('instructor lesson context combines live progress, homework and recommendat
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'EN', exact: true }).click();
     const signOut = async () => {
-      await page.getByTitle(translations.en.signOut, { exact: true }).click();
-      await expect(
-        page.getByRole('button', { name: 'Sign In', exact: true }).first()
-      ).toBeVisible();
+      await signOutAccount(page);
       await expect(dialog).toHaveCount(0);
     };
     await signOut();
@@ -780,19 +847,5 @@ test('instructor lesson context combines live progress, homework and recommendat
     await expect(history.getByText(translations.en.historyEmpty)).toBeVisible();
     await expect(observations).toHaveCount(0);
     await expect(historyMore).toHaveCount(0);
-  } finally {
-    if (seeded) {
-      const cleanup = db.batch();
-      for (const path of ownedPaths) cleanup.delete(db.doc(path));
-      await cleanup.commit();
-    }
-    await Promise.all(
-      [idToken, unrelated.idToken].map((token) =>
-        request.post(
-          `${AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:delete?key=fake-api-key`,
-          { data: { idToken: token } }
-        )
-      )
-    );
-  }
+  });
 });

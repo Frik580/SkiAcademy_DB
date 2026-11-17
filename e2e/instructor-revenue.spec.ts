@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 import { test, expect } from '@playwright/test';
-import { loadRuntimeConfig, signInAccount, watchBrowserFailures } from './fixtures';
+import { loadRuntimeConfig, signInAccount, signOutAccount, watchBrowserFailures } from './fixtures';
 import { E2E_PROJECT_ID, FIRESTORE_EMULATOR_HOST } from './emulator-config';
 
 const requireFunctions = createRequire(new URL('../functions/package.json', import.meta.url));
@@ -162,7 +162,7 @@ test('instructor lifetime revenue updates after refund, reload and sign-in with 
       }
     }
   }
-  await page.getByRole('button', { name: 'Sign Out', exact: true }).click();
+  await signOutAccount(page);
   await signInAccount(page, {
     email: config.instructorEmail,
     password: config.instructorPassword,

@@ -240,6 +240,34 @@ function requestCancellationEnvelope(
 }
 
 describe('booking cancellation commands', () => {
+  it.each([{}, { startDate: '2026-02-01', endDate: '2026-04-15' }])(
+    'keeps existing booking and cancellation available after season becomes %j',
+    async (season) => {
+      const original = createInMemoryCanonicalTransactionExecutor(seedBase());
+      await createConfirmedBooking(original);
+      const docs = Object.fromEntries(
+        [...original.snapshot().docs].map(([path, doc]) => [path, doc.data])
+      );
+      const executor = createInMemoryCanonicalTransactionExecutor({
+        ...docs,
+        'resort_data/config': { season },
+      });
+      expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
+        'confirmed'
+      );
+      const commands = createProductionCanonicalCommands(
+        environment('2026-01-02T00:00:00.000Z'),
+        executor
+      );
+      expect(
+        (await commands.execute(requestCancellationEnvelope('cancel-after-season-change'))).status
+      ).toBe('success');
+      expect(executor.snapshot().docs.get(`bookings/${bookingId}`)?.data.lifecycle.status).toBe(
+        'cancelled'
+      );
+    }
+  );
+
   it('cancels the entire multi-participant party and releases its occurrence claims', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor, [participantId, participantTwoId]);

@@ -1,5 +1,5 @@
-import { canonicalTimestampToLocalParts } from '../../../lesson-bookings/mapCalendarInput';
 import { useSchoolTimeZone } from '../../../settings/schoolTimeZone';
+import { useLessonBookingSeason } from '../../../lesson-bookings/useLessonBookingSeason';
 import {
   getBookingParticipantAccess,
   useBookingParticipantAccess,
@@ -270,7 +270,9 @@ export const useBookingModal = ({
   };
 
   const { timeZone: timezone, ready: schoolTimeZoneReady } = useSchoolTimeZone();
-  const minBookingDateStr = canonicalTimestampToLocalParts(Date.now() / 1000, 0, timezone).date;
+  const season = useLessonBookingSeason();
+  const minBookingDateStr = season.minDate;
+  const initializedOpen = useRef(false);
   const [loadedOccupancyKey, setLoadedOccupancyKey] = useState('');
   const occupancyKey = `${targetInstructor?.id}:${date}:${timezone}`;
   useEffect(() => {
@@ -278,11 +280,17 @@ export const useBookingModal = ({
   }, [timezone]);
 
   useEffect(() => {
-    if (isOpen) {
-      setDate(minBookingDateStr);
+    if (!isOpen) initializedOpen.current = false;
+    if (isOpen && schoolTimeZoneReady && !initializedOpen.current) {
+      initializedOpen.current = true;
+      setDate(season.dateAllowed(minBookingDateStr) ? minBookingDateStr : '');
       setTime('08:00');
     }
-  }, [isOpen, minBookingDateStr]);
+  }, [isOpen, schoolTimeZoneReady, minBookingDateStr, season]);
+
+  useEffect(() => {
+    if (date && !season.dateAllowed(date)) setDate('');
+  }, [date, season]);
 
   useEffect(() => {
     const fetchVersion = ++occupancyFetchVersionRef.current;
@@ -454,7 +462,7 @@ export const useBookingModal = ({
       occupancyCourses,
       occupancyItems: combinedOccupancyItems,
       timeZone: timezone,
-    });
+    }).filter((slot) => season.allows(date, slot, duration * 60));
   }, [
     date,
     duration,
@@ -463,6 +471,7 @@ export const useBookingModal = ({
     combinedOccupancyItems,
     targetInstructor?.id,
     timezone,
+    season,
   ]);
 
   useEffect(() => {
@@ -523,6 +532,7 @@ export const useBookingModal = ({
   const overlappingBooking = getOverlappingBooking();
   const overlappingCourse = getOverlappingCourse();
   const isTimeSlotOccupied =
+    !season.allows(date, time, duration * 60) ||
     !schoolTimeZoneReady ||
     loadedOccupancyKey !== occupancyKey ||
     isLoadingBookings ||

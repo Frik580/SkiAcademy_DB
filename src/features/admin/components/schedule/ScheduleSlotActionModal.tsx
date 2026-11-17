@@ -1,4 +1,5 @@
 import { AdminModal } from '../AdminModal';
+import { useLessonBookingSeason } from '../../../lesson-bookings/useLessonBookingSeason';
 import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import type { Booking, Course, Instructor, UserProfile } from '../../../../types';
@@ -148,6 +149,14 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
   const [newMoveDate, setNewMoveDate] = useState(activeSlot.booking?.date || selectedDate);
   const [newMoveTime, setNewMoveTime] = useState(activeSlot.booking?.time || activeSlot.time);
   const [newMoveDuration, setNewMoveDuration] = useState(activeSlot.booking?.durationHours || 1);
+  const season = useLessonBookingSeason(undefined, { allowPastDates: true });
+  const isLessonMove = Boolean(activeSlot.booking && isPlannerLessonBooking(activeSlot.booking));
+  const seasonMoveAllowed =
+    !isLessonMove || season.allows(newMoveDate, newMoveTime, newMoveDuration * 60);
+  const seasonCreateAllowed = season.allows(selectedDate, activeSlot.time, bookingDuration * 60);
+  useEffect(() => {
+    if (isLessonMove && newMoveDate && !season.dateAllowed(newMoveDate)) setNewMoveDate('');
+  }, [isLessonMove, newMoveDate, season]);
   const [newInstructorId, setNewInstructorId] = useState(
     activeSlot.booking?.instructorId || activeSlot.instructor.id
   );
@@ -364,6 +373,7 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
           `${t('dayOffSetDescPrefix')}${t('dayOffSetDescPrefix') ? ' ' : ''}${activeSlot.instructor.name} ${t('dayOffSetDescMiddle')} ${selectedDate}.`
         );
       } else if (modalTab === 'booking') {
+        if (!seasonCreateAllowed) return;
         if (!activeSlot.instructor.isAvailable) {
           addNotification(
             'error',
@@ -453,6 +463,8 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
   const handleSlotMoveSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!activeSlot.booking) return;
+
+    if (!seasonMoveAllowed) return;
 
     const instructorChanged =
       canReassignInstructor && newInstructorId !== activeSlot.booking.instructorId;
@@ -661,6 +673,10 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
             </div>
           )}
           <ActiveSlotMoveForm
+            seasonMessage={isLessonMove ? season.message : undefined}
+            seasonMoveAllowed={seasonMoveAllowed}
+            minMoveDate={isLessonMove ? season.minDate : undefined}
+            maxMoveDate={isLessonMove ? season.maxDate : undefined}
             booking={activeSlot.booking}
             canReassignInstructor={canReassignInstructor}
             canChangeDuration={canChangeDuration}
@@ -686,6 +702,8 @@ const ActiveSlotDialog: React.FC<ActiveSlotDialogProps> = ({
         </>
       ) : (
         <ActiveSlotCreateForm
+          seasonMessage={season.message}
+          seasonBookingAllowed={seasonCreateAllowed}
           instructor={activeSlot.instructor}
           modalTab={modalTab}
           setModalTab={setModalTab}

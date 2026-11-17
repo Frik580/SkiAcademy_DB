@@ -103,11 +103,16 @@ export function clampDateParts(
   year: number,
   month: number,
   day: number,
-  minDate: Date | null
+  minDate: Date | null,
+  maxDate: Date | null = null
 ): { year: number; month: number; day: number } {
   const maxDay = daysInMonth(year, month);
   const nextDay = Math.min(day, maxDay);
   const nextDate = new Date(year, month, nextDay);
+
+  if (maxDate && nextDate.getTime() > maxDate.getTime()) {
+    return { year: maxDate.getFullYear(), month: maxDate.getMonth(), day: maxDate.getDate() };
+  }
 
   if (minDate) {
     const minMid = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate());

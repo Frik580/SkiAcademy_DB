@@ -12,6 +12,7 @@ import { useLanguage } from '../../../app/providers/LanguageContext';
 import { useBookingCollaborationTranslations } from '../useBookingCollaborationTranslations';
 import { useRescheduleBookingAvailability } from '../useRescheduleBookingAvailability';
 import { ActionButton } from '../../../ui/ActionButton';
+import { useLessonBookingSeason } from '../../lesson-bookings/useLessonBookingSeason';
 
 export interface RescheduleBookingModalProps {
   readonly booking: LessonBookingCabinetItem | null;
@@ -36,6 +37,7 @@ export const RescheduleBookingModal: React.FC<RescheduleBookingModalProps> = ({
 
   const timezoneResult = IanaTimeZoneSchema.safeParse(booking?.timeZone);
   const timeZone = timezoneResult.success ? timezoneResult.data : undefined;
+  const season = useLessonBookingSeason(timeZone);
   const minBookingDateStr = timeZone
     ? canonicalTimestampToLocalParts(Date.now() / 1000, 0, timeZone).date
     : '';
@@ -79,6 +81,7 @@ export const RescheduleBookingModal: React.FC<RescheduleBookingModalProps> = ({
   if (!booking) return null;
 
   const canSubmit =
+    season.allows(localDate, localTime, (booking?.durationHours ?? 1) * 60, timeZone) &&
     !!timeZone &&
     !submitting &&
     !!localDate &&
@@ -105,11 +108,18 @@ export const RescheduleBookingModal: React.FC<RescheduleBookingModalProps> = ({
               <BookingAppleDatePicker
                 value={localDate}
                 onChange={setLocalDate}
-                min={minBookingDateStr}
+                min={season.minDate > minBookingDateStr ? season.minDate : minBookingDateStr}
+                max={season.maxDate}
+                disabled={season.disabled}
                 locale={locale}
                 placeholder={copy.t('selectDate')}
                 aria-label={copy.t('selectDate')}
               />
+              {season.message && (
+                <p role="status" className="mt-1.5 type-caption text-[var(--ink-dim)]">
+                  {season.message}
+                </p>
+              )}
             </div>
             <div>
               <label className={labelStyle}>

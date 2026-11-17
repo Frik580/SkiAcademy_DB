@@ -243,6 +243,59 @@ async function runCommand(
 }
 
 describe('create_confirmed_booking command', () => {
+  it.each(['account_owner', 'administrator'] as const)(
+    'enforces season for %s without any writes',
+    async (capability) => {
+      const executor = createInMemoryCanonicalTransactionExecutor(
+        baseFixture({
+          'resort_data/config': { season: { startDate: '2026-02-01', endDate: '2026-04-15' } },
+        })
+      );
+      const before = executor.snapshot();
+      const result = await runCommand(
+        executor,
+        createEnvelope({
+          context: accountContext(
+            capability,
+            capability === 'administrator' ? adminAccountId : accountId
+          ),
+        })
+      );
+      expect(result).toMatchObject({
+        status: 'error',
+        error: { code: 'validation', details: { field: 'bookingSeason' } },
+      });
+      expect(executor.snapshot()).toEqual(before);
+    }
+  );
+
+  it.each([
+    ['2026-01-14', '2026-01-15', false],
+    ['2026-01-15', '2026-01-15', true],
+    ['2026-01-16', '2026-01-15', true],
+  ])('checks configured end %s and start %s', async (endDate, startDate, allowed) => {
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      baseFixture({
+        'resort_data/config': { season: { startDate, endDate } },
+      })
+    );
+    expect((await runCommand(executor, createEnvelope())).status).toBe(
+      allowed ? 'success' : 'error'
+    );
+  });
+
+  it('fails closed with malformed settings before wallet or claims change', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(
+      baseFixture({ 'resort_data/config': { season: {} } })
+    );
+    const before = executor.snapshot();
+    expect(await runCommand(executor, createEnvelope())).toMatchObject({
+      status: 'error',
+      error: { code: 'unavailable', details: { field: 'bookingSeason', reason: 'malformed' } },
+    });
+    expect(executor.snapshot()).toEqual(before);
+  });
+
   it('creates a fully funded individual booking with payment, claims, and audit', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
     const envelope = createEnvelope();

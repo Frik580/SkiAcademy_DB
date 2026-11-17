@@ -16,6 +16,11 @@ export function resolveUiLanguage(saved?: string | null): Language {
 
 export const translations = {
   en: {
+    bookingSeasonRange: 'Booking is available only from {start} to {end}',
+    bookingSeasonInvalid:
+      'Booking is unavailable: the school season settings need to be corrected.',
+    bookingSeasonChanged:
+      'The selected lesson is outside the booking season. Please select another date.',
     schoolTimeZoneLabel: 'School time zone',
     schoolTimeZoneCustom: 'Other IANA time zone',
     schoolTimeZoneHelp:
@@ -2716,6 +2721,9 @@ export const translations = {
     priceKztLabel: 'Price (₸ KZT)',
   },
   ru: {
+    bookingSeasonRange: 'Бронирование доступно только с {start} по {end}',
+    bookingSeasonInvalid: 'Бронирование недоступно: необходимо исправить настройки сезона школы.',
+    bookingSeasonChanged: 'Выбранное занятие вне сезона бронирования. Выберите другую дату.',
     schoolTimeZoneLabel: 'Часовой пояс школы',
     schoolTimeZoneCustom: 'Другой часовой пояс IANA',
     schoolTimeZoneHelp:

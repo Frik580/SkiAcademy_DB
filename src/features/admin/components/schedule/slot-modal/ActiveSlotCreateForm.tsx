@@ -22,6 +22,8 @@ import type { AdminManagedParticipantSelection } from '../../../identity';
 import type { AccountDirectoryOption } from '../../../identity/accountDirectorySearch';
 
 interface ActiveSlotCreateFormProps {
+  seasonMessage?: string;
+  seasonBookingAllowed?: boolean;
   instructor: Instructor;
   modalTab: 'break' | 'day_off' | 'booking';
   setModalTab: (tab: 'break' | 'day_off' | 'booking') => void;
@@ -47,6 +49,8 @@ interface ActiveSlotCreateFormProps {
 }
 
 export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
+  seasonMessage,
+  seasonBookingAllowed = true,
   instructor,
   modalTab,
   setModalTab,
@@ -82,7 +86,10 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
   const submitDisabled =
     isSlotActionSubmitting ||
     (modalTab === 'booking' &&
-      (!instructor.isAvailable || !bookingIdentityReady || hourlyRateKzt === undefined));
+      (!seasonBookingAllowed ||
+        !instructor.isAvailable ||
+        !bookingIdentityReady ||
+        hourlyRateKzt === undefined));
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
@@ -257,6 +264,11 @@ export const ActiveSlotCreateForm: React.FC<ActiveSlotCreateFormProps> = ({
         </div>
       )}
 
+      {modalTab === 'booking' && seasonMessage && (
+        <p role="status" className="type-caption text-[var(--ink-dim)]">
+          {seasonMessage}
+        </p>
+      )}
       <div className="admin-modal-actions">
         <button type="button" onClick={onClose} className={ADMIN_MODAL_SECONDARY_CLASS}>
           {t('cancel')}

@@ -1,5 +1,10 @@
 import { useSyncExternalStore } from 'react';
-import { DEFAULT_SCHOOL_TIME_ZONE, resolveSchoolTimeZone } from '@ski-academy/shared-domain';
+import {
+  DEFAULT_SCHOOL_TIME_ZONE,
+  resolveSchoolTimeZone,
+  resolveLessonBookingSeason,
+  type LessonBookingSeason,
+} from '@ski-academy/shared-domain';
 import { db, doc, onSnapshot, runTransaction } from '../../infrastructure/firebase';
 
 const configRef = doc(db, 'resort_data', 'config');
@@ -7,6 +12,7 @@ type SchoolTimeZoneState = {
   readonly timeZone: string;
   readonly ready: boolean;
   readonly error?: Error;
+  readonly season?: LessonBookingSeason;
 };
 const initial: SchoolTimeZoneState = { timeZone: DEFAULT_SCHOOL_TIME_ZONE, ready: false };
 let state = initial;
@@ -26,6 +32,9 @@ function startSubscription() {
           const timeZone = resolveSchoolTimeZone(snapshot.exists() ? snapshot.data() : undefined);
           publish({
             timeZone,
+            season: resolveLessonBookingSeason(
+              snapshot.exists() ? snapshot.data().season : undefined
+            ),
             ready: !snapshot.metadata.fromCache && !snapshot.metadata.hasPendingWrites,
           });
         } catch (error) {

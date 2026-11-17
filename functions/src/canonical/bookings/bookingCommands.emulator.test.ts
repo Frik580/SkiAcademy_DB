@@ -407,6 +407,40 @@ describe.skipIf(!runsOnFirestoreEmulator)('booking commands (firestore emulator)
     await seedSharedFixture(WALLET_TWO_BOOKINGS_KZT);
   }, 30_000);
 
+  it.each([{}, { startDate: '2026-02-01', endDate: '2026-04-15' }])(
+    'enforces season %j before any durable booking, money or claim writes',
+    async (season) => {
+      await firestore.doc('resort_data/config').set({ season });
+      const before = await durableCounts();
+      const envelope = bookingEnvelope({
+        bookingId: 'booking_season_emulator',
+        idempotencyKey: 'season-emulator',
+        participantIds: [participantId],
+        instructorId,
+      });
+      expect(await createCommands().execute(envelope)).toMatchObject({
+        status: 'error',
+        error: { details: { field: 'bookingSeason' } },
+      });
+      expect(await durableCounts()).toEqual(before);
+      expect((await firestore.collection('resource_claim_guards').get()).empty).toBe(true);
+    }
+  );
+
+  it('keeps a successful idempotent replay after the season is changed', async () => {
+    const envelope = bookingEnvelope({
+      bookingId: 'booking_season_replay',
+      idempotencyKey: 'season-replay',
+      participantIds: [participantId],
+      instructorId,
+    });
+    expect((await createCommands().execute(envelope)).status).toBe('success');
+    await firestore.doc('resort_data/config').set({ season: {} });
+    const before = await durableCounts();
+    expect((await createCommands().execute(envelope)).status).toBe('success');
+    expect(await durableCounts()).toEqual(before);
+  });
+
   it('uses authoritative school config and preserves existing instants and idempotent replays after a change', async () => {
     const config = firestore.doc('resort_data/config');
     await config.set({ timeZone: 'Europe/Paris', nameEn: 'Preserved' });

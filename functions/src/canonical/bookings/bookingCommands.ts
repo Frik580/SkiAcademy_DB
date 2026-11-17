@@ -1,4 +1,4 @@
-import { assertSchoolTimeZone } from './schoolTimeZone';
+import { assertNewLessonBookingSettings } from './schoolTimeZone';
 import { assertActiveLessonLevel } from '../pricing/lessonLevelsStore';
 import {
   AggregateRevisionSchema,
@@ -185,7 +185,7 @@ function createConfirmedBookingHandler(
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'create_confirmed_booking'> = {
     read: async (session) => {
-      await assertSchoolTimeZone(session, envelope);
+      await assertNewLessonBookingSettings(session, envelope);
       await assertActiveLessonLevel(session, envelope, envelope.intent.difficulty);
       const bookingRead = await session.tx.get({ path: bookingDocumentPath });
       session.plan.planRead({ path: bookingDocumentPath, category: 'aggregate' });

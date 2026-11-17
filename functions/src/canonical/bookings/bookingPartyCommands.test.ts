@@ -283,6 +283,29 @@ function partyEnvelope(input: {
 }
 
 describe('booking party commands', () => {
+  it('rejects additional participant reservations outside season without changing payment or claims', async () => {
+    const original = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(original);
+    const docs = Object.fromEntries(
+      [...original.snapshot().docs].map(([path, doc]) => [path, doc.data])
+    );
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      ...docs,
+      'resort_data/config': { season: { startDate: '2026-02-01', endDate: '2026-04-15' } },
+    });
+    const before = executor.snapshot();
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-02T00:00:00.000Z'),
+      executor
+    );
+    expect(
+      await commands.execute(
+        partyEnvelope({ idempotencyKey: 'season-party', participantIdsToAdd: [participantTwoId] })
+      )
+    ).toMatchObject({ status: 'error', error: { details: { field: 'bookingSeason' } } });
+    expect(executor.snapshot()).toEqual(before);
+  });
+
   it('self-service add >=24h funds full tariff delta and acquires participant claim', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);

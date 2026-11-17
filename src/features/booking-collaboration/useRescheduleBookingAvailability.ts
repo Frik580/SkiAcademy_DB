@@ -12,6 +12,7 @@ import {
   normalizeBookingLocalDate,
 } from '../bookings/instructorOccupancyForBookingModal';
 import { IanaTimeZoneSchema } from '@ski-academy/shared-domain';
+import { useLessonBookingSeason } from '../lesson-bookings/useLessonBookingSeason';
 
 export function filterOccupancyExcludingBooking(
   occupancy: readonly AdminPlannerOccupancyItem[],
@@ -35,6 +36,7 @@ export function useRescheduleBookingAvailability(input: {
   readonly durationHours: number;
   readonly excludeBookingId: string;
 }) {
+  const season = useLessonBookingSeason();
   const [instructorBookings, setInstructorBookings] = useState<AvailabilitySlot[]>([]);
   const [occupancyCourses, setOccupancyCourses] = useState<Course[]>([]);
   const [occupancyItems, setOccupancyItems] = useState<AdminPlannerOccupancyItem[]>([]);
@@ -128,7 +130,7 @@ export function useRescheduleBookingAvailability(input: {
       occupancyCourses,
       occupancyItems,
       timeZone: timezone,
-    });
+    }).filter((slot) => season.allows(input.localDate, slot, input.durationHours * 60, timezone));
   }, [
     instructorBookings,
     input.durationHours,
@@ -140,6 +142,7 @@ export function useRescheduleBookingAvailability(input: {
     loadedKey,
     requestKey,
     input.isOpen,
+    season,
   ]);
 
   return {

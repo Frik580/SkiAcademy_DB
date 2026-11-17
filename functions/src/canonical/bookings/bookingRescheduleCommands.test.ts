@@ -417,6 +417,57 @@ async function createConfirmedBookingForParticipants(
 }
 
 describe('booking reschedule commands', () => {
+  it.each(['account_owner', 'administrator'] as const)(
+    'rejects %s reschedule outside season preserving all state',
+    async (capability) => {
+      const original = createInMemoryCanonicalTransactionExecutor(seedBase());
+      await createConfirmedBooking(original);
+      const docs = Object.fromEntries(
+        [...original.snapshot().docs].map(([path, doc]) => [path, doc.data])
+      );
+      const executor = createInMemoryCanonicalTransactionExecutor({
+        ...docs,
+        'resort_data/config': { season: { startDate: '2026-01-15', endDate: '2026-01-15' } },
+      });
+      const before = executor.snapshot();
+      const commands = createProductionCanonicalCommands(
+        environment('2026-01-02T00:00:00.000Z'),
+        executor
+      );
+      expect(
+        await commands.execute(rescheduleEnvelope('season-reschedule', capability))
+      ).toMatchObject({ status: 'error', error: { details: { field: 'bookingSeason' } } });
+      expect(executor.snapshot()).toEqual(before);
+    }
+  );
+
+  it('rejects a duration extension crossing the school day end before finance or claims change', async () => {
+    const original = createInMemoryCanonicalTransactionExecutor(seedBase());
+    await createConfirmedBooking(original);
+    const docs = Object.fromEntries(
+      [...original.snapshot().docs].map(([path, doc]) => [path, doc.data])
+    );
+    const executor = createInMemoryCanonicalTransactionExecutor({
+      ...docs,
+      'resort_data/config': { season: { startDate: '2026-01-15', endDate: '2026-01-15' } },
+    });
+    const before = executor.snapshot();
+    const commands = createProductionCanonicalCommands(
+      environment('2026-01-02T00:00:00.000Z'),
+      executor
+    );
+    const result = await commands.execute({
+      kind: 'change_booking_duration',
+      context: accountContext('administrator', adminAccountId, 'season-duration', 1),
+      intent: { bookingId, durationMinutes: 960, reasonExplanation: 'Extend lesson' },
+    });
+    expect(result).toMatchObject({
+      status: 'error',
+      error: { details: { field: 'bookingSeason' } },
+    });
+    expect(executor.snapshot()).toEqual(before);
+  });
+
   it('rejects a timezone substitution without changing the booking', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(seedBase());
     await createConfirmedBooking(executor);

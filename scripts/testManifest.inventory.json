@@ -312,6 +312,7 @@
   "tests/browser/participant-levels/lesson-skills.spec.ts": "deferred:browser-fixtures",
   "tests/browser/participant-levels/prelesson.spec.ts": "deferred:browser-fixtures",
   "tests/browser/planner-overlap/planner.spec.ts": "deferred:browser-fixtures",
+  "tests/browser/public-modals/color-contrast.spec.ts": "deferred:browser-fixtures",
   "tests/browser/public-modals/escape-audit.spec.ts": "deferred:browser-fixtures",
   "tests/browser/public-modals/public-modals.spec.ts": "deferred:browser-fixtures",
   "tests/firestore.rules.test.ts": "firestore-rules",

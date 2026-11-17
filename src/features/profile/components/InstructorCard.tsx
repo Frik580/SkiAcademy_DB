@@ -70,7 +70,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
         type="button"
         onClick={() => !blocked && onViewReviews(instructor)}
         disabled={blocked}
-        className={`inline-flex items-center gap-1 type-button transition select-none bg-transparent border-0 p-0 ${blocked ? 'text-[var(--ink-dim)] cursor-not-allowed' : 'text-amber-500 hover:text-amber-400 hover:underline cursor-pointer'}`}
+        className={`inline-flex items-center gap-1 type-button transition select-none bg-transparent border-0 p-0 ${blocked ? 'text-[var(--ink-dim)] cursor-not-allowed' : 'text-[#b45309] hover:text-[#92400e] dark:text-amber-500 dark:hover:text-amber-400 hover:underline cursor-pointer'}`}
         title={t('readReviews')}
       >
         {hasCanonicalRating && (
@@ -83,7 +83,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
       </button>
     ) : (
       <span
-        className={`inline-flex items-center gap-1 type-compact ${blocked ? 'text-[var(--ink-dim)]' : 'text-amber-500'}`}
+        className={`inline-flex items-center gap-1 type-compact ${blocked ? 'text-[var(--ink-dim)]' : 'text-[#b45309] dark:text-amber-500'}`}
       >
         {hasCanonicalRating && (
           <Star

@@ -10,6 +10,7 @@ import { BookingAppleSelect } from '../../../src/features/bookings/components/bo
 import { BookingAppleDatePicker } from '../../../src/features/bookings/components/booking_modal/BookingAppleDatePicker';
 import { AdminModal } from '../../../src/features/admin/components/AdminModal';
 import React, { useState } from 'react';
+import { ContrastFixture } from './ContrastFixture';
 import { createRoot } from 'react-dom/client';
 import { LanguageProvider, useLanguage } from '../../../src/app/providers/LanguageContext';
 import { CurrencyProvider } from '../../../src/app/providers/CurrencyContext';
@@ -240,4 +241,18 @@ export function Fixture() {
     </LanguageProvider>
   );
 }
-createRoot(document.getElementById('root')!).render(<Fixture />);
+const contrastPreview = new URLSearchParams(location.search).has('contrast');
+if (contrastPreview) {
+  document.documentElement.classList.toggle('dark', localStorage.getItem('theme') === 'dark');
+}
+createRoot(document.getElementById('root')!).render(
+  contrastPreview ? (
+    <LanguageProvider>
+      <CurrencyProvider>
+        <ContrastFixture />
+      </CurrencyProvider>
+    </LanguageProvider>
+  ) : (
+    <Fixture />
+  )
+);

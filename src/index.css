@@ -103,7 +103,7 @@
   --bg: #ffffff;
   --card-bg: #ffffff;
   --ink: #111111;
-  --ink-dim: rgba(17, 17, 17, 0.5);
+  --ink-dim: rgba(17, 17, 17, 0.6);
   --border: rgba(17, 17, 17, 0.07);
   --border-subtle: rgba(17, 17, 17, 0.035);
   --profile-bg: #f6f6f4;
@@ -118,7 +118,7 @@
   --hero-secondary-shadow: none;
   --hero-secondary-shadow-hover: none;
   --hero-ink: #111111;
-  --hero-ink-dim: rgba(17, 17, 17, 0.5);
+  --hero-ink-dim: rgba(17, 17, 17, 0.9);
   --hero-cta-bg: #1a6578;
   --hero-cta-bg-hover: #134e5e;
   --hero-cta-fg: #ffffff;
@@ -502,6 +502,12 @@
     --ui-field-radius: var(--radius-md);
     border-color: var(--border-subtle);
     background-color: var(--profile-bg);
+  }
+
+  .ui-field::placeholder,
+  .ui-field-plain::placeholder {
+    color: var(--ink-dim);
+    opacity: 1;
   }
 
   .ui-select {

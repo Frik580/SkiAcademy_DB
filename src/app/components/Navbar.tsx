@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { UserProfile } from '../../types';
 import { LogOut, Bell, Sun, Moon, Menu, X, Settings, ChevronDown } from 'lucide-react';
 import { m, AnimatePresence } from 'framer-motion';
@@ -68,6 +68,42 @@ export const Navbar: React.FC<NavbarProps> = ({
     workspaceItems.find((item) => item.active)?.label ?? workspaceItems[0]?.label;
 
   const headerRef = useRef<HTMLElement>(null);
+  const mobileTriggerRef = useRef<HTMLButtonElement>(null);
+  const mobilePanelRef = useRef<HTMLDivElement>(null);
+  const logoRef = useRef<HTMLAnchorElement>(null);
+  const mobilePanelId = useId();
+  const mobileMenuLabel = t('navigationMenu');
+  const closeMobileMenu = useCallback(() => {
+    const desktop = window.matchMedia?.('(min-width: 1024px)').matches;
+    if (
+      mobilePanelRef.current?.contains(document.activeElement) ||
+      (desktop && document.activeElement === mobileTriggerRef.current)
+    ) {
+      const target = desktop ? logoRef.current : mobileTriggerRef.current;
+      target?.focus({ preventScroll: true });
+    }
+    setIsMenuOpen(false);
+  }, []);
+
+  useLayoutEffect(() => {
+    closeMobileMenu();
+  }, [location.key, closeMobileMenu]);
+
+  useEffect(() => {
+    const desktop = window.matchMedia?.('(min-width: 1024px)');
+    const onChange = (event: MediaQueryListEvent) => {
+      if (event.matches) closeMobileMenu();
+    };
+    desktop?.addEventListener('change', onChange);
+    return () => desktop?.removeEventListener('change', onChange);
+  }, [closeMobileMenu]);
+
+  useLayoutEffect(() => {
+    // AnimatePresence retains the exiting panel: make its controls inactive immediately.
+    const panel = mobilePanelRef.current;
+    panel?.toggleAttribute('inert', !isMenuOpen);
+    panel?.setAttribute('aria-hidden', String(!isMenuOpen));
+  }, [isMenuOpen]);
   const workspaceTriggerRef = useRef<HTMLButtonElement>(null);
   const workspaceDropdownRef = useRef<HTMLDivElement>(null);
   const [workspaceMenuLeft, setWorkspaceMenuLeft] = useState(0);
@@ -138,13 +174,42 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, [isMenuOpen]);
 
   return (
-    <div className="sticky top-0 z-40 relative">
+    // Delegate Escape from native navigation controls without making the disclosure a menu widget.
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+    <nav
+      aria-label={mobileMenuLabel}
+      className="sticky top-0 z-40 relative"
+      onBlurCapture={(event) => {
+        // CSS can hide the focused mobile control before the breakpoint listener runs.
+        if (
+          (!event.relatedTarget || event.relatedTarget.nodeType === Node.DOCUMENT_NODE) &&
+          window.matchMedia?.('(min-width: 1024px)').matches &&
+          (event.target === mobileTriggerRef.current ||
+            mobilePanelRef.current?.contains(event.target))
+        ) {
+          setIsMenuOpen(false);
+          // Native blur can finish after this handler; do not steal a newer focus target.
+          queueMicrotask(() => {
+            if (document.activeElement === document.body)
+              logoRef.current?.focus({ preventScroll: true });
+          });
+        }
+      }}
+      onKeyDown={(event) => {
+        if (isMenuOpen && event.key === 'Escape' && !event.defaultPrevented) {
+          event.preventDefault();
+          event.stopPropagation();
+          closeMobileMenu();
+        }
+      }}
+    >
       <header
         ref={headerRef}
         className="ui-navbar px-4 sm:px-6 py-3 transition-colors duration-300"
       >
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
           <Link
+            ref={logoRef}
             to={
               userProfile && userProfile.role !== 'admin'
                 ? getDefaultWorkspacePath(userProfile)
@@ -308,8 +373,13 @@ export const Navbar: React.FC<NavbarProps> = ({
               />
             )}
             <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="ui-icon-btn text-[var(--ink)] shrink-0"
+              ref={mobileTriggerRef}
+              type="button"
+              aria-label={mobileMenuLabel}
+              aria-expanded={isMenuOpen}
+              aria-controls={mobilePanelId}
+              onClick={() => setIsMenuOpen((open) => !open)}
+              className="ui-icon-btn min-h-11 min-w-11 text-[var(--ink)] shrink-0"
             >
               {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -352,18 +422,22 @@ export const Navbar: React.FC<NavbarProps> = ({
       <AnimatePresence>
         {isMenuOpen && (
           <m.div
+            ref={mobilePanelRef}
+            id={mobilePanelId}
+            role="region"
+            aria-label={mobileMenuLabel}
             initial={{ y: -12 }}
             animate={{ y: 0 }}
             exit={{ y: -12 }}
             transition={{ duration: 0.2 }}
-            className="ui-navbar-panel lg:hidden absolute top-full left-0 w-full p-6 sm:p-8 flex flex-col gap-5 sm:gap-6 z-50 max-h-[calc(100dvh-var(--app-navbar-height,60px))] overflow-y-auto"
+            className="ui-navbar-panel lg:hidden absolute top-full left-0 w-full p-6 sm:p-8 flex flex-col gap-5 sm:gap-6 z-50 max-h-[calc(100dvh-var(--app-navbar-height,60px))] overflow-y-auto [&_button]:min-h-11 [&_button]:min-w-11"
           >
             {userProfile && (
               <>
                 {showClientNav && (
                   <Link
                     to="/cabinet"
-                    onClick={() => setIsMenuOpen(false)}
+                    onClick={closeMobileMenu}
                     className={`w-full px-4 py-3 transition type-nav rounded-full normal-case no-underline text-center ${
                       isCabinetView
                         ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
@@ -377,7 +451,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {showInstructorNav && (
                   <Link
                     to="/instructor"
-                    onClick={() => setIsMenuOpen(false)}
+                    onClick={closeMobileMenu}
                     className={`w-full px-4 py-3 transition type-nav rounded-full normal-case no-underline text-center ${
                       isInstructorView
                         ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
@@ -391,8 +465,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {userProfile.role === 'admin' && (
                   <button
                     onClick={() => {
+                      closeMobileMenu();
                       navigate(isAdminView ? '/' : '/admin');
-                      setIsMenuOpen(false);
                     }}
                     className={`w-full px-4 py-3 transition cursor-pointer type-nav rounded-full normal-case ${
                       isAdminView
@@ -413,8 +487,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                 <button
                   onClick={() => {
+                    closeMobileMenu();
                     onOpenNotifications();
-                    setIsMenuOpen(false);
                   }}
                   className="w-full flex justify-between items-center type-nav text-[var(--ink)]"
                 >
@@ -435,7 +509,11 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <div className="flex items-center justify-between type-compact text-[var(--ink)]">
               <span>{t(theme === 'light' ? 'lightTheme' : 'darkTheme')}</span>
-              <button onClick={onToggleTheme} className="ui-icon-btn">
+              <button
+                onClick={onToggleTheme}
+                className="ui-icon-btn"
+                aria-label={t(theme === 'light' ? 'switchToDark' : 'switchToLight')}
+              >
                 {theme === 'light' ? (
                   <Moon className="w-4 h-4" />
                 ) : (
@@ -454,8 +532,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             {!userProfile && onSignInClick && (
               <button
                 onClick={() => {
+                  closeMobileMenu();
                   onSignInClick();
-                  setIsMenuOpen(false);
                 }}
                 className="w-full max-w-xs mx-auto mt-2 px-4 py-3 btn-primary type-nav text-center"
               >
@@ -465,8 +543,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             {userProfile && (
               <button
                 onClick={() => {
+                  closeMobileMenu();
                   onSignOut();
-                  setIsMenuOpen(false);
                 }}
                 className="w-full mt-2 px-4 py-3 text-rose-500 hover:bg-rose-500/10 transition cursor-pointer type-nav rounded-full"
               >
@@ -476,6 +554,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           </m.div>
         )}
       </AnimatePresence>
-    </div>
+    </nav>
   );
 };

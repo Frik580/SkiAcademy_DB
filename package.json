@@ -63,6 +63,7 @@
     "test:contracts": "tsc -p packages/shared-domain/tsconfig.contracts.json",
     "test:quick:types": "npm --prefix packages/shared-domain run build && tsc --noEmit && node functions/scripts/syncSharedDomain.cjs && node scripts/writeFunctionsProvenance.mjs && tsc -p functions/tsconfig.json --noEmit",
     "test:fixture:admin-modals:build": "vite build --mode e2e --config vite.admin-modals.config.ts",
+    "test:fixture:public-modals:build": "vite build --mode e2e --config vite.public-modals.config.ts",
     "test:fixture:planner:build": "vite build --mode e2e --config tests/browser/planner-overlap/vite.config.ts",
     "build:e2e": "vite build --mode e2e --outDir .scratch/e2e-app"
   },

@@ -4,17 +4,22 @@ for (const width of [1440, 768, 390, 320]) {
   for (const theme of ['light', 'dark']) {
     for (const language of ['ru', 'en']) {
       test(`attendance ${width} ${theme} ${language}`, async ({ page }) => {
+        const browserErrors: string[] = [];
+        page.on('pageerror', (error) => browserErrors.push(error.message));
         await page.setViewportSize({ width, height: 900 });
         await page.route(/googleapis\.com|firebaseio\.com|cloudfunctions\.net/, (route) =>
           route.abort()
         );
         await page.goto(
-          `/tests/browser/admin-issue-attendance/index.html?theme=${theme}&language=${language}`
+          `/tests/browser/admin-issue-attendance/index.html?theme=${theme}&language=${language}`,
+          // The React controls below are the readiness signal, not unrelated load resources.
+          { waitUntil: 'domcontentloaded' }
         );
         const action = page.getByRole('button', {
           name: language === 'ru' ? 'Все присутствовали' : 'Everyone attended',
         });
         await expect(action).toBeVisible();
+        await expect(action).toBeEnabled();
         await expect(
           page.getByText(language === 'ru' ? 'Отсутствовал' : 'Absent', { exact: true })
         ).toBeVisible();
@@ -29,6 +34,7 @@ for (const width of [1440, 768, 390, 320]) {
         await expect(
           page.getByRole('button', { name: language === 'ru' ? 'Сохраняем...' : 'Saving...' })
         ).toBeDisabled();
+        expect(browserErrors, 'Uncaught browser errors').toEqual([]);
       });
     }
   }

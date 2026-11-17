@@ -1,9 +1,9 @@
 import { execFileSync } from 'node:child_process';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 import {
   ROOT,
   suites,
@@ -217,6 +217,41 @@ it('matches real Vitest discovery for app projects and backend filters', () => {
 });
 
 describe('execution result guards', () => {
+  it('preserves the E2E report when the later Hosting stage writes its results', async () => {
+    const directory = mkdtempSync(resolve(tmpdir(), 'carve-browser-reports-'));
+    const reportPaths = [];
+    const browser = suites.find((suite) => suite.id === 'playwright');
+    try {
+      for (const group of ['e2e', 'hosting']) {
+        const selected = selectProfileFiles(
+          profileSuite(browser, group === 'hosting' ? 'hosting' : 'full'),
+          files
+        );
+        await runGroup(group, {
+          profile: 'full',
+          reportDir: directory,
+          execute: async (_command, args, options) => {
+            if (args[0] !== 'scripts/runE2E.mjs') return;
+            const path = options.env.PLAYWRIGHT_JSON_OUTPUT_NAME;
+            reportPaths.push(path);
+            writeFileSync(path, JSON.stringify({
+              errors: [],
+              suites: [{ specs: selected.map((file) => ({
+                file, title: group,
+                tests: [{ status: 'expected', results: [{ status: 'passed' }] }],
+              })) }],
+            }));
+          },
+        });
+      }
+      assert.notEqual(reportPaths[0], reportPaths[1]);
+      assert.ok(reportPaths.every((path) => existsSync(path)));
+      const first = JSON.parse(readFileSync(reportPaths[0], 'utf8'));
+      assert.ok(first.suites[0].specs.every((spec) => spec.title === 'e2e'));
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
   it('rejects the passing file wrapper emitted by Node for an empty test module', () => {
     const directory = mkdtempSync(resolve(tmpdir(), 'carve-empty-node-'));
     const emptyFile = resolve(directory, 'empty.test.mjs');
@@ -404,6 +439,27 @@ describe('Phase 2 profile safety', () => {
     assert.deepEqual(promoted.sort(), expected.sort());
     assert.equal(promoted.length, new Set(promoted).size);
     for (const suite of releaseSuites) assert.doesNotMatch(suite.id, /[<>:"/\\|?*]/);
+  });
+  it('discovers every required browser fixture through exactly one configured runner', () => {
+    const fixtureSuite = releaseSuites.find((suite) => suite.runner === 'fixtures');
+    const discovered = fixtureSuite.configs.flatMap((config) => {
+      const output = execFileSync(
+        process.execPath,
+        ['node_modules/@playwright/test/cli.js', 'test', '--list', '--reporter=json', '--config', config],
+        { cwd: ROOT, encoding: 'utf8', windowsHide: true }
+      );
+      const report = JSON.parse(output);
+      assert.deepEqual(report.errors, []);
+      const found = new Set();
+      const visit = (section) => {
+        for (const spec of section.specs ?? [])
+          found.add(relative(ROOT, resolve(report.config.rootDir, spec.file)).replaceAll('\\', '/'));
+        for (const child of section.suites ?? []) visit(child);
+      };
+      for (const section of report.suites) visit(section);
+      return [...found];
+    });
+    assert.deepEqual(discovered.sort(), selectFiles(fixtureSuite, files).sort());
   });
   it('rejects profiles that could turn mandatory backend or release gates into empty success', async () => {
     for (const [group, profile] of [

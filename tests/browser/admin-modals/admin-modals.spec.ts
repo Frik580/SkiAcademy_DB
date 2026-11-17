@@ -174,7 +174,8 @@ test('Escape closes the planner confirmation before its underlying form', async 
   const parent = await openFixture(page, 'move');
   const trigger = parent.locator('.admin-modal-actions button').first();
   await trigger.click();
-  await expect(page.getByRole('dialog')).toHaveCount(2);
+  await expect(page.getByRole('dialog', { includeHidden: true })).toHaveCount(2);
+  await expect(page.getByRole('dialog')).toHaveCount(1);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(1);
   await expect(trigger).toBeFocused();

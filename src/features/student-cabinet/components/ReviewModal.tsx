@@ -1,9 +1,8 @@
 import React from 'react';
-import { createPortal } from 'react-dom';
 import { Star, X } from 'lucide-react';
 import { Booking } from '../../../types';
 import { useLanguage } from '../../../app/providers/LanguageContext';
-import { BodyScrollLock } from '../../../ui/BodyScrollLock';
+import { ModalLayer } from '../../../ui/ModalLayer';
 import { ActionButton } from '../../../ui/ActionButton';
 import { INSTRUCTOR_REVIEW_COMMENT_MAX_LENGTH } from '../../reviews';
 
@@ -32,76 +31,82 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
 
   if (!booking) return null;
 
-  return createPortal(
-    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
-      <BodyScrollLock />
-      <div className="ui-modal shadow-2xl w-full max-w-sm max-h-[80vh] overflow-y-auto relative rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] m-auto">
-        <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-black/5 dark:bg-white/5">
-          <h4 className="type-card-title text-[var(--ink)]">
-            {t('reviewAbout')} {booking.instructorName}
-          </h4>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full hover:bg-[var(--profile-bg)] transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <form onSubmit={onSubmit} className="p-5 space-y-4">
-          <div className="space-y-1.5 text-center">
-            <label className="type-caption uppercase text-[var(--ink-dim)] block">
-              {t('rateInstructor')}
-            </label>
-            <div className="flex items-center justify-center gap-1">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  type="button"
-                  onClick={() => setRating(star)}
-                  className="p-1 hover:scale-110 transition cursor-pointer"
-                >
-                  <Star
-                    className={`w-7 h-7 ${
-                      star <= rating
-                        ? 'text-amber-400 fill-amber-400'
-                        : 'text-slate-200 dark:text-slate-700'
-                    }`}
-                  />
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <label
-              htmlFor="review-comment-textarea"
-              className="type-caption uppercase text-[var(--ink-dim)] block"
+  return (
+    <ModalLayer onClose={onClose} closeDisabled={isSubmitting}>
+      <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('reviewAbout')}
+          className="ui-modal shadow-2xl w-full max-w-sm max-h-[80vh] overflow-y-auto relative rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)] m-auto"
+        >
+          <div className="flex justify-between items-center p-4 border-b border-[var(--border)] bg-black/5 dark:bg-white/5">
+            <h4 className="type-card-title text-[var(--ink)]">
+              {t('reviewAbout')} {booking.instructorName}
+            </h4>
+            <button
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="p-2 rounded-full hover:bg-[var(--profile-bg)] transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
             >
-              {t('yourFeedback')}
-            </label>
-            <textarea
-              id="review-comment-textarea"
-              maxLength={INSTRUCTOR_REVIEW_COMMENT_MAX_LENGTH}
-              rows={3}
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              placeholder={t('reviewDetailPlaceholder')}
-              className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition h-20 resize-none rounded-none"
-            />
+              <X className="w-5 h-5" />
+            </button>
           </div>
+          <form onSubmit={onSubmit} className="p-5 space-y-4">
+            <div className="space-y-1.5 text-center">
+              <label className="type-caption uppercase text-[var(--ink-dim)] block">
+                {t('rateInstructor')}
+              </label>
+              <div className="flex items-center justify-center gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setRating(star)}
+                    className="p-1 hover:scale-110 transition cursor-pointer"
+                  >
+                    <Star
+                      className={`w-7 h-7 ${
+                        star <= rating
+                          ? 'text-amber-400 fill-amber-400'
+                          : 'text-slate-200 dark:text-slate-700'
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
 
-          <ActionButton
-            type="submit"
-            pending={isSubmitting}
-            pendingLabel={t('submitting')}
-            unstyled
-            className="w-full py-2.5 border border-[var(--border)] bg-transparent hover:border-[var(--ink)] hover:bg-black/5 disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed text-[var(--ink)] rounded-none type-button uppercase transition cursor-pointer"
-          >
-            {t('postInstructorReview')}
-          </ActionButton>
-        </form>
+            <div className="space-y-1">
+              <label
+                htmlFor="review-comment-textarea"
+                className="type-caption uppercase text-[var(--ink-dim)] block"
+              >
+                {t('yourFeedback')}
+              </label>
+              <textarea
+                id="review-comment-textarea"
+                maxLength={INSTRUCTOR_REVIEW_COMMENT_MAX_LENGTH}
+                rows={3}
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder={t('reviewDetailPlaceholder')}
+                className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition h-20 resize-none rounded-none"
+              />
+            </div>
+
+            <ActionButton
+              type="submit"
+              pending={isSubmitting}
+              pendingLabel={t('submitting')}
+              unstyled
+              className="w-full py-2.5 border border-[var(--border)] bg-transparent hover:border-[var(--ink)] hover:bg-black/5 disabled:bg-black/5 disabled:text-[var(--ink-dim)] disabled:border-[var(--border)] disabled:cursor-not-allowed text-[var(--ink)] rounded-none type-button uppercase transition cursor-pointer"
+            >
+              {t('postInstructorReview')}
+            </ActionButton>
+          </form>
+        </div>
       </div>
-    </div>,
-    document.body
+    </ModalLayer>
   );
 };

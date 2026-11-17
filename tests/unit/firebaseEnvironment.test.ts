@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { runInNewContext } from 'node:vm';
@@ -21,12 +22,25 @@ async function captureE2ERunner(
   argv: string[] = [],
   env: Record<string, string> = {},
   childExitCode = 0,
-  diagnosticFailure = false
+  diagnosticFailure = false,
+  childOutput: { stdout?: string[]; stderr?: string[] } = {},
+  platform = process.platform
 ) {
   const runnerPath = resolve(repoRoot, 'scripts/runE2E.mjs');
   const spawn = vi.fn(() => {
-    const child = new EventEmitter();
-    queueMicrotask(() => child.emit('exit', childExitCode));
+    const child = Object.assign(new EventEmitter(), {
+      pid: 12345,
+      stdout: new PassThrough(),
+      stderr: new PassThrough(),
+    });
+    queueMicrotask(() => {
+      for (const stream of ['stdout', 'stderr'] as const) {
+        for (const chunk of childOutput[stream] ?? []) child[stream].write(chunk);
+        child[stream].end();
+      }
+      child.emit('exit', childExitCode);
+      child.emit('close', childExitCode);
+    });
     return child;
   });
   const files = new Map([
@@ -66,9 +80,12 @@ async function captureE2ERunner(
   const runnerProcess = {
     argv: [process.execPath, runnerPath, ...argv],
     execPath: process.execPath,
-    platform: process.platform,
+    platform,
     pid: process.pid,
     memoryUsage: process.memoryUsage,
+    kill: vi.fn(),
+    stdout: new PassThrough(),
+    stderr: new PassThrough(),
     env,
     on: vi.fn(),
     off: vi.fn(),
@@ -88,7 +105,8 @@ async function captureE2ERunner(
     const realRequire = createRequire(url);
     return (id: string) => {
       if (id === 'node:fs') return filesystem;
-      if (id === 'node:child_process') return { spawn, spawnSync: vi.fn() };
+      if (id === 'node:child_process')
+        return { spawn, spawnSync: vi.fn(() => ({ status: 0, stdout: '12345 1 fixture-start\n' })) };
       if (id === 'node:module') return { createRequire: requireWithEffects };
       if (id === 'firebase-admin/app') return { initializeApp, deleteApp };
       if (id === 'firebase-admin/firestore') return { getFirestore };
@@ -97,6 +115,7 @@ async function captureE2ERunner(
     };
   };
   const globals = {
+    Buffer,
     URL,
     console: diagnosticConsole,
     setTimeout: diagnosticTimer,
@@ -133,6 +152,7 @@ async function captureE2ERunner(
   expect(files.has(resolve(repoRoot, 'functions/.env.local'))).toBe(false);
   return {
     spawn,
+    kill: runnerProcess.kill,
     fetch,
     files,
     exitCode: runnerProcess.exitCode,
@@ -436,6 +456,7 @@ describe('vite firebase env resolution', () => {
         'emulator-lifecycle:heartbeat',
         'emulator-lifecycle:spawn',
         'emulator-lifecycle:exit',
+        ...(process.platform === 'win32' ? [] : ['process-tree:cleanup']),
         'emulator-shutdown:end',
       ],
     },
@@ -474,6 +495,54 @@ describe('vite firebase env resolution', () => {
         result.diagnosticInterval.mock.results[0].value
       );
     }
+  });
+
+  it('models POSIX child cleanup without accessing the real process table or sending signals', async () => {
+    const directory = resolve(repoRoot, '.scratch/e2e-posix-diagnostics-test');
+    const result = await captureE2ERunner(
+      [],
+      { CARVE_E2E_DIAGNOSTICS_DIR: directory },
+      0,
+      false,
+      {},
+      'linux'
+    );
+    expect(result.exitCode).toBe(0);
+    expect(result.kill).toHaveBeenCalledExactlyOnceWith(-12345, 'SIGKILL');
+    const events = result.files
+      .get(resolve(directory, `events-${process.pid}.jsonl`))!
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line).stage);
+    expect(events).toEqual([
+      'emulator-startup:start',
+      'emulator-lifecycle:heartbeat',
+      'emulator-lifecycle:spawn',
+      'emulator-lifecycle:exit',
+      'process-tree:cleanup',
+      'emulator-shutdown:end',
+    ]);
+  });
+
+  it('captures separate redacted emulator streams and preserves a failing exit code', async () => {
+    const directory = resolve(repoRoot, '.scratch/test-manifest/runner-log-test');
+    const result = await captureE2ERunner(
+      [],
+      { CARVE_MANIFEST_RUN_DIR: directory },
+      7,
+      false,
+      {
+        stdout: ['Functions ready\nGUEST_ACTION_TOKEN_', 'SECRET=private-value\n'],
+        stderr: ['Function failed\n'],
+      }
+    );
+    expect(result.exitCode).toBe(7);
+    expect(result.files.get(resolve(directory, 'emulator-12345.stdout.log'))).toBe(
+      'Functions ready\n[redacted sensitive emulator output]\n'
+    );
+    expect(result.files.get(resolve(directory, 'emulator-12345.stderr.log'))).toBe(
+      'Function failed\n'
+    );
   });
 
   it('captures bounded anonymous emulator counts through Admin', async () => {
@@ -617,6 +686,12 @@ describe('E2E harness synchronization and Admin app isolation', () => {
     vi.resetModules();
     vi.doMock('@playwright/test', () => ({
       expect: () => ({
+        toBeVisible: async () => {
+          events.push('form visible');
+        },
+        toBeEnabled: async () => {
+          events.push('submit enabled');
+        },
         toHaveURL: async () => {
           events.push('authenticated');
         },
@@ -624,31 +699,39 @@ describe('E2E harness synchronization and Admin app isolation', () => {
     }));
     try {
       const { signInAccount } = await import('../../e2e/fixtures');
+      const emailLocator = {};
+      const submit = {
+        click: async () => {
+          events.push('submit');
+        },
+      };
       const modal = {
-        getByPlaceholder: (name: string) => ({
-          fill: async () => {
+        getByPlaceholder: vi.fn((name: string) => ({
+          fill: async (value: string) => {
+            expect(value).toBe(name === 'Email Address' ? 'fixture@e2e.test' : 'fixture-password');
             events.push(name);
           },
-        }),
-        getByRole: () => ({
-          click: async () => {
-            events.push('submit');
-          },
-        }),
+        })),
+        getByRole: vi.fn(() => submit),
       };
+      const dialog = { filter: vi.fn(() => modal) };
       const page = {
         goto: async () => {
           events.push('navigation');
           await navigation;
         },
-        getByRole: () => ({
-          first: () => ({
-            click: async () => {
-              events.push('open form');
-            },
-          }),
-        }),
-        locator: () => modal,
+        getByRole: vi.fn((role: string) =>
+          role === 'dialog'
+            ? dialog
+            : {
+                first: () => ({
+                  click: async () => {
+                    events.push('open form');
+                  },
+                }),
+              }
+        ),
+        getByPlaceholder: vi.fn(() => emailLocator),
       };
       const login = signInAccount(
         page as never,
@@ -664,11 +747,24 @@ describe('E2E harness synchronization and Admin app isolation', () => {
       expect(events).toEqual(['navigation']);
       releaseNavigation();
       await login;
+      expect(page.getByRole.mock.calls).toEqual([
+        ['button', { name: 'Sign In', exact: true }],
+        ['dialog'],
+      ]);
+      expect(page.getByPlaceholder).toHaveBeenCalledExactlyOnceWith('Email Address');
+      expect(dialog.filter).toHaveBeenCalledExactlyOnceWith({ has: emailLocator });
+      expect(modal.getByPlaceholder.mock.calls).toEqual([['Email Address'], ['Password']]);
+      expect(modal.getByRole).toHaveBeenCalledExactlyOnceWith('button', {
+        name: 'Sign In',
+        exact: true,
+      });
       expect(events).toEqual([
         'navigation',
         'open form',
+        'form visible',
         'Email Address',
         'Password',
+        'submit enabled',
         'observer armed',
         'submit',
         'authenticated',

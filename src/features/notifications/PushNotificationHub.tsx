@@ -5,7 +5,7 @@ import { resolveNotificationText, type DbNotification } from '../../domain/notif
 import { useNotificationsStore } from './notificationsStore';
 import { Booking, Review, UserProfile } from '../../types';
 import { ActionButton } from '../../ui/ActionButton';
-import { BodyScrollLock } from '../../ui/BodyScrollLock';
+import { ModalLayer } from '../../ui/ModalLayer';
 import { StateCard } from '../../ui/StateCard';
 import type { AccountReviewBookingState } from '@ski-academy/shared-domain';
 
@@ -219,157 +219,163 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
   };
 
   return (
-    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-      <BodyScrollLock />
-      <div className="ui-modal shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden animate-scale-up rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]">
-        <div className="flex items-center justify-between p-4 border-b border-[var(--border)] bg-black/10">
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Bell className="w-4 h-4 text-[var(--ink-dim)]" />
+    <ModalLayer onClose={onClose}>
+      <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('notificationHistory')}
+          className="ui-modal shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden animate-scale-up rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]"
+        >
+          <div className="flex items-center justify-between p-4 border-b border-[var(--border)] bg-black/10">
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Bell className="w-4 h-4 text-[var(--ink-dim)]" />
+                {totalUnreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full ring-1 ring-[var(--bg)]" />
+                )}
+              </div>
+              <h3 className="type-card-title text-[var(--ink)]">{t('notificationHistory')}</h3>
               {totalUnreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full ring-1 ring-[var(--bg)]" />
+                <span className="type-caption uppercase text-rose-500 bg-rose-500/10 border border-rose-500/30 px-1.5 py-0.5 rounded-none">
+                  {totalUnreadCount > 9 ? '9+' : totalUnreadCount}
+                </span>
               )}
             </div>
-            <h3 className="type-card-title text-[var(--ink)]">{t('notificationHistory')}</h3>
-            {totalUnreadCount > 0 && (
-              <span className="type-caption uppercase text-rose-500 bg-rose-500/10 border border-rose-500/30 px-1.5 py-0.5 rounded-none">
-                {totalUnreadCount > 9 ? '9+' : totalUnreadCount}
-              </span>
-            )}
+            <button
+              onClick={onClose}
+              className="p-1 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer rounded-none"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer rounded-none"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
 
-        <div className="p-4 overflow-y-auto flex-1 space-y-4">
-          {/* Review Invitations Section */}
-          {unreviewedCompletedBookings.length > 0 && (
-            <div className="space-y-2 pb-3 border-b border-[var(--border)]">
-              <h4 className="type-card-title uppercase text-[var(--ink)] block mb-2">
-                🌟 {t('rateCompletedLessons')}
-              </h4>
-              <div className="space-y-2">
-                {unreviewedCompletedBookings.map((b) => (
-                  <div
-                    key={b.id}
-                    className="p-3 border border-[var(--border)] bg-black/10 flex items-center justify-between gap-3 rounded-none"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <img
-                        src={b.instructorAvatar}
-                        alt={b.instructorName}
-                        className="w-8 h-8 rounded-none object-cover shrink-0 border border-[var(--border)]"
-                      />
-                      <div className="min-w-0">
-                        <p className="type-caption font-medium text-[var(--ink)] truncate">
-                          {b.instructorName}
-                        </p>
-                        <span className="type-caption text-[var(--ink-dim)] block">
-                          {b.date} • {b.time}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <ActionButton
-                        onClick={() => handleTriggerReview(b.id)}
-                        size="sm"
-                        className="shrink-0"
-                      >
-                        {t('reviewAction')}
-                      </ActionButton>
-                      {onDismissReview && (
-                        <button
-                          onClick={() => onDismissReview(b.id)}
-                          className="p-1 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer rounded-none"
-                          title={t('hide')}
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Standard Notifications Section */}
-          <div className="space-y-3">
-            {unreviewedCompletedBookings.length > 0 && notificationsToShow.length > 0 && (
-              <h4 className="type-card-title uppercase text-[var(--ink-dim)] mb-2">
-                {t('systemHistory')}
-              </h4>
-            )}
-
-            {notificationsToShow.length === 0 && unreviewedCompletedBookings.length === 0 ? (
-              <StateCard title={t('noActiveNotifications')} />
-            ) : (
-              notificationsToShow.map((n) => (
-                <div
-                  key={n.id}
-                  className={`p-3 border flex gap-3 animate-fade-in rounded-none ${
-                    n.isRead
-                      ? 'border-[var(--border)] bg-black/10'
-                      : 'border-[var(--accent)]/40 bg-[var(--accent)]/10 ring-1 ring-[var(--accent)]/20'
-                  }`}
-                >
-                  <div className="shrink-0 mt-0.5">
-                    {n.type === 'success' && <CheckCircle className="w-4 h-4 text-emerald-500" />}
-                    {n.type === 'warning' && <AlertTriangle className="w-4 h-4 text-amber-500" />}
-                    {n.type === 'error' && <ShieldAlert className="w-4 h-4 text-red-500" />}
-                    {n.type === 'info' && <Info className="w-4 h-4 text-blue-500" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className="type-card-title text-[var(--ink)]">{n.title}</h4>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {!n.isRead && (
-                          <span className="shrink-0 type-caption uppercase text-[var(--accent)]">
-                            {t('newBadge')}
+          <div className="p-4 overflow-y-auto flex-1 space-y-4">
+            {/* Review Invitations Section */}
+            {unreviewedCompletedBookings.length > 0 && (
+              <div className="space-y-2 pb-3 border-b border-[var(--border)]">
+                <h4 className="type-card-title uppercase text-[var(--ink)] block mb-2">
+                  🌟 {t('rateCompletedLessons')}
+                </h4>
+                <div className="space-y-2">
+                  {unreviewedCompletedBookings.map((b) => (
+                    <div
+                      key={b.id}
+                      className="p-3 border border-[var(--border)] bg-black/10 flex items-center justify-between gap-3 rounded-none"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <img
+                          src={b.instructorAvatar}
+                          alt={b.instructorName}
+                          className="w-8 h-8 rounded-none object-cover shrink-0 border border-[var(--border)]"
+                        />
+                        <div className="min-w-0">
+                          <p className="type-caption font-medium text-[var(--ink)] truncate">
+                            {b.instructorName}
+                          </p>
+                          <span className="type-caption text-[var(--ink-dim)] block">
+                            {b.date} • {b.time}
                           </span>
-                        )}
-                        <button
-                          onClick={() => handleDeleteItem(n.id)}
-                          className="p-1 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer rounded-none"
-                          title={t('hide')}
-                          id={`delete-notif-${n.id}`}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <ActionButton
+                          onClick={() => handleTriggerReview(b.id)}
+                          size="sm"
+                          className="shrink-0"
                         >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
+                          {t('reviewAction')}
+                        </ActionButton>
+                        {onDismissReview && (
+                          <button
+                            onClick={() => onDismissReview(b.id)}
+                            className="p-1 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer rounded-none"
+                            title={t('hide')}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
-                    <p className="type-caption text-[var(--ink-dim)] mt-0.5 whitespace-pre-wrap">
-                      {n.message}
-                    </p>
-                    <span className="type-caption text-[var(--ink-dim)] block mt-2">
-                      {n.timestamp.toLocaleTimeString()}
-                    </span>
-                  </div>
+                  ))}
                 </div>
-              ))
+              </div>
+            )}
+
+            {/* Standard Notifications Section */}
+            <div className="space-y-3">
+              {unreviewedCompletedBookings.length > 0 && notificationsToShow.length > 0 && (
+                <h4 className="type-card-title uppercase text-[var(--ink-dim)] mb-2">
+                  {t('systemHistory')}
+                </h4>
+              )}
+
+              {notificationsToShow.length === 0 && unreviewedCompletedBookings.length === 0 ? (
+                <StateCard title={t('noActiveNotifications')} />
+              ) : (
+                notificationsToShow.map((n) => (
+                  <div
+                    key={n.id}
+                    className={`p-3 border flex gap-3 animate-fade-in rounded-none ${
+                      n.isRead
+                        ? 'border-[var(--border)] bg-black/10'
+                        : 'border-[var(--accent)]/40 bg-[var(--accent)]/10 ring-1 ring-[var(--accent)]/20'
+                    }`}
+                  >
+                    <div className="shrink-0 mt-0.5">
+                      {n.type === 'success' && <CheckCircle className="w-4 h-4 text-emerald-500" />}
+                      {n.type === 'warning' && <AlertTriangle className="w-4 h-4 text-amber-500" />}
+                      {n.type === 'error' && <ShieldAlert className="w-4 h-4 text-red-500" />}
+                      {n.type === 'info' && <Info className="w-4 h-4 text-blue-500" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="type-card-title text-[var(--ink)]">{n.title}</h4>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {!n.isRead && (
+                            <span className="shrink-0 type-caption uppercase text-[var(--accent)]">
+                              {t('newBadge')}
+                            </span>
+                          )}
+                          <button
+                            onClick={() => handleDeleteItem(n.id)}
+                            className="p-1 border border-[var(--border)] bg-black/5 hover:border-[var(--ink)] hover:bg-black/10 text-[var(--ink-dim)] hover:text-[var(--ink)] transition cursor-pointer rounded-none"
+                            title={t('hide')}
+                            id={`delete-notif-${n.id}`}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                      <p className="type-caption text-[var(--ink-dim)] mt-0.5 whitespace-pre-wrap">
+                        {n.message}
+                      </p>
+                      <span className="type-caption text-[var(--ink-dim)] block mt-2">
+                        {n.timestamp.toLocaleTimeString()}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            {notificationsHasMore && (
+              <div className="flex justify-center pt-3">
+                <ActionButton onClick={loadMoreNotifications} size="sm">
+                  Load more notifications
+                </ActionButton>
+              </div>
             )}
           </div>
-          {notificationsHasMore && (
-            <div className="flex justify-center pt-3">
-              <ActionButton onClick={loadMoreNotifications} size="sm">
-                Load more notifications
+
+          {notificationsToShow.length > 0 && (
+            <div className="p-4 border-t border-[var(--border)] flex justify-end bg-black/15">
+              <ActionButton onClick={handleClearAll} variant="danger" size="sm">
+                {t('clearHistory')}
               </ActionButton>
             </div>
           )}
         </div>
-
-        {notificationsToShow.length > 0 && (
-          <div className="p-4 border-t border-[var(--border)] flex justify-end bg-black/15">
-            <ActionButton onClick={handleClearAll} variant="danger" size="sm">
-              {t('clearHistory')}
-            </ActionButton>
-          </div>
-        )}
       </div>
-    </div>
+    </ModalLayer>
   );
 };

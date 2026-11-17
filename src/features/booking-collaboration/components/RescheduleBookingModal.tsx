@@ -1,3 +1,4 @@
+import { ModalLayer } from '../../../ui/ModalLayer';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Calendar, Clock } from 'lucide-react';
 import type { LessonBookingCabinetItem } from '../../lesson-bookings/lessonBookingContracts';
@@ -87,80 +88,87 @@ export const RescheduleBookingModal: React.FC<RescheduleBookingModalProps> = ({
     availableSlots.includes(localTime);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-xl bg-[var(--card-bg)] p-5 shadow-xl space-y-4">
-        <h3 className="type-section-title text-[var(--ink)]">{copy.rescheduleTitle}</h3>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <label className={labelStyle}>
-              <Calendar className="h-3.5 w-3.5" /> {copy.t('selectDate')}
-            </label>
-            <BookingAppleDatePicker
-              value={localDate}
-              onChange={setLocalDate}
-              min={minBookingDateStr}
-              locale={locale}
-              placeholder={copy.t('selectDate')}
-              aria-label={copy.t('selectDate')}
-            />
+    <ModalLayer onClose={onClose} closeDisabled={submitting}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={copy.rescheduleTitle}
+          className="w-full max-w-md rounded-xl bg-[var(--card-bg)] p-5 shadow-xl space-y-4"
+        >
+          <h3 className="type-section-title text-[var(--ink)]">{copy.rescheduleTitle}</h3>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className={labelStyle}>
+                <Calendar className="h-3.5 w-3.5" /> {copy.t('selectDate')}
+              </label>
+              <BookingAppleDatePicker
+                value={localDate}
+                onChange={setLocalDate}
+                min={minBookingDateStr}
+                locale={locale}
+                placeholder={copy.t('selectDate')}
+                aria-label={copy.t('selectDate')}
+              />
+            </div>
+            <div>
+              <label className={labelStyle}>
+                <Clock className="h-3.5 w-3.5" /> {copy.t('collabSelectTime')}
+              </label>
+              <BookingAppleWheelPicker
+                value={localTime}
+                onChange={setLocalTime}
+                options={timeOptions}
+                disabled={isLoadingBookings || occupancyLoadFailed || availableSlots.length === 0}
+                placeholder={
+                  isLoadingBookings
+                    ? `${copy.t('loading')}...`
+                    : occupancyLoadFailed
+                      ? copy.t('instructorOccupancyLoadFailed')
+                      : availableSlots.length === 0
+                        ? copy.t('noSlotsAvailable')
+                        : ''
+                }
+                aria-label={copy.t('collabSelectTime')}
+              />
+            </div>
           </div>
-          <div>
-            <label className={labelStyle}>
-              <Clock className="h-3.5 w-3.5" /> {copy.t('collabSelectTime')}
-            </label>
-            <BookingAppleWheelPicker
-              value={localTime}
-              onChange={setLocalTime}
-              options={timeOptions}
-              disabled={isLoadingBookings || occupancyLoadFailed || availableSlots.length === 0}
-              placeholder={
-                isLoadingBookings
-                  ? `${copy.t('loading')}...`
-                  : occupancyLoadFailed
-                    ? copy.t('instructorOccupancyLoadFailed')
-                    : availableSlots.length === 0
-                      ? copy.t('noSlotsAvailable')
-                      : ''
-              }
-              aria-label={copy.t('collabSelectTime')}
-            />
+          <div className="flex justify-end gap-2">
+            <ActionButton
+              type="button"
+              unstyled
+              disabled={submitting}
+              onClick={onClose}
+              className="px-4 py-2 type-button rounded-lg border border-[var(--border-subtle)]"
+            >
+              {copy.t('cancel')}
+            </ActionButton>
+            <ActionButton
+              type="button"
+              unstyled
+              pending={submitting}
+              pendingLabel={copy.t('submitting')}
+              disabled={!canSubmit}
+              onClick={async () => {
+                setSubmitting(true);
+                try {
+                  await onSubmit({
+                    localDate,
+                    localTime,
+                    durationMinutes: Math.round(booking.durationHours * 60),
+                  });
+                  onClose();
+                } finally {
+                  setSubmitting(false);
+                }
+              }}
+              className="px-4 py-2 type-button rounded-lg bg-[var(--accent)] text-white disabled:opacity-50"
+            >
+              {copy.rescheduleConfirm}
+            </ActionButton>
           </div>
-        </div>
-        <div className="flex justify-end gap-2">
-          <ActionButton
-            type="button"
-            unstyled
-            disabled={submitting}
-            onClick={onClose}
-            className="px-4 py-2 type-button rounded-lg border border-[var(--border-subtle)]"
-          >
-            {copy.t('cancel')}
-          </ActionButton>
-          <ActionButton
-            type="button"
-            unstyled
-            pending={submitting}
-            pendingLabel={copy.t('submitting')}
-            disabled={!canSubmit}
-            onClick={async () => {
-              setSubmitting(true);
-              try {
-                await onSubmit({
-                  localDate,
-                  localTime,
-                  durationMinutes: Math.round(booking.durationHours * 60),
-                });
-                onClose();
-              } finally {
-                setSubmitting(false);
-              }
-            }}
-            className="px-4 py-2 type-button rounded-lg bg-[var(--accent)] text-white disabled:opacity-50"
-          >
-            {copy.rescheduleConfirm}
-          </ActionButton>
         </div>
       </div>
-    </div>
+    </ModalLayer>
   );
 };

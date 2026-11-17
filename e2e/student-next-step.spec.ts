@@ -1,10 +1,9 @@
 import { ensureFirestore } from './firestore-admin';
 import { test, expect } from '@playwright/test';
 
-// This scenario needs Vite's fixture route or the app's live source-store modules.
-test.use({ baseURL: 'http://127.0.0.1:5174' });
-import { loadRuntimeConfig, signInStudent, watchBrowserFailures } from './fixtures';
-import { DEFAULT_SKILL_CONFIG } from '../src/domain/achievements';
+import { loadRuntimeConfig, signInAccount, watchBrowserFailures } from './fixtures';
+import { waitForCabinetReady } from './cabinet-readiness';
+import { DEFAULT_SKILL_CONFIG, getSkillItemTitle } from '../src/domain/achievements';
 
 function emulatorDb() {
   expect(process.env.GCLOUD_PROJECT).toBe('demo-ski-school-e2e');
@@ -43,28 +42,51 @@ test('Next Step preserves participant pin persistence, development, XP and four 
     [a, b].map(async (id) => (await db.doc(`participant_progress/${id}`).get()).data())
   );
   const healthy = watchBrowserFailures(page);
-  await page.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, (route) => route.abort());
-  const participantRead = page.waitForResponse(
-    (response) =>
-      response.url().endsWith('/queryManagedParticipantPickerReadModels') &&
-      response.request().method() === 'POST'
+  // Block remote fonts through Chromium so application asset caching remains
+  // available across reloads (Playwright routing disables HTTP caching).
+  const network = await page.context().newCDPSession(page);
+  await network.send('Network.enable');
+  await network.send('Network.setBlockedURLs', {
+    urls: ['https://fonts.googleapis.com/*', 'https://fonts.gstatic.com/*'],
+  });
+  let participantRead!: Promise<import('@playwright/test').Response>;
+  await signInAccount(
+    page,
+    { email: r.studentEmail, password: r.studentPassword, expectedPath: '/cabinet' },
+    () => {
+      // Register before submitting so a fast authenticated response cannot race us.
+      participantRead = page.waitForResponse(
+        (response) =>
+          response.url().endsWith('/queryManagedParticipantPickerReadModels') &&
+          response.request().method() === 'POST'
+      );
+    }
   );
-  await signInStudent(page, r);
   expect((await participantRead).ok()).toBe(true);
+  await waitForCabinetReady(page, a);
   const header = page
     .getByRole('banner')
     .locator('[data-testid="navbar-participant-switcher"]:visible');
   await expect(header.locator(`[data-participant-id="${a}"]`)).toBeVisible();
+  await expect(header.locator(`[data-participant-id="${b}"]`)).toBeVisible();
+  await expect(header.locator(`[data-participant-id="${a}"]`)).toHaveAttribute('aria-pressed', 'true');
   const tile = page.locator('[data-dashboard-tile="nextStep"]');
   const title = tile.getByRole('heading', { level: 3 });
+  await expect(title).toHaveText('Maintain basic stance in motion for 100 m');
+  const firstSkill = DEFAULT_SKILL_CONFIG.items.find((item) => item.id === 'l1_1')!;
+  await page.getByRole('button', { name: 'RU', exact: true }).click();
+  await expect(title).toHaveText(getSkillItemTitle(firstSkill, 'ru'));
+  await page.getByRole('button', { name: 'EN', exact: true }).click();
   await expect(title).toHaveText('Maintain basic stance in motion for 100 m');
   await expect(tile.locator('[data-participant-scope]')).toContainText(r.studentDisplayName);
   await expect(tile).toContainText('Potential gain after instructor assessment');
   await expect(tile).not.toContainText(/video|15 min/);
   await header.locator(`[data-participant-id="${b}"]`).click();
+  await waitForCabinetReady(page, b);
   await expect(title).toHaveText('Slide 20 m on a steep slope using side-slipping');
   await expect(tile.locator('[data-participant-scope]')).toContainText(r.studentChildDisplayName);
   await header.locator(`[data-participant-id="${a}"]`).click();
+  await waitForCabinetReady(page, a);
   await expect(title).toHaveText('Maintain basic stance in motion for 100 m');
   const pin = tile.getByRole('button', { name: 'Add to tasks', exact: true });
   await pin.focus();
@@ -77,6 +99,12 @@ test('Next Step preserves participant pin persistence, development, XP and four 
   );
   await expect(title).toHaveText('Slide 20 m on a steep slope using side-slipping');
   await page.reload({ waitUntil: 'domcontentloaded' });
+  await waitForCabinetReady(page, a);
+  await expect(header.locator(`[data-participant-id="${a}"]`)).toHaveAttribute('aria-pressed', 'true');
+  await expect(tile.locator('[data-participant-scope]')).toContainText(r.studentDisplayName);
+  await expect(page.locator('[data-dashboard-tile="todayTasks"]')).toContainText(
+    'Maintain basic stance in motion for 100 m'
+  );
   await expect(title).toHaveText('Slide 20 m on a steep slope using side-slipping');
   expect((await profile.get()).data()?.participantTodayChecklists[a].todaySkillItemIds).toEqual([
     'l1_1',
@@ -88,22 +116,20 @@ test('Next Step preserves participant pin persistence, development, XP and four 
   const documentTimeOrigin = await page.evaluate(() => performance.timeOrigin);
   await developmentLink.click();
   await expect(page).toHaveURL(/\/cabinet\/development$/);
+  await waitForCabinetReady(page, a);
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(documentTimeOrigin);
   await expect(
     page.getByRole('button', { name: 'Add to Today', exact: true }).first()
   ).toBeVisible();
-  await page.goto('/cabinet', { waitUntil: 'domcontentloaded' });
+  await page.getByRole('banner').locator('a[href="/cabinet"]').click();
+  await expect(page).toHaveURL(/\/cabinet$/);
+  await waitForCabinetReady(page, a);
+  expect(await page.evaluate(() => performance.timeOrigin)).toBe(documentTimeOrigin);
   await expect(title).toHaveText('Slide 20 m on a steep slope using side-slipping');
   // Recreate the global warning captured in CI, independent of suite order.
   // This is ephemeral UI state; no Firestore data or recommendation is changed.
-  await page.evaluate(async () => {
-    const moduleUrl = '/src/features/shell/uiStore.ts';
-    const { useUiStore } = await import(moduleUrl);
-    useUiStore
-      .getState()
-      .setDbStatusWarning(
-        'Database sync restricted. Using active sandboxed state. (Operation: get, Path: bookings/booking_c5ed88af8ff44d6baa9e46c511d61844/messages)'
-      );
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('e2e:show-db-status-warning'));
   });
   await expect(page.getByText('Database sync restricted.', { exact: false })).toBeVisible();
   for (const [name, width, height, dark] of [
@@ -162,6 +188,7 @@ test('Next Step preserves participant pin persistence, development, XP and four 
     .map((item) => item.id);
   await profile.update({ [`participantTodayChecklists.${a}.todaySkillItemIds`]: allLevelOneIds });
   await page.reload({ waitUntil: 'domcontentloaded' });
+  await waitForCabinetReady(page, a);
   await expect(tile).toContainText('No new exercises');
   await expect(tile.getByRole('button', { name: 'Add to tasks' })).toHaveCount(0);
   const progressAfter = await Promise.all(

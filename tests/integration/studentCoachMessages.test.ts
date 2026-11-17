@@ -13,13 +13,16 @@ import {
 
 // Use the real service/query/onSnapshot with a Rules-authenticated client database.
 // Only the application singleton and error logger are replaced.
-const fixture = vi.hoisted(() => ({ firestore: undefined as Firestore | undefined }));
+const fixture = vi.hoisted(() => ({
+  firestore: undefined as Firestore | undefined,
+  handleFirestoreError: vi.fn(),
+}));
 vi.mock('../../src/infrastructure/firebase', async () => ({
   ...(await import('firebase/firestore')),
   get db() {
     return fixture.firestore;
   },
-  handleFirestoreError: vi.fn(),
+  handleFirestoreError: fixture.handleFirestoreError,
 }));
 import { subscribeToChatMessages } from '../../src/features/chat/chatService';
 
@@ -27,6 +30,7 @@ const stops: (() => void)[] = [];
 describe('coach/full-chat message service on Firestore emulator', () => {
   beforeAll(setupIntegrationTestEnvironment);
   beforeEach(async () => {
+    fixture.handleFirestoreError.mockClear();
     await clearIntegrationFirestore();
     await seedData(async (context) => {
       const firestore = context.firestore();
@@ -63,7 +67,18 @@ describe('coach/full-chat message service on Firestore emulator', () => {
     const results: ChatMessage[][] = [];
     const error = vi.fn();
     stops.push(subscribeToChatMessages('lesson', (messages) => results.push(messages), error));
-    await vi.waitFor(() => expect(results.at(-1)).toHaveLength(100));
+    try {
+      await vi.waitFor(() => expect(results.at(-1)).toHaveLength(100));
+    } catch (cause) {
+      // The service's onError callback has no arguments; its logger receives the
+      // original FirebaseError, including code. Preserve it when the wait fails.
+      const firebaseError = fixture.handleFirestoreError.mock.calls[0]?.[0];
+      throw new Error(
+        `Initial chat snapshot failed: error callbacks=${error.mock.calls.length}, ` +
+          `snapshots=${results.length}, Firebase code=${firebaseError?.code ?? 'not reported'}`,
+        { cause: firebaseError ?? cause }
+      );
+    }
     expect(results.at(-1)?.[0]).toMatchObject({
       id: '104',
       text: 'Video comment',
@@ -106,6 +121,9 @@ describe('coach/full-chat message service on Firestore emulator', () => {
       const fail = vi.fn();
       stops.push(subscribeToChatMessages('lesson', receive, fail));
       await vi.waitFor(() => expect(fail).toHaveBeenCalledOnce());
+      expect(fixture.handleFirestoreError.mock.lastCall?.[0]).toMatchObject({
+        code: 'permission-denied',
+      });
       expect(receive).not.toHaveBeenCalled();
     }
   });

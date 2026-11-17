@@ -1,3 +1,4 @@
+import { ModalLayer } from '../../../ui/ModalLayer';
 import React, { useEffect, useState } from 'react';
 import { Booking, Course, Instructor, Review, UserProfile } from '../../../types';
 import type { LessonBookingCabinetItem } from '../../../features/lesson-bookings/lessonBookingContracts';
@@ -251,9 +252,16 @@ export const PersonalCabinetModals: React.FC<PersonalCabinetModalsProps> = ({
       {selectedChatBooking && (
         <LazyLoad
           fallback={
-            <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center type-caption uppercase text-white">
-              {t('loading')}
-            </div>
+            <ModalLayer onClose={onCloseChat} closeDisabled>
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-label={t('loading')}
+                className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center type-caption uppercase text-white"
+              >
+                {t('loading')}
+              </div>
+            </ModalLayer>
           }
         >
           <BookingChatModal

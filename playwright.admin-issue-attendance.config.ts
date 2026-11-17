@@ -7,10 +7,14 @@ export default defineConfig({
   workers: 1,
   outputDir: '.scratch/admin-issue-attendance/results',
   reporter: 'list',
-  use: { baseURL: 'http://127.0.0.1:5176', browserName: 'chromium' },
+  use: {
+    baseURL: 'http://127.0.0.1:5176',
+    browserName: 'chromium',
+    trace: 'retain-on-failure',
+  },
   webServer: {
-    command: 'npm run dev -- --host 127.0.0.1 --port 5176',
-    url: 'http://127.0.0.1:5176/tests/browser/admin-issue-attendance/index.html',
+    command: 'node tests/browser/admin-issue-attendance/server.mjs',
+    url: 'http://127.0.0.1:5176/__attendance_ready',
     reuseExistingServer: false,
   },
 });

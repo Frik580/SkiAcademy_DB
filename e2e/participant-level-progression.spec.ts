@@ -2,9 +2,8 @@ import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
 
-// This scenario needs Vite's fixture route or the app's live source-store modules.
-test.use({ baseURL: 'http://127.0.0.1:5174' });
 import { loadRuntimeConfig, signInStudent } from './fixtures';
+import { waitForCabinetReady } from './cabinet-readiness';
 import {
   AUTH_EMULATOR_HOST,
   E2E_PROJECT_ID,
@@ -28,6 +27,7 @@ const {
   ParticipantManagementIdSchema,
   ParticipantSchema,
   ParticipantManagementSchema,
+  BookingSchema,
   instructorRelationshipIdFromPair,
   instructorRelationshipExpiresAt,
   timestampFromDate,
@@ -74,6 +74,8 @@ test('authenticated mastery progression and admin qualification preserve factual
   const participantRef = db.doc(`participants/${participantId}`);
   const managementRef = db.doc(`participant_management/${managementId}`);
   const relationshipRef = db.doc(`instructor_relationships/${relationshipId}`);
+  const bookingId = `booking_levels_e2e_${attemptId}`;
+  const bookingRef = db.doc(`bookings/${bookingId}`);
   const fixtureMetadata = {
     revision: 1,
     createdAt: at,
@@ -109,6 +111,33 @@ test('authenticated mastery progression and admin qualification preserve factual
         role: 'owner',
         authority: 'parent_guardian',
         status: 'active',
+        ...fixtureMetadata,
+      })
+    );
+    // Assessment requires a started canonical lesson; a manual relationship alone
+    // deliberately grants no assessment authority.
+    seed.create(
+      bookingRef,
+      BookingSchema.parse({
+        bookingId,
+        paymentId: `payment_levels_e2e_${attemptId}`,
+        attribution: {
+          bookingOrigin: 'admin',
+          bookedBy: { kind: 'account', accountId: runtime.studentUid },
+        },
+        party: { kind: 'individual', participantIds: [participantId] },
+        occurrence: {
+          occurrenceId: `occurrence_levels_e2e_${attemptId}`,
+          instructorId: runtime.workspaceInstructorId,
+          interval: {
+            startsAt: timestampFromDate(new Date(Date.now() - 15 * 60_000)),
+            endsAt: timestampFromDate(new Date(Date.now() + 45 * 60_000)),
+          },
+          timeZone: 'Asia/Almaty',
+          scheduleRevision: 1,
+          serviceParty: { participantIds: [participantId], frozenAt: at },
+        },
+        lifecycle: { status: 'confirmed' },
         ...fixtureMetadata,
       })
     );
@@ -184,7 +213,7 @@ test('authenticated mastery progression and admin qualification preserve factual
       correlationId: 'correlation_e2e_levels',
       exercisedCapability: 'instructor',
     });
-    expect(result?.status).toBe('success');
+    expect(result?.status, JSON.stringify(result)).toBe('success');
     expect((await db.doc(`participant_progress/${participantId}`).get()).data()!.level).toBe(1);
     expect((await operate({ action: 'confirm' }))?.status).toBe('success');
     expect((await db.doc(`participant_progress/${participantId}`).get()).data()!.level).toBe(2);
@@ -222,6 +251,7 @@ test('authenticated mastery progression and admin qualification preserve factual
       { timeout: 60000 }
     );
     await signInStudent(page, runtime);
+    await waitForCabinetReady(page, runtime.studentParticipantId);
     expect((await participantRead).ok()).toBe(true);
     const switcher = page
       .getByRole('banner')
@@ -231,33 +261,11 @@ test('authenticated mastery progression and admin qualification preserve factual
     await target.click();
     const projected = (await (await managedRead).json()).result;
     expect(projected.items).toEqual(
-      expect.arrayContaining([expect.objectContaining({ participantId, level: 3 })])
+      expect.arrayContaining([expect.objectContaining({ participantId, level: 3, skillScores: scores })])
     );
-    // A successful response alone does not prove that the cabinet consumed it.
-    // Read the same Vite module instances as the app, without writing either store.
-    const cabinetState = () =>
-      page.evaluate(async (id) => {
-        const selectionUrl =
-          '/src/features/student-cabinet/cabinetProgressParticipantSelectionStore.ts';
-        const progressUrl = '/src/features/participant-progress/participantProgressStore.ts';
-        const { useCabinetProgressParticipantSelectionStore } = await import(selectionUrl);
-        const { useParticipantProgressStore } = await import(progressUrl);
-        const selection = useCabinetProgressParticipantSelectionStore.getState();
-        const progress = useParticipantProgressStore.getState().byId[id];
-        return {
-          selectedParticipantId: selection.selectedParticipantId,
-          participantId: progress?.participantId,
-          level: progress?.level,
-          skillScores: progress?.skillScores,
-        };
-      }, participantId);
-    const expectedState = {
-      selectedParticipantId: participantId,
-      participantId,
-      level: 3,
-      skillScores: scores,
-    };
-    await expect.poll(cabinetState).toEqual(expectedState);
+    // Verify consumption through the selected Participant's rendered Journey,
+    // rather than importing source stores into an E2E browser.
+    await waitForCabinetReady(page, participantId);
     await expect(target).toHaveAttribute('aria-pressed', 'true');
 
     // Scope every mastery assertion to the journey whose avatar is the selected
@@ -265,12 +273,8 @@ test('authenticated mastery progression and admin qualification preserve factual
     const journey = page.locator('#your-journey').filter({
       has: page.getByRole('img', { name: 'E2E Level Student', exact: true }),
     });
-    // The navbar and progress stores resolve before the lazy cabinet route.
-    // The failure trace still had route modules loading after the normal 15s
-    // assertion budget. Wait for this Participant's rendered Journey once,
-    // then keep the normal budget for every language/viewport assertion.
+    // Shell readiness alone does not prove this Participant's Journey rendered.
     await expect(journey).toBeVisible({ timeout: 60_000 });
-    await expect.poll(cabinetState).toEqual(expectedState);
     await expect(target).toHaveAttribute('aria-pressed', 'true');
 
     for (const language of ['en', 'ru'] as const) {
@@ -303,7 +307,6 @@ test('authenticated mastery progression and admin qualification preserve factual
         await expect(journey.locator('.journey-summary-xp')).toHaveText('0 XP');
         const current = journey.locator('.journey-criteria');
         await expect(current).toContainText(`${stage.required} XP`);
-        await expect.poll(cabinetState).toEqual(expectedState);
         await testInfo.attach(`selected-participant-${language}-${width}`, {
           body: await journey.screenshot(),
           contentType: 'image/png',
@@ -318,8 +321,8 @@ test('authenticated mastery progression and admin qualification preserve factual
     ).toBe(0);
   } finally {
     const cleanup = db.batch();
-    // Only the four documents owned by this attempt; keep command receipts/events.
-    for (const ref of [progressRef, relationshipRef, managementRef, participantRef]) {
+    // Only documents owned by this attempt; keep command receipts/events.
+    for (const ref of [bookingRef, progressRef, relationshipRef, managementRef, participantRef]) {
       cleanup.delete(ref);
     }
     await cleanup.commit();

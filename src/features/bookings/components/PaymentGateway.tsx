@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { CreditCard, X, Check, ArrowRight } from 'lucide-react';
 import { useNotifications } from '../../../features/notifications';
 import { useLanguage } from '../../../app/providers/LanguageContext';
-import { BodyScrollLock } from '../../../ui/BodyScrollLock';
+import { ModalLayer } from '../../../ui/ModalLayer';
 import { ActionButton } from '../../../ui/ActionButton';
 import type { WalletCurrency } from '../../../types';
 
@@ -111,158 +111,165 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({
   };
 
   return (
-    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
-      <BodyScrollLock />
-      <div className="ui-modal shadow-2xl w-full max-w-md max-h-[80vh] overflow-y-auto relative rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]">
-        <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/5 dark:bg-white/5">
-          <div>
-            <h3 className="type-card-title text-[var(--ink)]">{t('topUpWalletTitle')}</h3>
-            <p className="type-caption uppercase text-[var(--ink-dim)] mt-0.5">
-              {t('topUpWalletSub')}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full hover:bg-[var(--profile-bg)] transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {isSuccess ? (
-          <div className="p-8 text-center flex flex-col items-center justify-center space-y-4">
-            <div className="w-16 h-16 rounded-none bg-black/10 border border-[var(--border)] flex items-center justify-center animate-bounce">
-              <Check className="w-8 h-8 text-emerald-500" />
-            </div>
+    <ModalLayer onClose={onClose} closeDisabled={isPaying || isSuccess}>
+      <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('topUpWalletTitle')}
+          className="ui-modal shadow-2xl w-full max-w-md max-h-[80vh] overflow-y-auto relative rounded-2xl bg-[var(--card-bg)] text-[var(--ink)] border border-[var(--border)]"
+        >
+          <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/5 dark:bg-white/5">
             <div>
-              <h4 className="type-card-title text-[var(--ink)]">{t('thankYou')}</h4>
-              <p className="type-caption text-[var(--ink-dim)] mt-1 uppercase">
-                {t('refreshedWallet')}{' '}
-                <strong className="text-[var(--ink)] font-bold">
-                  {formatWalletAmount(selectedAmount)}
-                </strong>
-                .
+              <h3 className="type-card-title text-[var(--ink)]">{t('topUpWalletTitle')}</h3>
+              <p className="type-caption uppercase text-[var(--ink-dim)] mt-0.5">
+                {t('topUpWalletSub')}
               </p>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/10 border border-[var(--border)] rounded-none type-caption uppercase text-[var(--ink)] mt-4">
-                <CreditCard className="w-3.5 h-3.5 text-[var(--ink-dim)]" /> {t('newBalance')}:{' '}
-                {formatWalletAmount(walletBalance + selectedAmount)}
-              </div>
             </div>
-          </div>
-        ) : (
-          <form onSubmit={handlePay} className="p-6 space-y-5">
-            <div className="flex items-center justify-between bg-black/10 rounded-none p-4 border border-[var(--border)]">
-              <span className="type-caption uppercase text-[var(--ink-dim)]">
-                {t('currentBalance')}:
-              </span>
-              <span className="type-card-title  text-[var(--ink)]">
-                {formatWalletAmount(walletBalance)}
-              </span>
-            </div>
-
-            <div className="space-y-2">
-              <label className="type-caption uppercase text-[var(--ink-dim)] block">
-                {t('selectTopUpAmount')}
-              </label>
-              <div className="grid grid-cols-4 gap-2">
-                {TOP_UP_AMOUNTS_KZT.map((amt) => (
-                  <button
-                    key={amt}
-                    type="button"
-                    onClick={() => setSelectedAmount(amt)}
-                    className={`py-2 border type-button transition-all cursor-pointer rounded-none ${
-                      selectedAmount === amt
-                        ? 'border-[var(--ink)] bg-black/15 text-[var(--ink)] font-bold'
-                        : 'border-[var(--border)] hover:border-[var(--ink)] hover:bg-black/5 text-[var(--ink-dim)]'
-                    }`}
-                  >
-                    {formatWalletAmount(amt)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-3 pt-4 border-t border-[var(--border)]">
-              <span className="type-caption uppercase text-[var(--ink-dim)] block">
-                {t('cardNumber')} ({t('sandbox')})
-              </span>
-
-              <div className="space-y-1">
-                <label className="type-caption uppercase text-[var(--ink-dim)] block">
-                  {t('cardHolder')}
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={cardholderName}
-                  onChange={(e) => setCardholderName(e.target.value)}
-                  placeholder="e.g. Alex Carter"
-                  className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="type-caption uppercase text-[var(--ink-dim)] block">
-                  {t('paymentCardNumber')}
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    maxLength={19}
-                    value={cardNumber}
-                    onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                    placeholder="4000 1234 5678 9010"
-                    className="w-full pl-10 pr-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none"
-                  />
-                  <CreditCard className="w-4 h-4 text-[var(--ink-dim)] absolute left-3 top-1/2 -translate-y-1/2" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="type-caption uppercase text-[var(--ink-dim)] block">
-                    {t('expiry')}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    maxLength={5}
-                    value={expiry}
-                    onChange={handleExpiryChange}
-                    placeholder="MM/YY"
-                    className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition text-center rounded-none"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="type-caption uppercase text-[var(--ink-dim)] block">
-                    {t('cvv')}
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    maxLength={3}
-                    value={cvv}
-                    onChange={(e) => setCvv(e.target.value.replace(/[^0-9]/g, ''))}
-                    placeholder="***"
-                    className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition text-center rounded-none"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <ActionButton
-              type="submit"
-              pending={isPaying}
-              pendingLabel={t('processing')}
-              className="btn-primary w-full py-3"
+            <button
+              onClick={onClose}
+              disabled={isPaying || isSuccess}
+              className="p-2 rounded-full hover:bg-[var(--profile-bg)] transition-colors text-[var(--ink-dim)] hover:text-[var(--ink)] cursor-pointer z-10"
             >
-              {t('authorizeTopUp')} {formatWalletAmount(selectedAmount)}
-              <ArrowRight className="w-3.5 h-3.5" />
-            </ActionButton>
-          </form>
-        )}
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {isSuccess ? (
+            <div className="p-8 text-center flex flex-col items-center justify-center space-y-4">
+              <div className="w-16 h-16 rounded-none bg-black/10 border border-[var(--border)] flex items-center justify-center animate-bounce">
+                <Check className="w-8 h-8 text-emerald-500" />
+              </div>
+              <div>
+                <h4 className="type-card-title text-[var(--ink)]">{t('thankYou')}</h4>
+                <p className="type-caption text-[var(--ink-dim)] mt-1 uppercase">
+                  {t('refreshedWallet')}{' '}
+                  <strong className="text-[var(--ink)] font-bold">
+                    {formatWalletAmount(selectedAmount)}
+                  </strong>
+                  .
+                </p>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/10 border border-[var(--border)] rounded-none type-caption uppercase text-[var(--ink)] mt-4">
+                  <CreditCard className="w-3.5 h-3.5 text-[var(--ink-dim)]" /> {t('newBalance')}:{' '}
+                  {formatWalletAmount(walletBalance + selectedAmount)}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handlePay} className="p-6 space-y-5">
+              <div className="flex items-center justify-between bg-black/10 rounded-none p-4 border border-[var(--border)]">
+                <span className="type-caption uppercase text-[var(--ink-dim)]">
+                  {t('currentBalance')}:
+                </span>
+                <span className="type-card-title  text-[var(--ink)]">
+                  {formatWalletAmount(walletBalance)}
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <label className="type-caption uppercase text-[var(--ink-dim)] block">
+                  {t('selectTopUpAmount')}
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {TOP_UP_AMOUNTS_KZT.map((amt) => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setSelectedAmount(amt)}
+                      className={`py-2 border type-button transition-all cursor-pointer rounded-none ${
+                        selectedAmount === amt
+                          ? 'border-[var(--ink)] bg-black/15 text-[var(--ink)] font-bold'
+                          : 'border-[var(--border)] hover:border-[var(--ink)] hover:bg-black/5 text-[var(--ink-dim)]'
+                      }`}
+                    >
+                      {formatWalletAmount(amt)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-4 border-t border-[var(--border)]">
+                <span className="type-caption uppercase text-[var(--ink-dim)] block">
+                  {t('cardNumber')} ({t('sandbox')})
+                </span>
+
+                <div className="space-y-1">
+                  <label className="type-caption uppercase text-[var(--ink-dim)] block">
+                    {t('cardHolder')}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={cardholderName}
+                    onChange={(e) => setCardholderName(e.target.value)}
+                    placeholder="e.g. Alex Carter"
+                    className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="type-caption uppercase text-[var(--ink-dim)] block">
+                    {t('paymentCardNumber')}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      maxLength={19}
+                      value={cardNumber}
+                      onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
+                      placeholder="4000 1234 5678 9010"
+                      className="w-full pl-10 pr-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition rounded-none"
+                    />
+                    <CreditCard className="w-4 h-4 text-[var(--ink-dim)] absolute left-3 top-1/2 -translate-y-1/2" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="type-caption uppercase text-[var(--ink-dim)] block">
+                      {t('expiry')}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={5}
+                      value={expiry}
+                      onChange={handleExpiryChange}
+                      placeholder="MM/YY"
+                      className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition text-center rounded-none"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="type-caption uppercase text-[var(--ink-dim)] block">
+                      {t('cvv')}
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      maxLength={3}
+                      value={cvv}
+                      onChange={(e) => setCvv(e.target.value.replace(/[^0-9]/g, ''))}
+                      placeholder="***"
+                      className="w-full px-3 py-2 border border-[var(--border)] type-body bg-transparent text-[var(--ink)] focus:outline-none focus:border-[var(--ink)] transition text-center rounded-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <ActionButton
+                type="submit"
+                pending={isPaying}
+                pendingLabel={t('processing')}
+                className="btn-primary w-full py-3"
+              >
+                {t('authorizeTopUp')} {formatWalletAmount(selectedAmount)}
+                <ArrowRight className="w-3.5 h-3.5" />
+              </ActionButton>
+            </form>
+          )}
+        </div>
       </div>
-    </div>
+    </ModalLayer>
   );
 };

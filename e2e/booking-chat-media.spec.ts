@@ -308,6 +308,7 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
 
   const rolePages: Page[] = [];
   const testDocumentsBefore: DocumentSnapshot[] = [];
+  let testMediaPath: string | undefined;
   const livePath = mediaPath;
   try {
     const login = async (
@@ -576,8 +577,8 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
     ).toBe(403);
     const { TestActorSchema, TestActorAssignmentSchema, TestSessionSchema, BookingSchema } =
       requireFunctions('@ski-academy/shared-domain') as typeof import('@ski-academy/shared-domain');
-    const testSessionId = 'test_session_media_browser';
-    const testBookingId = 'booking_media_browser_test';
+    const testSessionId = `test_session_media_${booking.bookingId}`;
+    const testBookingId = `booking_media_test_${booking.bookingId}`;
     // Restore only this scenario's fixtures, including the outsider's LIVE/TEST identity.
     testDocumentsBefore.push(
       ...(await db.getAll(
@@ -642,6 +643,7 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
       })
     );
     const testPath = `test-sessions/${testSessionId}/booking-chat/${testBookingId}/test.jpg`;
+    testMediaPath = testPath;
     expect(
       await outsider.page.evaluate(
         async ({ token, url, bytes }) => {
@@ -692,13 +694,25 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
     throw error;
   } finally {
     await Promise.allSettled(rolePages.map((rolePage) => rolePage.context().close()));
-    if (testDocumentsBefore.length) {
-      const restore = getFirestore().batch();
-      for (const snapshot of testDocumentsBefore) {
-        if (snapshot.exists) restore.set(snapshot.ref, snapshot.data()!);
-        else restore.delete(snapshot.ref);
+    try {
+      if (testDocumentsBefore.length) {
+        const restore = getFirestore().batch();
+        for (const snapshot of testDocumentsBefore) {
+          if (snapshot.exists) restore.set(snapshot.ref, snapshot.data()!);
+          else restore.delete(snapshot.ref);
+        }
+        await restore.commit();
       }
-      await restore.commit();
+    } finally {
+      if (testMediaPath) {
+        const { getStorage } = requireFunctions(
+          'firebase-admin/storage'
+        ) as typeof import('firebase-admin/storage');
+        await getStorage()
+          .bucket(`${E2E_PROJECT_ID}.appspot.com`)
+          .file(testMediaPath)
+          .delete({ ignoreNotFound: true });
+      }
     }
   }
 });

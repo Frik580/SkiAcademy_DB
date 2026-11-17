@@ -1,3 +1,4 @@
+import { ModalLayer } from '../../../ui/ModalLayer';
 import { AdminModal } from '../components/AdminModal';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
@@ -356,75 +357,85 @@ export const AdminCourseEnrollmentPanel: React.FC<AdminCourseEnrollmentPanelProp
       )}
 
       {selectedEnrollmentId && (
-        <aside className="fixed inset-y-0 right-0 z-50 w-full max-w-lg overflow-y-auto border-l border-[var(--border)] bg-[var(--bg)] p-5 shadow-2xl">
-          {readModels.detail.loading ? (
-            <p className="type-caption text-[var(--ink-dim)]">{t.loading}</p>
-          ) : readModels.detail.error ? (
-            <button
-              type="button"
-              onClick={() => void readModels.retryDetail?.()}
-              className="type-button text-red-700 underline"
-            >
-              {t.failed} · {t.retry}
-            </button>
-          ) : detail ? (
-            <AdminCourseEnrollmentDetail
-              detail={detail}
-              t={t}
-              layout="stacked"
-              instructorLabel={resolveCourseEnrollmentInstructorLabel({
-                courseId: detail.course.courseId,
-                courses,
-                attendanceInstructorIds: (detail.attendanceDays ?? []).flatMap(
-                  (day) => day.instructorIds
-                ),
-              })}
-              actionReason={reason}
-              onActionReasonChange={setReason}
-              refundAmount={refundAmount}
-              onRefundAmountChange={setRefundAmount}
-              paymentAmount={paymentAmount}
-              onPaymentAmountChange={(value) => {
-                setPaymentAmount(value);
-                setConfirmation(undefined);
-              }}
-              targetCourseId={targetCourseId}
-              onTargetCourseIdChange={setTargetCourseId}
-              linkSelection={linkSelection}
-              onLinkSelectionChange={(selection) => {
-                setLinkSelection(selection);
-                setConfirmation(undefined);
-              }}
-              linkReason={linkReason}
-              onLinkReasonChange={(value) => {
-                setLinkReason(value);
-                setConfirmation(undefined);
-              }}
-              onRequestAttempt={requestDetailAttempt}
-              paymentActionPending={
-                mutationPending && confirmation?.attempt.kind === 'record_provider_payment_event'
-                  ? 'cash'
-                  : mutationPending &&
-                      confirmation?.attempt.kind === 'pay_service_from_wallet_as_administrator'
-                    ? 'wallet'
-                    : undefined
-              }
-              onOpenPayment={(paymentId) =>
-                updateQuery({
-                  [ADMIN_TAB_QUERY_KEY]: 'finance',
-                  [ADMIN_FINANCE_PAYMENT_QUERY_KEY]: paymentId,
-                })
-              }
-              onOpenIssue={(issueId) =>
-                updateQuery({
-                  [ADMIN_TAB_QUERY_KEY]: 'operations',
-                  [ADMIN_ISSUE_QUERY_KEY]: issueId,
-                })
-              }
-              onClose={() => updateQuery({ [ADMIN_COURSE_ENROLLMENT_QUERY_KEY]: undefined })}
-            />
-          ) : null}
-        </aside>
+        <ModalLayer
+          onClose={() => updateQuery({ [ADMIN_COURSE_ENROLLMENT_QUERY_KEY]: undefined })}
+          closeDisabled={mutationPending}
+        >
+          <aside
+            role="dialog"
+            aria-modal="true"
+            aria-label={t.details}
+            className="fixed inset-y-0 right-0 z-50 w-full max-w-lg overflow-y-auto border-l border-[var(--border)] bg-[var(--bg)] p-5 shadow-2xl"
+          >
+            {readModels.detail.loading ? (
+              <p className="type-caption text-[var(--ink-dim)]">{t.loading}</p>
+            ) : readModels.detail.error ? (
+              <button
+                type="button"
+                onClick={() => void readModels.retryDetail?.()}
+                className="type-button text-red-700 underline"
+              >
+                {t.failed} · {t.retry}
+              </button>
+            ) : detail ? (
+              <AdminCourseEnrollmentDetail
+                detail={detail}
+                t={t}
+                layout="stacked"
+                instructorLabel={resolveCourseEnrollmentInstructorLabel({
+                  courseId: detail.course.courseId,
+                  courses,
+                  attendanceInstructorIds: (detail.attendanceDays ?? []).flatMap(
+                    (day) => day.instructorIds
+                  ),
+                })}
+                actionReason={reason}
+                onActionReasonChange={setReason}
+                refundAmount={refundAmount}
+                onRefundAmountChange={setRefundAmount}
+                paymentAmount={paymentAmount}
+                onPaymentAmountChange={(value) => {
+                  setPaymentAmount(value);
+                  setConfirmation(undefined);
+                }}
+                targetCourseId={targetCourseId}
+                onTargetCourseIdChange={setTargetCourseId}
+                linkSelection={linkSelection}
+                onLinkSelectionChange={(selection) => {
+                  setLinkSelection(selection);
+                  setConfirmation(undefined);
+                }}
+                linkReason={linkReason}
+                onLinkReasonChange={(value) => {
+                  setLinkReason(value);
+                  setConfirmation(undefined);
+                }}
+                onRequestAttempt={requestDetailAttempt}
+                paymentActionPending={
+                  mutationPending && confirmation?.attempt.kind === 'record_provider_payment_event'
+                    ? 'cash'
+                    : mutationPending &&
+                        confirmation?.attempt.kind === 'pay_service_from_wallet_as_administrator'
+                      ? 'wallet'
+                      : undefined
+                }
+                onOpenPayment={(paymentId) =>
+                  updateQuery({
+                    [ADMIN_TAB_QUERY_KEY]: 'finance',
+                    [ADMIN_FINANCE_PAYMENT_QUERY_KEY]: paymentId,
+                  })
+                }
+                onOpenIssue={(issueId) =>
+                  updateQuery({
+                    [ADMIN_TAB_QUERY_KEY]: 'operations',
+                    [ADMIN_ISSUE_QUERY_KEY]: issueId,
+                  })
+                }
+                onClose={() => updateQuery({ [ADMIN_COURSE_ENROLLMENT_QUERY_KEY]: undefined })}
+              />
+            ) : null}
+          </aside>
+        </ModalLayer>
       )}
 
       {confirmation && (

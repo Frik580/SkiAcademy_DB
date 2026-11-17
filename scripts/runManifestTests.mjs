@@ -256,7 +256,8 @@ export async function runGroup(
     const suite = profileSuite(owner, group.id === 'hosting' ? 'hosting' : profile);
     const expectedFiles = selectProfileFiles(suite, inventory.files);
     if (!expectedFiles.length) throw new Error(`Empty selected profile: ${suite.id}/${profile}`);
-    const reportPath = join(reportDir, `${suite.id}.results.json`);
+    const reportId = group.id === 'hosting' ? 'hosting-playwright' : suite.id;
+    const reportPath = join(reportDir, `${reportId}.results.json`);
     rmSync(reportPath, { force: true }); // A previous successful report must never satisfy a new failed run.
     const suiteStart = Date.now();
     if (suite.runner === 'vitest')

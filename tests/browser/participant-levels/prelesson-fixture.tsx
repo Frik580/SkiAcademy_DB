@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { StudentSkillEvaluationModal } from '../../../src/features/profile/components/StudentSkillEvaluationModal';
 import { useLessonStartClock } from '../../../src/features/booking-collaboration/useLessonStartClock';
-import { InstructorBlockMenu } from '../../../src/features/booking-collaboration/components/InstructorBlockMenu';
+import { InstructorBlockAction } from '../../../src/features/booking-collaboration/components/InstructorBlockAction';
 import { DEFAULT_SKILL_CONFIG } from '../../../src/domain/achievements';
 
 export function PrelessonFixture() {
@@ -15,10 +15,22 @@ export function PrelessonFixture() {
     <main className="min-h-screen bg-[var(--bg)] text-[var(--ink)] p-4">
       <output data-testid="saves">{saves}</output>
       <output data-testid="block">{String(blocked)}</output>
-      <InstructorBlockMenu
-        access={blocked ? ({ managerBlockStatus: 'active' } as never) : undefined}
-        onBlock={async () => setBlocked(true)}
-        onUnblock={async () => setBlocked(false)}
+      <InstructorBlockAction
+        access={{
+          participantId: 'participant_prelesson',
+          instructorId: 'instructor_prelesson',
+          participantDisplayName: 'Student',
+          instructorDisplayName: 'Instructor',
+          managerBlockStatus: blocked ? 'active' : undefined,
+          authorizedActions: {
+            canBlock: !blocked,
+            canUnblock: blocked,
+            canCreateRelationship: false,
+            canRevokeRelationship: false,
+          },
+        }}
+        onBlock={blocked ? undefined : async () => setBlocked(true)}
+        onUnblock={blocked ? async () => setBlocked(false) : undefined}
       />
       <button onClick={() => setOpen(true)}>Open progress</button>
       <StudentSkillEvaluationModal

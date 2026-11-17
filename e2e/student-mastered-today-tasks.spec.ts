@@ -7,7 +7,13 @@ import { E2E_PROJECT_ID, FIRESTORE_EMULATOR_HOST } from './emulator-config';
 import { loadRuntimeConfig, signInAccount, signInStudent, watchBrowserFailures } from './fixtures';
 
 const requireFunctions = createRequire(new URL('../functions/package.json', import.meta.url));
-const { BookingSchema, ParticipantProgressSchema, PaymentSchema, timestampFromDate } =
+const {
+  BookingSchema,
+  ParticipantProgressSchema,
+  ParticipantManagementActiveOwnerGuardSchema,
+  PaymentSchema,
+  timestampFromDate,
+} =
   requireFunctions('@ski-academy/shared-domain') as typeof import('@ski-academy/shared-domain');
 
 // Real UI, Auth, callable Functions and Firestore; only fixture setup/assertions use Admin SDK.
@@ -66,6 +72,7 @@ test('maximum skill rating removes only its participant Today task live and pres
     progressRef,
     db.doc(`bookings/${bookingId}`),
     db.doc(`payments/payment_${bookingId}`),
+    db.doc(`participant_management_active_owner/${participantId}`),
   ];
   const coachContext = await browser.newContext();
   const coach = await coachContext.newPage();
@@ -134,6 +141,17 @@ test('maximum skill rating removes only its participant Today task live and pres
       status: 'active',
       ...metadata,
     });
+    await refs[5].create(
+      ParticipantManagementActiveOwnerGuardSchema.parse({
+        participantId,
+        accountId: runtime.studentUid,
+        participantManagementId: managementId,
+        managementRevision: metadata.revision,
+        updatedAt: stamp,
+        lastChangedByCommandId: metadata.audit.lastChangedByCommandId,
+        correlationId: metadata.audit.correlationId,
+      })
+    );
     await progressRef.create(
       ParticipantProgressSchema.parse({
         participantId,
@@ -212,6 +230,13 @@ test('maximum skill rating removes only its participant Today task live and pres
       await expect(developmentRow()).toContainText(`${belowMax} / ${skill.maxPoints}`);
       await developmentRow().getByRole('button', { name: 'Add to Today', exact: true }).click();
       await expect(developmentRow().getByTitle('Remove from Today', { exact: true })).toBeVisible();
+      await expect
+        .poll(
+          async () =>
+            (await profile.get()).data()?.participantTodayChecklists[participantId]
+              .todaySkillItemIds
+        )
+        .toContain(skill.id);
       await page.goto('/cabinet');
       await select(participantId);
       await expect(tile.getByRole('checkbox', { name: title, exact: true })).toBeVisible();
@@ -269,6 +294,13 @@ test('maximum skill rating removes only its participant Today task live and pres
       ).toBeVisible();
       await developmentRow().getByRole('button', { name: 'Add to Today', exact: true }).click();
       await expect(developmentRow().getByTitle('Remove from Today', { exact: true })).toBeVisible();
+      await expect
+        .poll(
+          async () =>
+            (await profile.get()).data()?.participantTodayChecklists[participantId]
+              .todaySkillItemIds
+        )
+        .toContain(skill.id);
       await page.goto('/cabinet');
       await select(participantId);
       await expect(tile.getByRole('checkbox', { name: title, exact: true })).toBeChecked();
@@ -299,22 +331,30 @@ test('maximum skill rating removes only its participant Today task live and pres
     healthyStudent();
     healthyCoach();
   } finally {
-    await coachContext.close();
-    await page.close();
-    await profile.update({
-      participantTodayChecklists: profileBefore.participantTodayChecklists ?? {},
-    });
-    const events = await db
-      .collection('participant_progress_events')
-      .where('participantId', '==', participantId)
-      .limit(10)
-      .get();
-    const batch = db.batch();
-    for (const ref of [
-      ...refs,
-      ...events.docs.map((doc: { ref: (typeof refs)[number] }) => doc.ref),
-    ])
-      batch.delete(ref);
-    await batch.commit();
+    // A timed-out test may already have closed its browser. Always restore the
+    // shared account and remove owned fixtures, even when browser cleanup fails.
+    const closed = await Promise.allSettled([coachContext.close(), page.close()]);
+    try {
+      await profile.update({
+        participantTodayChecklists: profileBefore.participantTodayChecklists ?? {},
+      });
+    } finally {
+      const events = await db
+        .collection('participant_progress_events')
+        .where('participantId', '==', participantId)
+        .limit(10)
+        .get();
+      const batch = db.batch();
+      for (const ref of [
+        ...refs,
+        ...events.docs.map((doc: { ref: (typeof refs)[number] }) => doc.ref),
+      ])
+        batch.delete(ref);
+      await batch.commit();
+    }
+    const closeErrors = closed.flatMap((result) =>
+      result.status === 'rejected' ? [result.reason] : []
+    );
+    if (closeErrors.length) throw new AggregateError(closeErrors, 'Browser teardown failed');
   }
 });

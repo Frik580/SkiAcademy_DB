@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module';
+import { randomUUID } from 'node:crypto';
 import { test, expect, type Request } from '@playwright/test';
 import { translations } from '../src/lib/i18n/translations';
 import { loadRuntimeConfig, signInAccount } from './fixtures';
@@ -16,7 +17,9 @@ const { initializeApp, deleteApp } = requireFunctions(
 const { getFirestore } = requireFunctions(
   'firebase-admin/firestore'
 ) as typeof import('firebase-admin/firestore');
-const { BookingSchema, timestampFromDate } = requireFunctions('@ski-academy/shared-domain');
+const { AccountSchema, BookingSchema, timestampFromDate } = requireFunctions(
+  '@ski-academy/shared-domain'
+);
 
 function isHomeworkRead(request: Request) {
   return (
@@ -35,7 +38,16 @@ test('instructor homework uses authenticated lesson chats and paginates by sourc
   const app = initializeApp({ projectId: E2E_PROJECT_ID }, 'instructor-homework');
   const db = getFirestore(app);
   db.settings({ host: FIRESTORE_EMULATOR_HOST, ssl: false });
-  const suffix = testInfo.repeatEachIndex;
+  const suffix = `${testInfo.repeatEachIndex}_${testInfo.retry}_${randomUUID()}`;
+  const instructorId = `homework_${suffix}_instructor`;
+  const instructorEmail = `homework-${suffix}@e2e.test`;
+  const instructorPassword = 'homework-fixture-password';
+  const signup = await request.post(
+    `${AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key`,
+    { data: { email: instructorEmail, password: instructorPassword, returnSecureToken: true } }
+  );
+  expect(signup.ok()).toBe(true);
+  const { localId: accountId, idToken: fixtureToken } = await signup.json();
   const group = `homework_${suffix}_group`;
   const solo = `homework_${suffix}_solo`;
   const foreign = `homework_${suffix}_foreign`;
@@ -47,6 +59,32 @@ test('instructor homework uses authenticated lesson chats and paginates by sourc
     paths.push(path);
     batch.set(db.doc(path), data);
   }
+  const createdAt = timestampFromDate(new Date());
+  seed(`users/${accountId}`, {
+    ...AccountSchema.parse({
+      accountId,
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt,
+      updatedAt: createdAt,
+      audit: {
+        createdByCommandId: 'seed_homework',
+        lastChangedByCommandId: 'seed_homework',
+        correlationId: 'seed_homework',
+      },
+    }),
+    uid: accountId,
+    email: instructorEmail,
+    displayName: 'Homework Fixture Coach',
+    instructorId,
+    isInstructor: true,
+    role: 'user',
+  });
+  seed(`instructors/${instructorId}`, {
+    ...(await db.doc(`instructors/${config.workspaceInstructorId}`).get()).data(),
+    id: instructorId,
+    linkedAccountId: accountId,
+  });
   for (const [index, id] of [group, solo, foreign].entries()) {
     const startsAt = new Date(Date.now() + (index + 1) * 86400_000);
     const at = timestampFromDate(new Date());
@@ -62,7 +100,7 @@ test('instructor homework uses authenticated lesson chats and paginates by sourc
         party: { kind: id === group ? 'family_group' : 'individual', participantIds },
         occurrence: {
           occurrenceId: `occ_${id}`,
-          instructorId: id === foreign ? config.instructorId : config.workspaceInstructorId,
+          instructorId: id === foreign ? config.instructorId : instructorId,
           interval: {
             startsAt: timestampFromDate(startsAt),
             endsAt: timestampFromDate(new Date(startsAt.getTime() + 3600_000)),
@@ -111,8 +149,8 @@ test('instructor homework uses authenticated lesson chats and paginates by sourc
       `${AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key`,
       {
         data: {
-          email: config.instructorEmail,
-          password: config.instructorPassword,
+          email: instructorEmail,
+          password: instructorPassword,
           returnSecureToken: true,
         },
       }
@@ -148,8 +186,8 @@ test('instructor homework uses authenticated lesson chats and paginates by sourc
       if (isHomeworkRead(req)) homeworkReads.push(req);
     });
     await signInAccount(page, {
-      email: config.instructorEmail,
-      password: config.instructorPassword,
+      email: instructorEmail,
+      password: instructorPassword,
       expectedPath: '/instructor',
     });
     await page.setViewportSize({ width: 390, height: 844 });
@@ -257,6 +295,10 @@ test('instructor homework uses authenticated lesson chats and paginates by sourc
     const cleanup = db.batch();
     for (const path of paths) cleanup.delete(db.doc(path));
     await cleanup.commit();
+    await request.post(
+      `${AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:delete?key=fake-api-key`,
+      { data: { idToken: fixtureToken } }
+    );
     await db.terminate();
     await deleteApp(app);
   }

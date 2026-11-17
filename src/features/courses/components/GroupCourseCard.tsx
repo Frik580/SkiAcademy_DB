@@ -178,7 +178,7 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
             </div>
           )}
 
-          <p className="type-caption text-[var(--ink-dim)]/90">
+          <p className="type-caption text-[var(--ink-dim)]">
             {course.shortDescription || course.description}
           </p>
         </div>
@@ -188,7 +188,7 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
             <p className="type-metric-lg text-[var(--ink)]">
               {displayPriceMinorUnits != null ? formatPrice(displayPriceMinorUnits) : '—'}
             </p>
-            <p className="type-caption text-[var(--ink-dim)]/60">{t('perCourse')}</p>
+            <p className="type-caption text-[var(--ink-dim)]">{t('perCourse')}</p>
           </div>
 
           <div className="grid grid-cols-[minmax(0,7fr)_minmax(0,3fr)] gap-3 w-full">

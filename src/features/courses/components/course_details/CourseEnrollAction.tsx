@@ -54,7 +54,7 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
     <div className="relative">
       <div className="lg:sticky lg:top-8 border border-[var(--border)] bg-black/5 dark:bg-black/40 p-6 space-y-6">
         <div>
-          <span className="type-caption uppercase text-sky-500 font-medium">
+          <span className="type-caption uppercase text-[#0369a1] dark:text-sky-500 font-medium">
             {t('courseActiveEnrollment')}
           </span>
           <h3 className="type-card-title text-[var(--ink)] mt-1">{course.title}</h3>
@@ -86,7 +86,7 @@ export const CourseEnrollAction: React.FC<CourseEnrollActionProps> = ({
           <div className="flex items-center justify-between type-caption uppercase">
             <span className="text-[var(--ink-dim)]">{t('courseGroupSpace')}</span>
             <span
-              className={`font-bold ${cta.isFull ? 'text-rose-500' : availableSeats <= 3 ? 'text-amber-500' : 'text-emerald-500'}`}
+              className={`font-bold ${cta.isFull ? 'text-rose-500' : availableSeats <= 3 ? 'text-amber-500' : 'text-[#047857] dark:text-emerald-500'}`}
             >
               {cta.label === 'loading' || cta.label === 'error'
                 ? '—'

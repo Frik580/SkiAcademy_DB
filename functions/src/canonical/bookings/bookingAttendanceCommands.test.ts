@@ -22,7 +22,7 @@ import {
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import {
-  createInMemoryCanonicalTransactionExecutor,
+  createInMemoryCanonicalTransactionExecutor as createInMemoryExecutor,
   type CanonicalTransactionExecutor,
 } from '../transactions';
 
@@ -33,10 +33,30 @@ const participantId = ParticipantIdSchema.parse('participant_attendance_unit_01'
 const participantTwoId = ParticipantIdSchema.parse('participant_attendance_unit_02');
 const participantThreeId = ParticipantIdSchema.parse('participant_attendance_unit_03');
 const instructorId = InstructorIdSchema.parse('instructor_attendance_unit_01');
+const instructorAccountId = 'account_instructor_attendance_01';
 const adminAccountId = 'account_attendance_unit_admin';
 const startsAt = timestampFromDate(new Date('2026-01-15T09:00:00.000Z'));
 const endsAt = timestampFromDate(new Date('2026-01-15T10:00:00.000Z'));
 const createdAt = timestampFromDate(new Date('2026-01-01T00:00:00.000Z'));
+
+function createInMemoryCanonicalTransactionExecutor(
+  docs: Parameters<typeof createInMemoryExecutor>[0],
+  options?: Parameters<typeof createInMemoryExecutor>[1]
+) {
+  return createInMemoryExecutor({
+    [`users/${instructorAccountId}`]: {
+      accountId: instructorAccountId,
+      instructorId,
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt,
+      updatedAt: createdAt,
+      audit: { createdByCommandId: 'seed', lastChangedByCommandId: 'seed', correlationId },
+    },
+    [`instructors/${instructorId}`]: { id: instructorId, linkedAccountId: instructorAccountId },
+    ...docs,
+  }, options);
+}
 
 function environment(at: string) {
   return { clock: createAuthoritativeCommandClock(new Date(at)) };
@@ -156,7 +176,7 @@ function instructorEnvelope(
   return {
     kind: 'record_booking_attendance',
     context: {
-      actor: accountCommandActor('account_instructor_attendance_01'),
+      actor: accountCommandActor(instructorAccountId),
       exercisedCapability: 'instructor',
       idempotencyKey,
       correlationId,

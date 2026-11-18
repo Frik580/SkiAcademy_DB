@@ -1,8 +1,18 @@
 import {
   InstructorIdSchema,
+  type AccountId,
   type InstructorId,
 } from '@ski-academy/shared-domain';
 import type { CallableAccountProfile } from '../commands/resolveCallableAccountContext';
+import { resolveActiveAccountInstructorId } from '../participantAccess/instructorIdentity';
+import { parseAccount } from '../participantAccess/participantAccessStore';
+
+export function resolveActiveCallableInstructorId(
+  accountId: AccountId,
+  data: Record<string, unknown> | undefined
+): InstructorId | undefined {
+  return resolveActiveAccountInstructorId(accountId, parseAccount(data), data?.instructorId);
+}
 
 export function resolveCallableInstructorId(
   profile: CallableAccountProfile | undefined

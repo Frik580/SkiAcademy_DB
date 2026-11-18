@@ -341,8 +341,29 @@ describe('participant access commands', () => {
   });
 
   it('creates opposite-direction blocks and removes only the creator block', async () => {
+    const confirmedBooking = BookingSchema.parse({
+      bookingId: 'booking_participant_block_started',
+      paymentId: 'payment_participant_block_started',
+      attribution: { bookingOrigin: 'admin', bookedBy: { kind: 'account', accountId } },
+      party: { kind: 'individual', participantIds: [participantId] },
+      occurrence: {
+        occurrenceId: 'occurrence_participant_block_started',
+        instructorId,
+        interval: { startsAt: decidedAt, endsAt: timestampFromDate(new Date('2026-01-01T01:00:00Z')) },
+        timeZone: 'Asia/Almaty',
+        scheduleRevision: 1,
+        serviceParty: { participantIds: [participantId], frozenAt: decidedAt },
+      },
+      lifecycle: { status: 'confirmed' },
+      revision: 1,
+      createdAt: decidedAt,
+      updatedAt: decidedAt,
+      audit: { createdByCommandId: 'seed', lastChangedByCommandId: 'seed', correlationId },
+    });
     const executor = createInMemoryCanonicalTransactionExecutor({
-      [`users/${accountId}`]: seedAccount(),
+      [`bookings/${confirmedBooking.bookingId}`]: confirmedBooking,
+      [`users/${accountId}`]: { ...seedAccount(), instructorId },
+      [`instructors/${instructorId}`]: { id: instructorId, linkedAccountId: accountId },
       [`participants/${participantId}`]: {
         participantId,
         displayName: 'Blocked Participant',

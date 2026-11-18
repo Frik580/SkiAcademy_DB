@@ -101,6 +101,7 @@ function createCommands(at: string, guestSecret = guestTokenSecret) {
 async function seedInstructor(): Promise<void> {
   await firestore.collection('instructors').doc(instructorId).set({
     id: instructorId,
+    linkedAccountId: instructorAccountId,
     name: 'Lesson Cutover Instructor',
     pricePerHourKZT: BOOKING_PRICE_KZT,
     isAvailable: true,

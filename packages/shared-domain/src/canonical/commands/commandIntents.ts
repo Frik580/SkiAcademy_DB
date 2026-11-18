@@ -46,6 +46,7 @@ import {
   SaveParticipantLessonFeedbackItemsInputSchema,
 } from '../participantLessonFeedback';
 import { AggregateRevisionSchema, KztMinorUnitsSchema } from '../primitives';
+import { GuestBookingCredentialPartsSchema } from '../guestCredential';
 import {
   InstructorBioTextSchema,
   instructorSpokenLanguagesSchema,
@@ -327,6 +328,7 @@ export const CommandIntentSchemaByKind = {
     .object({
       bookingId: BookingIdSchema,
       participantId: ParticipantIdSchema,
+      guestLinkCredential: GuestBookingCredentialPartsSchema.optional(),
     })
     .strict(),
   link_guest_booking_to_account_as_administrator: z

@@ -22,7 +22,7 @@ import {
 import {
   assertAccountActive,
   assertAuthorizedParticipantManager,
-  assertInstructorCapability,
+  assertCallableInstructorCapability,
   assertParticipantActive,
   buildParticipantAccessTopology,
   evaluateNewServiceBlocked,
@@ -56,7 +56,7 @@ export function assertCreateProposalAuthorization(
       correlationId: envelope.context.correlationId,
     });
   }
-  assertInstructorCapability(envelope, envelope.intent.instructorId);
+  assertCallableInstructorCapability(envelope, envelope.intent.instructorId);
   assertBookingProposalScheduleContext(envelope);
 }
 
@@ -355,7 +355,7 @@ export function assertCancelProposalActorMatchesProposal(
   actor: CancelBookingProposalActor
 ): void {
   if (actor === 'instructor') {
-    assertInstructorCapability(envelope, proposal.instructorId);
+    assertCallableInstructorCapability(envelope, proposal.instructorId);
     return;
   }
 

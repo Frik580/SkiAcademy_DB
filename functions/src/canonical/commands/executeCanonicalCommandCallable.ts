@@ -6,7 +6,13 @@ import type {
   CommandKind,
   CommandResult,
 } from '@ski-academy/shared-domain';
-import { CanonicalCommandError, TestSessionPolicyError } from '@ski-academy/shared-domain';
+import {
+  CanonicalCommandError,
+  TestSessionPolicyError,
+  identityDocumentMatchesReadScope,
+} from '@ski-academy/shared-domain';
+import { instructorCatalogPath } from '../bookings/bookingStore';
+import { hasInstructorAccountLink } from '../participantAccess/instructorIdentity';
 import {
   buildCommandEnvelopeFromCallable,
   type CallableCommandTransportInput,
@@ -125,12 +131,16 @@ export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
 
     let accountContext;
     try {
-      accountContext = resolveCallableAccountContext(profile, {
-        authUid: request.auth.uid,
-        commandKind: transportInput.kind,
-        exercisedCapability: transportInput.exercisedCapability,
-        administratorContext: transportInput.administratorContext,
-      });
+      accountContext = resolveCallableAccountContext(
+        profile,
+        {
+          authUid: request.auth.uid,
+          commandKind: transportInput.kind,
+          exercisedCapability: transportInput.exercisedCapability,
+          administratorContext: transportInput.administratorContext,
+        },
+        account
+      );
     } catch (error) {
       mapCallableContextError(error);
     }
@@ -158,6 +168,20 @@ export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
       });
     } catch (error) {
       mapExecutionScopeError(error);
+    }
+
+    if (accountContext.instructorId) {
+      const { accountId, instructorId } = accountContext;
+      if (!identityDocumentMatchesReadScope(executionScope, userData)) {
+        throw new HttpsError('permission-denied', 'This action is not permitted.');
+      }
+      const catalog = (await firestore.doc(instructorCatalogPath(instructorId)).get()).data();
+      if (
+        !hasInstructorAccountLink(catalog, instructorId, accountId) ||
+        !identityDocumentMatchesReadScope(executionScope, catalog)
+      ) {
+        throw new HttpsError('permission-denied', 'This action is not permitted.');
+      }
     }
 
     const envelope = buildCommandEnvelopeFromCallable(accountContext, transportInput);

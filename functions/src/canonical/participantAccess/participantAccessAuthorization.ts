@@ -1,10 +1,13 @@
 import {
   CanonicalCommandError,
   administratorCapabilityExercisedByAccount,
+  compareCanonicalTimestamps,
   evaluateParticipantManagementAccess,
+  instructorRelationshipIdFromPair,
   isParticipantInstructorPairBlockedForNewService,
   type Account,
   type AccountId,
+  type CanonicalTimestamp,
   type CommandContext,
   type CommandEnvelope,
   type InstructorId,
@@ -200,6 +203,57 @@ export function assertInstructorCapability(
       details: { field: 'instructorId', reason: 'conflict' },
     });
   }
+}
+
+export function assertCallableInstructorCapability(
+  envelope: CommandEnvelope,
+  instructorId: InstructorId
+): void {
+  if (envelope.context.transportMetadata?.instructor_id === undefined) {
+    throw new CanonicalCommandError('forbidden', {
+      correlationId: envelope.context.correlationId,
+      details: { field: 'instructorId', reason: 'required' },
+    });
+  }
+  assertInstructorCapability(envelope, instructorId);
+}
+
+export async function resolveInstructorRelationshipGrant(input: {
+  readonly relationship: InstructorRelationship | undefined;
+  readonly participant: Participant;
+  readonly instructorId: InstructorId;
+  readonly at: CanonicalTimestamp;
+  readonly readManagement: (id: ParticipantManagementId) => Promise<ParticipantManagement | undefined>;
+}): Promise<InstructorRelationship | undefined> {
+  const { relationship, participant, instructorId, at } = input;
+  if (
+    relationship?.status !== 'active' ||
+    relationship.instructorRelationshipId !== instructorRelationshipIdFromPair({
+      participantId: participant.participantId,
+      instructorId,
+    }) ||
+    relationship.participantId !== participant.participantId ||
+    relationship.instructorId !== instructorId ||
+    // The booking itself supplies current authorization, including its start and cancellation.
+    relationship.basis.kind === 'confirmed_booking' ||
+    compareCanonicalTimestamps(relationship.validFrom, at) > 0 ||
+    compareCanonicalTimestamps(at, relationship.expiresAt) >= 0
+  ) return undefined;
+
+  const { basis } = relationship;
+  if (basis.kind !== 'guardian_permission') return relationship;
+  if (
+    participant.management.kind !== 'managed' ||
+    participant.management.participantManagementId !== basis.participantManagementId
+  ) return undefined;
+
+  const grant = await input.readManagement(basis.participantManagementId);
+  return grant?.participantManagementId === basis.participantManagementId &&
+    grant.participantId === participant.participantId &&
+    grant.accountId === basis.grantedByAccountId &&
+    grant.status === 'active'
+    ? relationship
+    : undefined;
 }
 
 export function assertNotAdministratorForBlockMutation(envelope: CommandEnvelope): void {

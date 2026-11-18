@@ -18,6 +18,12 @@ import {
 } from './primitives';
 
 export const GUEST_ACTION_TOKEN_VERSION = 'guest-token:v1' as const;
+export const GUEST_BOOKING_PRIVATE_CREATE_KEY_PREFIX = 'create-guest-private:';
+
+export function isGuestBookingPrivateCreateKey(key: string): boolean {
+  return key.startsWith(GUEST_BOOKING_PRIVATE_CREATE_KEY_PREFIX) &&
+    /^[0-9a-f]{32}$/.test(key.slice(GUEST_BOOKING_PRIVATE_CREATE_KEY_PREFIX.length));
+}
 
 export const GUEST_ACTION_TOKEN_PURPOSES = [
   'cancel_pending_reservation',
@@ -26,6 +32,14 @@ export const GUEST_ACTION_TOKEN_PURPOSES = [
 export type GuestActionTokenPurpose = (typeof GUEST_ACTION_TOKEN_PURPOSES)[number];
 
 const guestActionNonceSchema = z.string().regex(/^[A-Za-z0-9_-]{16,64}$/);
+
+export const GuestBookingCredentialPartsSchema = z
+  .object({
+    nonce: guestActionNonceSchema,
+    signature: z.string().regex(/^[0-9a-fA-F]{64}$/),
+    expiresAt: CanonicalTimestampSchema,
+  })
+  .strict();
 
 const GuestActionTokenPayloadSchema = z.discriminatedUnion('subjectKind', [
   z
@@ -38,6 +52,7 @@ const GuestActionTokenPayloadSchema = z.discriminatedUnion('subjectKind', [
         'cancel_pending_reservation',
         'read_reservation_status',
         'complete_guest_participant_profile',
+        'link_guest_booking',
       ]),
       expiresAt: CanonicalTimestampSchema,
       nonce: guestActionNonceSchema,
@@ -150,8 +165,7 @@ export function verifyGuestActionCredentialParts(input: {
   readonly now: CanonicalTimestamp;
   readonly expectedBookingId: BookingId;
   readonly expectedGuestSubjectId: GuestSubjectId;
-  readonly expectedPurpose:
-    'cancel_pending_reservation' | 'read_reservation_status' | 'complete_guest_participant_profile';
+  readonly expectedPurpose: GuestBookingActionTokenPayload['purpose'];
   readonly expiresAt: CanonicalTimestamp;
   readonly compareSignatures: CompareHmacSha256Signatures;
 }): GuestActionTokenVerificationResult {

@@ -634,7 +634,14 @@ describe('link_guest_booking_to_account_as_administrator', () => {
   });
 
   it('does not allow Admin linking after self-service promotion, and self-service cannot relink after Admin replace', async () => {
-    const promoted = await createGuestBooking();
+    const fixture = baseFixture();
+    delete fixture[`participants/${guestParticipantId}`];
+    const promoted = createInMemoryCanonicalTransactionExecutor(fixture);
+    const create = guestCreateEnvelope();
+    const created = await runCommands(promoted).execute({ ...create, context: { ...create.context, idempotencyKey: 'create-guest-private:49ae19d3fda24338999ceeacfc4ebdf2' } });
+    if (created.status !== 'success') throw new Error('Guest booking fixture failed');
+    const guestLinkCredential = created.payload?.guestActionCredential?.linkCredential;
+    expect(guestLinkCredential).toBeDefined();
     const promote = await runCommands(promoted).execute({
       kind: 'link_guest_booking_to_account',
       context: {
@@ -645,7 +652,7 @@ describe('link_guest_booking_to_account_as_administrator', () => {
         source: 'client_callable',
         expectedRevision: AggregateRevisionSchema.parse(1),
       },
-      intent: { bookingId, participantId: guestParticipantId },
+      intent: { bookingId, participantId: guestParticipantId, guestLinkCredential },
     });
     expect(promote.status).toBe('success');
     const afterPromote = await runCommands(promoted).execute(
@@ -674,7 +681,7 @@ describe('link_guest_booking_to_account_as_administrator', () => {
         source: 'client_callable',
         expectedRevision: AggregateRevisionSchema.parse(2),
       },
-      intent: { bookingId, participantId: guestParticipantId },
+      intent: { bookingId, participantId: guestParticipantId, guestLinkCredential },
     });
     expect(afterAdmin.status).toBe('error');
   });

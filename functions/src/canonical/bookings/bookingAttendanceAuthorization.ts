@@ -12,7 +12,7 @@ import {
 } from '@ski-academy/shared-domain';
 import {
   assertAdministrator,
-  assertInstructorCapability,
+  assertCallableInstructorCapability,
   requireAccountActor,
 } from '../participantAccess/participantAccessAuthorization';
 
@@ -95,7 +95,7 @@ export function assertRecordBookingAttendanceAuthorization(
         details: { resourceKind: 'booking', reason: 'unsupported' },
       });
     }
-    assertInstructorCapability(envelope, booking.occurrence.instructorId);
+    assertCallableInstructorCapability(envelope, booking.occurrence.instructorId);
     const window = evaluateInstructorAttendanceWindow({
       now: input.now,
       startsAt: booking.occurrence.interval.startsAt,

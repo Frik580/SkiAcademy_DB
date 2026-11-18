@@ -174,6 +174,7 @@ function createAccessFirestore(options: SeedOptions = {}): {
   if (!options.omitInstructor) {
     seed(`instructors/${instructorId}`, {
       id: instructorId,
+      linkedAccountId: instructorAccountId,
       name: 'PIA Instructor',
       pricePerHourKZT: 10_000,
       isAvailable: true,
@@ -364,15 +365,21 @@ function createAccessFirestore(options: SeedOptions = {}): {
     maximum?: number
   ): Record<string, unknown> => ({
     where: (field: string, op: string, value: unknown) => {
-      if (op !== '==') {
-        throw new Error(`Unsupported fixture operator: ${op}`);
-      }
       return query(
         collectionName,
-        documents.filter(({ data }) => getNestedField(data, field) === value),
+        documents.filter(({ data }) => {
+          const actual = getNestedField(data, field);
+          if (op === '==') return actual === value;
+          if (op === 'array-contains' && Array.isArray(actual)) return actual.includes(value);
+          if (op === 'in' && Array.isArray(value)) return value.includes(actual);
+          return false;
+        }),
         maximum
       );
     },
+    orderBy: (field: string) => query(collectionName, [...documents].sort((a, b) =>
+      Number(getNestedField(a.data, field)) - Number(getNestedField(b.data, field))
+    ), maximum),
     limit: (value: number) => query(collectionName, documents, value),
     get: async () => {
       const selected = documents.slice(0, maximum);
@@ -817,8 +824,23 @@ describe('queryParticipantInstructorAccessReadModels account_manager bounded aut
       canUnblock: false,
     });
     expect(reads.has(`doc:users/${accountId}`)).toBe(false);
-    expect(reads.has(`doc:participant_management/${managementId}`)).toBe(false);
-    expect(documentReadCount(reads)).toBe(5);
+    expect(reads.get(`doc:participant_management/${managementId}`)).toBe(1);
+    expect(documentReadCount(reads)).toBe(6);
+  });
+
+  it.each([
+    { relationshipStatus: 'absent' },
+    { relationshipStatus: 'revoked' },
+    { relationshipStatus: 'expired' },
+    { endTargetManagement: true },
+    { managerBlockStatus: 'active' },
+  ] as const)('returns no participant data without an authorized basis (%j)', async (scenario) => {
+    const { firestore } = createAccessFirestore(scenario);
+    expect(await queryParticipantInstructorAccessReadModels(
+      firestore,
+      { scope: 'instructor', participantId, instructorId },
+      { accountId: instructorAccountId, instructorId, now }
+    )).toEqual({ scope: 'instructor' });
   });
 
   it('L: account/participant/management are not reread after auth', async () => {

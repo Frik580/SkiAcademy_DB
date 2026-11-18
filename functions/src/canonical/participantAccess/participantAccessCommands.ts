@@ -6,6 +6,9 @@ import {
   commandErrorResult,
   commandSuccessResult,
   evaluateAdminManagementRevocation,
+  evaluateInstructorParticipantAccess,
+  identityDocumentMatchesReadScope,
+  LIVE_CANONICAL_EXECUTION_SCOPE,
   instructorRelationshipExpiresAt,
   instructorRelationshipIdFromPair,
   nextAggregateRevision,
@@ -16,6 +19,7 @@ import {
   type CommandEnvelope,
   type CommandExecutionEnvironment,
   type CommandResult,
+  type CanonicalTimestamp,
   type Participant,
   type ParticipantBlock,
   type ParticipantManagement,
@@ -33,6 +37,9 @@ import {
   releaseParticipantManagementActiveOwnerGuard,
 } from '../resourceClaims/uniquenessGuards';
 import { CANONICAL_FIELD_DELETE } from '../transactions/transactionExecution';
+import type { CanonicalAtomicTransactionSession } from '../transactions';
+import { readInstructorProgressBookingScopedEvidence } from '../progress/participantProgressAuthorization';
+import { readVerifiedInstructorCatalog } from './instructorIdentity';
 import { buildParticipantAccessAuditPlan } from './participantAccessAudit';
 import {
   cancelledProposalIds,
@@ -46,11 +53,12 @@ import {
   assertAuthorizedParticipantManager,
   assertCapabilityMatchesManagementAuthority,
   assertInitialManagementAssignmentEligible,
-  assertInstructorCapability,
   assertNotAdministratorForBlockMutation,
   assertParticipantActive,
   blockCreatorMatchesActor,
+  buildParticipantAccessTopology,
   requireAccountActor,
+  resolveInstructorRelationshipGrant,
 } from './participantAccessAuthorization';
 import {
   PARTICIPANT_ACCESS_PLANNING_ESTIMATES,
@@ -1062,6 +1070,58 @@ function revokeInstructorRelationshipHandler(
   });
 }
 
+async function assertInstructorMayBlockParticipant(
+  session: CanonicalAtomicTransactionSession,
+  envelope: CommandEnvelope<'block_participant'>,
+  participant: Participant,
+  at: CanonicalTimestamp
+): Promise<void> {
+  const { participantId, instructorId } = envelope.intent;
+  const relationshipPath = instructorRelationshipPath(
+    instructorRelationshipIdFromPair({ participantId, instructorId })
+  );
+  const relationshipRead = await session.tx.get({ path: relationshipPath });
+  session.plan.planRead({ path: relationshipPath, category: 'authorization_check' });
+  const relationship = await resolveInstructorRelationshipGrant({
+    participant,
+    instructorId,
+    at,
+    relationship: parseInstructorRelationship(relationshipRead.data),
+    readManagement: async (id) => {
+      const path = participantManagementPath(id);
+      const read = await session.tx.get({ path });
+      session.plan.planRead({ path, category: 'authorization_check' });
+      return identityDocumentMatchesReadScope(session.scope ?? LIVE_CANONICAL_EXECUTION_SCOPE, read.data)
+        ? parseParticipantManagement(read.data)
+        : undefined;
+    },
+  });
+
+  if (relationship) {
+    const managerBlockPath = participantBlockPath(
+      participantBlockIdFromDirection({ participantId, instructorId, createdByKind: 'participant_manager' })
+    );
+    const managerBlockRead = await session.tx.get({ path: managerBlockPath });
+    session.plan.planRead({ path: managerBlockPath, category: 'authorization_check' });
+    const topology = buildParticipantAccessTopology({
+      participant,
+      instructorRelationship: relationship,
+      participantBlock: parseParticipantBlock(managerBlockRead.data),
+    });
+    const access = evaluateInstructorParticipantAccess(topology, {
+      participantId, instructorId, at, bookingScopedEvidence: [],
+    });
+    if (access.allowed) return;
+  }
+
+  const assignments = await readInstructorProgressBookingScopedEvidence(session, {
+    participantId, instructorId, at,
+  });
+  if (assignments.length === 0) {
+    throw new CanonicalCommandError('forbidden', { correlationId: envelope.context.correlationId });
+  }
+}
+
 function blockParticipantHandler(
   envelope: CommandEnvelope<'block_participant'>,
   environment: CommandExecutionEnvironment,
@@ -1136,7 +1196,20 @@ function blockParticipantHandler(
       );
 
       if (createdByKind === 'instructor') {
-        assertInstructorCapability(envelope, envelope.intent.instructorId);
+        if (participantRecord.participantId !== envelope.intent.participantId) {
+          throw new CanonicalCommandError('forbidden', {
+            correlationId: envelope.context.correlationId,
+          });
+        }
+        await readVerifiedInstructorCatalog(session, envelope, envelope.intent.instructorId);
+        if (existingBlock?.status !== 'active') {
+          await assertInstructorMayBlockParticipant(
+            session,
+            envelope,
+            participantRecord,
+            timestampFromDate(environment.clock.decidedAt())
+          );
+        }
       } else {
         if (participantRecord.management.kind !== 'managed') {
           throw new CanonicalCommandError('forbidden', {
@@ -1400,7 +1473,7 @@ function unblockParticipantHandler(
           });
         }
       } else {
-        assertInstructorCapability(envelope, blockRecord.instructorId);
+        await readVerifiedInstructorCatalog(session, envelope, blockRecord.instructorId);
         if (
           !blockCreatorMatchesActor(envelope.context, blockRecord, {
             instructorId: blockRecord.instructorId,

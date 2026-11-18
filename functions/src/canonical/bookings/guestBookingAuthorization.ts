@@ -128,6 +128,41 @@ export function assertLinkGuestBookingAuthorization(
     });
   }
   requireAccountActor(envelope);
+  if (!envelope.intent.guestLinkCredential) {
+    throw new CanonicalCommandError('unauthorized', {
+      correlationId: envelope.context.correlationId,
+    });
+  }
+}
+
+export function assertGuestBookingLinkProof(
+  envelope: CommandEnvelope<'link_guest_booking_to_account'>,
+  booking: Booking,
+  secret: string | undefined,
+  now: CanonicalTimestamp
+): void {
+  const credential = envelope.intent.guestLinkCredential;
+  const guestSubjectId = guestSubjectIdFromBookingId(booking.bookingId);
+  if (
+    !credential ||
+    !secret ||
+    booking.bookingId !== envelope.intent.bookingId ||
+    booking.attribution.bookedBy.kind !== 'guest' ||
+    booking.attribution.bookedBy.guestSubjectId !== guestSubjectId ||
+    booking.party.participantIds.length !== 1 ||
+    !verifyGuestActionCredentialPartsAuthoritative({
+      secret,
+      ...credential,
+      now,
+      expectedBookingId: booking.bookingId,
+      expectedGuestSubjectId: guestSubjectId,
+      expectedPurpose: 'link_guest_booking',
+    }).valid
+  ) {
+    throw new CanonicalCommandError('unauthorized', {
+      correlationId: envelope.context.correlationId,
+    });
+  }
 }
 
 export function assertLinkGuestBookingAsAdministratorAuthorization(

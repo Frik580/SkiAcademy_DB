@@ -419,6 +419,7 @@ export default async function globalSetup(): Promise<void> {
   });
   await getFirestore().doc(`instructors/${E2E_WORKSPACE_INSTRUCTOR_ID}`).set({
     id: E2E_WORKSPACE_INSTRUCTOR_ID,
+    linkedAccountId: instructorUid,
     name: E2E_WORKSPACE_INSTRUCTOR_NAME,
     specialty: 'ski',
     pricePerHour: 50,

@@ -198,6 +198,41 @@ describe.skipIf(!runsOnFirestoreEmulator)('guest booking commands (firestore emu
     await seedFixture();
   }, 30_000);
 
+  it('links with the signed guest proof and applies the link once', async () => {
+    await firestore.doc(`participants/${participantId}`).delete();
+    const commands = createCommands('2026-01-01T10:00:00.000Z');
+    const created = await commands.execute(guestCreateEnvelope({
+      bookingId,
+      idempotencyKey: 'create-guest-private:39ae19d3fda24338999ceeacfc4ebdf2',
+    }));
+    if (created.status !== 'success') throw new Error('Guest booking fixture failed');
+    const guestLinkCredential = created.payload?.guestActionCredential?.linkCredential;
+    if (!guestLinkCredential) throw new Error('Missing guest proof');
+    const link: CommandEnvelope<'link_guest_booking_to_account'> = {
+      kind: 'link_guest_booking_to_account',
+      context: {
+        actor: accountCommandActor(adminAccountId),
+        exercisedCapability: 'account_owner',
+        idempotencyKey: 'guest-link-emulator',
+        correlationId,
+        source: 'client_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: { bookingId, participantId },
+    };
+    expect(await commands.execute(link)).toMatchObject({ status: 'error', error: { code: 'unauthorized' } });
+    const authenticatedLink = { ...link, intent: { ...link.intent, guestLinkCredential } };
+    const result = await commands.execute(authenticatedLink);
+    expect(result.status).toBe('success');
+    expect(await commands.execute(authenticatedLink)).toEqual(result);
+    expect((await firestore.doc(`bookings/${bookingId}`).get()).data()).toMatchObject({
+      payerAccountId: adminAccountId,
+      revision: 2,
+    });
+    expect((await firestore.doc(`payments/${paymentId}`).get()).data()?.payerAccountId).toBe(adminAccountId);
+    expect((await firestore.collection('participant_management').get()).size).toBe(1);
+  });
+
   it.each([{}, { startDate: '2026-02-01', endDate: '2026-04-15' }])(
     'enforces guest season %j before participant, admission, slot or money writes',
     async (season) => {

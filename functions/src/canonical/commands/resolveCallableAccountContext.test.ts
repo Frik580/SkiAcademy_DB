@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   AccountIdSchema,
+  AccountSchema,
   CorrelationIdSchema,
   IdempotencyKeySchema,
   InstructorIdSchema,
+  timestampFromDate,
 } from '@ski-academy/shared-domain';
 import { buildCommandContextFromCallableAccount } from './callableTransportAdapter';
 import {
@@ -13,16 +15,30 @@ import {
 
 describe('resolveCallableAccountContext', () => {
   const accountId = AccountIdSchema.parse('account_resolve_callable_01');
+  const instructorId = InstructorIdSchema.parse('instructor_resolve_callable_01');
+  const createdAt = timestampFromDate(new Date('2026-01-01T00:00:00Z'));
+  const activeAccount = AccountSchema.parse({
+    accountId,
+    lifecycle: { status: 'active' },
+    revision: 1,
+    createdAt,
+    updatedAt: createdAt,
+    audit: {
+      createdByCommandId: 'seed',
+      lastChangedByCommandId: 'seed',
+      correlationId: 'correlation_resolve_callable_seed',
+    },
+  });
 
   it('propagates the server-side instructor profile identity into callable metadata', () => {
-    const instructorId = InstructorIdSchema.parse('instructor_resolve_callable_01');
     const resolved = resolveCallableAccountContext(
       { role: 'user', instructorId, isInstructor: true },
       {
         authUid: accountId,
         commandKind: 'record_course_day_attendance',
         exercisedCapability: 'instructor',
-      }
+      },
+      activeAccount
     );
 
     const context = buildCommandContextFromCallableAccount(resolved, {
@@ -32,6 +48,19 @@ describe('resolveCallableAccountContext', () => {
 
     expect(resolved.instructorId).toBe(instructorId);
     expect(context.transportMetadata?.instructor_id).toBe(instructorId);
+  });
+
+  it.each([
+    { profile: undefined, account: activeAccount },
+    { profile: { instructorId: 'invalid/id' }, account: activeAccount },
+    { profile: { instructorId }, account: undefined },
+    { profile: { instructorId }, account: { ...activeAccount, lifecycle: { status: 'disabled', disabledAt: createdAt } } },
+  ] as const)('denies instructor capability without a valid active identity ($profile)', ({ profile, account }) => {
+    expect(() => resolveCallableAccountContext(profile, {
+      authUid: accountId,
+      commandKind: 'record_booking_attendance',
+      exercisedCapability: 'instructor',
+    }, account)).toThrow('forbidden');
   });
 
   it('derives account identity from auth uid', () => {
@@ -186,22 +215,24 @@ describe('resolveCallableAccountContext', () => {
     ).toMatchObject({ capability: 'account_owner', source: 'client_callable' });
     expect(
       resolveCallableAccountContext(
-        { role: 'admin' },
+        { role: 'admin', instructorId },
         {
           authUid: accountId,
           commandKind: 'record_booking_attendance',
           exercisedCapability: 'instructor',
-        }
+        },
+        activeAccount
       )
     ).toMatchObject({ capability: 'instructor', source: 'client_callable' });
     expect(
       resolveCallableAccountContext(
-        { role: 'admin' },
+        { role: 'admin', instructorId },
         {
           authUid: accountId,
           commandKind: 'record_course_day_attendance',
           exercisedCapability: 'instructor',
-        }
+        },
+        activeAccount
       )
     ).toMatchObject({ capability: 'instructor', source: 'client_callable' });
   });

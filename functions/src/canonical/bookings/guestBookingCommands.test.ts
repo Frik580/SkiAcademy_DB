@@ -1788,9 +1788,46 @@ describe('guest pending cancellation command', () => {
 });
 
 describe('link_guest_booking_to_account command', () => {
+  function linkEnvelope(
+    guestLinkCredential?: GuestBookingActionCredential['linkCredential']
+  ): CommandEnvelope<'link_guest_booking_to_account'> {
+    return {
+      kind: 'link_guest_booking_to_account',
+      context: {
+        actor: accountCommandActor(linkAccountId),
+        exercisedCapability: 'account_owner',
+        idempotencyKey: 'guest-link-01',
+        correlationId,
+        source: 'client_callable',
+        expectedRevision: AggregateRevisionSchema.parse(1),
+      },
+      intent: { bookingId, participantId, guestLinkCredential },
+    };
+  }
+
+  it('requires proof and rejects a reservation-status credential for an older Booking', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(fixtureWithoutParticipant());
+    const commands = runCommands(executor);
+    const created = await commands.execute(guestCreateEnvelope());
+    if (created.status !== 'success') throw new Error('Guest booking fixture failed');
+    expect(created.payload?.guestActionCredential?.linkCredential).toBeUndefined();
+    const statusProof = created.payload?.guestActionCredential?.statusCredential;
+    const profileProof = created.payload?.guestActionCredential?.profileCompletionCredential;
+    expect(statusProof).toBeDefined();
+    expect(profileProof).toBeDefined();
+    const before = executor.snapshot();
+    for (const envelope of [linkEnvelope(), linkEnvelope(statusProof), linkEnvelope(profileProof)]) {
+      expect(await commands.execute(envelope)).toMatchObject({
+        status: 'error',
+        error: { code: 'unauthorized' },
+      });
+    }
+    expect(executor.snapshot()).toEqual(before);
+  });
+
   it('links unmanaged guest participant without rewriting booking origin', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(
-      baseFixture({
+      fixtureWithoutParticipant({
         [`users/${linkAccountId}/wallet/state`]: WalletSchema.parse({
           accountId: linkAccountId,
           currency: 'KZT',
@@ -1803,7 +1840,17 @@ describe('link_guest_booking_to_account command', () => {
       })
     );
     const commands = runCommands(executor);
-    await commands.execute(guestCreateEnvelope());
+    const entry = guestCreateEnvelope();
+    const create = {
+      ...entry,
+      context: { ...entry.context, idempotencyKey: 'create-guest-private:49ae19d3fda24338999ceeacfc4ebdf2' },
+    };
+    const created = await commands.execute(create);
+    if (created.status !== 'success') throw new Error('Guest booking fixture failed');
+    const proof = created.payload?.guestActionCredential?.linkCredential;
+    if (!proof) throw new Error('Guest booking fixture is missing link proof');
+    expect(await commands.execute(create)).toEqual(created);
+    expect(await commands.execute(entry)).toMatchObject({ status: 'error' });
     const before = executor.snapshot();
     const bookingBefore = before.docs.get(`bookings/${bookingId}`)?.data;
     const paymentBefore = before.docs.get(`payments/${paymentId}`)?.data;
@@ -1816,18 +1863,8 @@ describe('link_guest_booking_to_account command', () => {
       })
     ).toBe('manual_external');
 
-    const result = await commands.execute({
-      kind: 'link_guest_booking_to_account',
-      context: {
-        actor: accountCommandActor(linkAccountId),
-        exercisedCapability: 'account_owner',
-        idempotencyKey: 'guest-link-01',
-        correlationId,
-        source: 'client_callable',
-        expectedRevision: AggregateRevisionSchema.parse(1),
-      },
-      intent: { bookingId, participantId },
-    });
+    const link = linkEnvelope(proof);
+    const result = await commands.execute(link);
     expect(result.status).toBe('success');
     const snapshot = executor.snapshot();
     const booking = snapshot.docs.get(`bookings/${bookingId}`)?.data;
@@ -1858,6 +1895,12 @@ describe('link_guest_booking_to_account command', () => {
     expect([...snapshot.docs.keys()].filter((path) => path.startsWith('monetary_events/'))).toEqual(
       []
     );
+    expect(await commands.execute(link)).toEqual(result);
+    expect(await commands.execute({
+      ...link,
+      context: { ...link.context, actor: accountCommandActor(adminAccountId), expectedRevision: AggregateRevisionSchema.parse(2) },
+    })).toMatchObject({ status: 'error', error: { code: 'forbidden' } });
+    expect(executor.snapshot()).toEqual(snapshot);
   });
 });
 

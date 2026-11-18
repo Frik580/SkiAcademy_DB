@@ -55,7 +55,7 @@ import {
 import {
   createLogicalBookingAttemptId,
   deriveAuthenticatedCreateIdempotencyKey,
-  deriveGuestCreateIdempotencyKey,
+  createGuestCreateIdempotencyKey,
   deriveCancellationIdempotencyKey,
   deriveGuestParticipantIdForBooking,
   deriveExercisedCapabilityFromParticipants,
@@ -148,11 +148,15 @@ export const useBookingModal = ({
   const isSubmittingRef = useRef<boolean>(false);
   const submitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bookingAttemptIdRef = useRef<string | null>(null);
+  const guestCreateIdempotencyKeyRef = useRef<ReturnType<typeof createGuestCreateIdempotencyKey> | null>(
+    null
+  );
 
   useEffect(() => {
     if (!isOpen && !isSubmitting) {
       setSubmissionError('');
       bookingAttemptIdRef.current = null;
+      guestCreateIdempotencyKeyRef.current = null;
       setGuestQuotaError(false);
       setGuestCreatedBookingId(null);
       setGuestReservation(undefined);
@@ -651,6 +655,9 @@ export const useBookingModal = ({
 
     const bookingId = bookingAttemptIdRef.current ?? createLogicalBookingAttemptId();
     bookingAttemptIdRef.current = bookingId;
+    const idempotencyKey =
+      guestCreateIdempotencyKeyRef.current ?? createGuestCreateIdempotencyKey(bookingId);
+    guestCreateIdempotencyKeyRef.current = idempotencyKey;
     const participantId = deriveGuestParticipantIdForBooking(bookingId);
 
     try {
@@ -663,7 +670,7 @@ export const useBookingModal = ({
         timezone,
         identity: {
           bookingId,
-          idempotencyKey: deriveGuestCreateIdempotencyKey(bookingId),
+          idempotencyKey,
         },
         guestDisplayName: guestProfile.data.displayName,
         guestDiscipline: guestProfile.data.discipline,
@@ -684,6 +691,7 @@ export const useBookingModal = ({
       const presented = presentBookingCommandError(err);
       if (presented.code === 'guest_reservation_limit') {
         bookingAttemptIdRef.current = null;
+        guestCreateIdempotencyKeyRef.current = null;
         setGuestQuotaError(true);
       } else {
         setSubmissionError(presented.message);
@@ -867,6 +875,7 @@ export const useBookingModal = ({
       forgetGuestReservation('lesson', targetInstructor.id, guestCreatedBookingId ?? undefined);
     }
     bookingAttemptIdRef.current = null;
+    guestCreateIdempotencyKeyRef.current = null;
     setGuestCreatedBookingId(null);
     setGuestReservation(undefined);
     setGuestRefreshError(false);

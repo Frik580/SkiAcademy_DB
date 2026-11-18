@@ -29,6 +29,7 @@ import {
   type ParticipantId,
 } from '@ski-academy/shared-domain';
 import type { CommandHandlerMap } from '../commands/canonicalCommands';
+import { readVerifiedInstructorCatalog } from '../participantAccess/instructorIdentity';
 import {
   executeAuthoritativeIdempotentCanonicalCommand,
   type AuthoritativeIdempotentCanonicalCommandHandler,
@@ -281,6 +282,9 @@ function recordBookingAttendanceHandler(
         now,
         attendancesByParticipantId: currentAttendancesByParticipantId,
       });
+      if (actorMode === 'instructor') {
+        await readVerifiedInstructorCatalog(session, envelope, booking.occurrence.instructorId);
+      }
 
       const attendanceId = attendanceIdFromBookingIdentity({
         strategyVersion: ATTENDANCE_IDENTITY_STRATEGY_VERSION,

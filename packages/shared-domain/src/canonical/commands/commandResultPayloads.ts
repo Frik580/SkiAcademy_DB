@@ -15,6 +15,7 @@ import {
   ReviewIdSchema,
 } from '../identifiers';
 import { ParticipantLessonFeedbackItemIdSchema } from '../participantLessonFeedback';
+import { GuestBookingCredentialPartsSchema } from '../guestCredential';
 import { AggregateRevisionSchema, CanonicalTimestampSchema } from '../primitives';
 
 export const GuestCourseEnrollmentLinkCredentialSchema = z
@@ -46,22 +47,9 @@ export const GuestBookingActionCredentialSchema = z
     nonce: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
     signature: z.string().regex(/^[0-9a-fA-F]{64}$/),
     expiresAt: CanonicalTimestampSchema,
-    statusCredential: z
-      .object({
-        nonce: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
-        signature: z.string().regex(/^[0-9a-fA-F]{64}$/),
-        expiresAt: CanonicalTimestampSchema,
-      })
-      .strict()
-      .optional(),
-    profileCompletionCredential: z
-      .object({
-        nonce: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
-        signature: z.string().regex(/^[0-9a-fA-F]{64}$/),
-        expiresAt: CanonicalTimestampSchema,
-      })
-      .strict()
-      .optional(),
+    statusCredential: GuestBookingCredentialPartsSchema.optional(),
+    profileCompletionCredential: GuestBookingCredentialPartsSchema.optional(),
+    linkCredential: GuestBookingCredentialPartsSchema.optional(),
   })
   .strict();
 

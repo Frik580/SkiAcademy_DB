@@ -16,6 +16,8 @@ import {
   deriveBookingPartyKind,
   guestActorRef,
   GUEST_ACTION_TOKEN_VERSION,
+  isGuestBookingPrivateCreateKey,
+  type GuestBookingActionTokenPayload,
   guestSubjectIdFromBookingId,
   initialBookingOccurrenceIdFromBookingId,
   evaluateGuestLessonReservationExpiry,
@@ -121,6 +123,7 @@ import {
   assertGuestActorMatchesBooking,
   assertGuestBookingRequestContext,
   assertGuestParticipantForBooking,
+  assertGuestBookingLinkProof,
   assertLinkGuestBookingAuthorization,
   requireGuestActor,
   resolveGuestParticipantProfileForBooking,
@@ -521,44 +524,41 @@ function createGuestBookingRequestHandler(
         expiresAt: reservationExpiresAt,
         nonce,
       });
-      const statusNonce = createGuestActionTokenNonce();
-      const profileNonce = createGuestActionTokenNonce();
+      const credentialAtLessonEnd = (purpose: GuestBookingActionTokenPayload['purpose']) => {
+        const nonce = createGuestActionTokenNonce();
+        const expiresAt = schedule.interval.endsAt;
+        return {
+          nonce,
+          signature: signGuestActionCredential(secret, {
+            version: GUEST_ACTION_TOKEN_VERSION,
+            subjectKind: 'booking',
+            bookingId: envelope.intent.bookingId,
+            guestSubjectId,
+            purpose,
+            expiresAt,
+            nonce,
+          }),
+          expiresAt,
+        };
+      };
+      // The public Booking ID cannot be used to retrieve this proof on replay.
+      const canIssueLinkCredential =
+        shouldCreateGuestParticipant && isGuestBookingPrivateCreateKey(envelope.context.idempotencyKey);
       const guestActionCredential: GuestBookingActionCredential = {
         bookingId: envelope.intent.bookingId,
         guestSubjectId,
         nonce,
         signature,
         expiresAt: reservationExpiresAt,
+        ...(canIssueLinkCredential
+          ? { linkCredential: credentialAtLessonEnd('link_guest_booking') }
+          : {}),
         ...(shouldCreateGuestParticipant
           ? {
-              profileCompletionCredential: {
-                nonce: profileNonce,
-                signature: signGuestActionCredential(secret, {
-                  version: GUEST_ACTION_TOKEN_VERSION,
-                  subjectKind: 'booking',
-                  bookingId: envelope.intent.bookingId,
-                  guestSubjectId,
-                  purpose: 'complete_guest_participant_profile',
-                  expiresAt: schedule.interval.endsAt,
-                  nonce: profileNonce,
-                }),
-                expiresAt: schedule.interval.endsAt,
-              },
+              profileCompletionCredential: credentialAtLessonEnd('complete_guest_participant_profile'),
             }
           : {}),
-        statusCredential: {
-          nonce: statusNonce,
-          signature: signGuestActionCredential(secret, {
-            version: GUEST_ACTION_TOKEN_VERSION,
-            subjectKind: 'booking',
-            bookingId: envelope.intent.bookingId,
-            guestSubjectId,
-            purpose: 'read_reservation_status',
-            expiresAt: schedule.interval.endsAt,
-            nonce: statusNonce,
-          }),
-          expiresAt: schedule.interval.endsAt,
-        },
+        statusCredential: credentialAtLessonEnd('read_reservation_status'),
       };
 
       return commandSuccessResult(envelope.kind, envelope.context.correlationId, {
@@ -834,7 +834,7 @@ async function expireGuestBookingReservationHandler(
 
 function linkGuestBookingToAccountHandler(
   envelope: CommandEnvelope<'link_guest_booking_to_account'>,
-  environment: CommandExecutionEnvironment,
+  environment: GuestBookingCommandEnvironment,
   executor: Parameters<typeof executeAuthoritativeIdempotentCanonicalCommand>[0]['executor']
 ): Promise<CommandResult<'link_guest_booking_to_account'>> {
   const metadata = metadataFromEnvelope(envelope);
@@ -891,6 +891,12 @@ function linkGuestBookingToAccountHandler(
           details: { field: 'participantId', reason: 'conflict' },
         });
       }
+      assertGuestBookingLinkProof(
+        envelope,
+        booking,
+        environment.guestActionTokenSecret,
+        timestampFromDate(environment.clock.decidedAt())
+      );
 
       const paymentDocumentPath = paymentPath(booking.paymentId);
       const paymentRead = await session.tx.get({ path: paymentDocumentPath });
@@ -921,6 +927,15 @@ function linkGuestBookingToAccountHandler(
         envelope,
         parseParticipant(participantRead.exists ? participantRead.data : undefined)
       );
+      // Link proof belongs to the Participant created in the same guest command.
+      if (
+        participantRecord.participantId !== envelope.intent.participantId ||
+        participantRecord.audit.createdByCommandId !== booking.audit.createdByCommandId
+      ) {
+        throw new CanonicalCommandError('unauthorized', {
+          correlationId: envelope.context.correlationId,
+        });
+      }
       if (participantRecord.management.kind === 'managed') {
         if (participantRecord.management.participantManagementId !== managementId) {
           throw new CanonicalCommandError('forbidden', {
@@ -1162,6 +1177,6 @@ export function createGuestBookingCommandHandlers(
     expire_guest_reservation: (envelope, environment) =>
       expireGuestReservationHandler(envelope, environment, executor),
     link_guest_booking_to_account: (envelope, environment) =>
-      linkGuestBookingToAccountHandler(envelope, environment, executor),
+      linkGuestBookingToAccountHandler(envelope, environmentBase(environment), executor),
   };
 }

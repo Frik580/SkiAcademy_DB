@@ -1,12 +1,13 @@
 import {
   AccountIdSchema,
-  InstructorIdSchema,
+  type Account,
   type AccountId,
   type CommandKind,
   type CommandSource,
   type ExercisedCapability,
   type InstructorId,
 } from '@ski-academy/shared-domain';
+import { resolveActiveAccountInstructorId } from '../participantAccess/instructorIdentity';
 
 export const CLIENT_CALLABLE_CAPABILITIES = [
   'account_owner',
@@ -127,7 +128,8 @@ export function isAdministratorProfile(profile: CallableAccountProfile | undefin
 
 export function resolveCallableAccountContext(
   profile: CallableAccountProfile | undefined,
-  input: ResolveCallableAccountContextInput
+  input: ResolveCallableAccountContextInput,
+  account?: Account
 ): ResolvedCallableAccountContext {
   const accountId = parseCallableAccountId(input.authUid);
   if (!accountId) {
@@ -166,14 +168,15 @@ export function resolveCallableAccountContext(
   const capability = isClientCallableCapability(input.exercisedCapability)
     ? input.exercisedCapability
     : 'account_owner';
-  const instructorId = InstructorIdSchema.safeParse(profile?.instructorId);
+  if (capability === 'instructor') {
+    const instructorId = resolveActiveAccountInstructorId(accountId, account, profile?.instructorId);
+    if (!instructorId) throw new Error('forbidden');
+    return { accountId, capability, source: 'client_callable', instructorId };
+  }
 
   return {
     accountId,
     capability,
     source: 'client_callable',
-    ...(capability === 'instructor' && instructorId.success
-      ? { instructorId: instructorId.data }
-      : {}),
   };
 }

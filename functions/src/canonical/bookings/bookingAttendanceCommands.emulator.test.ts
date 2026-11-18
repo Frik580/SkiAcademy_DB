@@ -22,6 +22,7 @@ import {
   bookingOccurrenceIdFromScheduleRevision,
   initialBookingOccurrenceIdFromBookingId,
   paymentIdFromBookingId,
+  participantBlockIdFromDirection,
   BOOKING_INSTRUCTOR_ATTENDANCE_WINDOW_MS,
   resolveCommandIdempotencyIdentity,
   activityLogIdFromCommandId,
@@ -32,7 +33,9 @@ import {
   type CommandEnvelope,
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
+import { createExecuteCanonicalCommandHandler } from '../commands/executeCanonicalCommandCallable';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
+import { createQueryParticipantInstructorAccessReadModelsHandler } from '../readModels/queryParticipantInstructorAccessReadModelsCallable';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 import { seedLessonPricingSettingsFixture } from '../../../testSupport/lessonPricingSettingsFixture';
 import { sweepLessonBookingAttendanceOutcomes } from './bookingAttendanceOutcomeSweep';
@@ -58,6 +61,7 @@ const managementId = ParticipantManagementIdSchema.parse('management_attendance_
 const managementTwoId = ParticipantManagementIdSchema.parse('management_attendance_emulator_02');
 const managementThreeId = ParticipantManagementIdSchema.parse('management_attendance_emulator_03');
 const instructorId = InstructorIdSchema.parse('instructor_attendance_emulator_01');
+const instructorAccountId = AccountIdSchema.parse('account_instructor_attendance_emulator');
 const bookingId = BookingIdSchema.parse('booking_attendance_emulator_01');
 const paymentId = paymentIdFromBookingId(bookingId);
 const initialOccurrenceId = initialBookingOccurrenceIdFromBookingId(bookingId);
@@ -73,6 +77,7 @@ const COLLECTIONS_TO_CLEAR = [
   'users',
   'participants',
   'participant_management',
+  'participant_blocks',
   'instructors',
   'bookings',
   'payments',
@@ -104,7 +109,7 @@ function createCommands(at = '2026-01-15T10:00:00.000Z') {
 
 function instructorContext(idempotencyKey: string) {
   return {
-    actor: accountCommandActor(AccountIdSchema.parse('account_instructor_attendance_emulator')),
+    actor: accountCommandActor(instructorAccountId),
     exercisedCapability: 'instructor' as const,
     idempotencyKey,
     correlationId,
@@ -365,13 +370,14 @@ async function seedSharedFixture(walletBalance = WALLET_START_KZT): Promise<void
   }
   await firestore.doc(`instructors/${instructorId}`).set({
     id: instructorId,
+    linkedAccountId: instructorAccountId,
     name: 'Emulator Coach',
     pricePerHourKZT: BOOKING_PRICE_KZT,
     isAvailable: true,
   });
-  await firestore.doc(`users/account_instructor_attendance_emulator`).set(
-    AccountSchema.parse({
-      accountId: 'account_instructor_attendance_emulator',
+  await firestore.doc(`users/${instructorAccountId}`).set({
+    ...AccountSchema.parse({
+      accountId: instructorAccountId,
       lifecycle: { status: 'active' },
       revision: 1,
       createdAt: decidedAt,
@@ -381,8 +387,9 @@ async function seedSharedFixture(walletBalance = WALLET_START_KZT): Promise<void
         lastChangedByCommandId: 'seed',
         correlationId,
       },
-    })
-  );
+    }),
+    instructorId,
+  });
 }
 
 async function lessonInterval(): Promise<{
@@ -534,6 +541,103 @@ describe.skipIf(!runsOnFirestoreEmulator)('bookingAttendanceCommands.emulator', 
     await clearCollections(COLLECTIONS_TO_CLEAR);
     await seedSharedFixture();
   }, 30_000);
+
+  it('requires the current instructor identity at the callable and within Attendance authorization', async () => {
+    const setup = createCommands('2026-01-01T00:00:00.000Z');
+    await createConfirmedBooking(setup);
+    await freezeServiceParty(setup);
+    const commands = createCommands(isoAfterEndsAt(await lessonInterval()));
+    const envelope = recordEnvelope('attendance-current-instructor', 'present');
+    expect(await commands.execute({
+      ...envelope,
+      context: { ...envelope.context, transportMetadata: undefined },
+    })).toMatchObject({ status: 'error', error: { code: 'forbidden' } });
+    const accountRef = firestore.doc(`users/${instructorAccountId}`);
+    const profile = (await accountRef.get()).data()!;
+    const handleCommand = createExecuteCanonicalCommandHandler(firestore);
+    const request = {
+      auth: { uid: instructorAccountId, token: {} },
+      data: {
+        kind: envelope.kind,
+        intent: envelope.intent,
+        correlationId,
+        idempotencyKey: envelope.context.idempotencyKey,
+        exercisedCapability: 'instructor',
+      },
+    } as Parameters<typeof handleCommand>[0];
+    const authDenied = { code: 'permission-denied' };
+
+    for (const invalid of [undefined, { instructorId }, { ...profile, instructorId: 'bad/id' }, {
+      ...profile,
+      lifecycle: { status: 'disabled', disabledAt: decidedAt },
+    }]) {
+      if (invalid) await accountRef.set(invalid);
+      else await accountRef.delete();
+      await expect(handleCommand(request)).rejects.toMatchObject(authDenied);
+      expect(await commands.execute(envelope)).toMatchObject({ status: 'error', error: { code: 'forbidden' } });
+    }
+    await accountRef.set(profile);
+    const catalogRef = firestore.doc(`instructors/${instructorId}`);
+    await catalogRef.update({ linkedAccountId: accountId });
+    await expect(handleCommand(request)).rejects.toMatchObject(authDenied);
+    expect(await commands.execute(envelope)).toMatchObject({ status: 'error', error: { code: 'forbidden' } });
+    expect((await firestore.collection('attendance').get()).empty).toBe(true);
+    await catalogRef.update({ linkedAccountId: instructorAccountId });
+    expect(await commands.execute(envelope)).toMatchObject({ status: 'success' });
+  });
+
+  it('returns a participant only for an authorized instructor and a qualifying lesson', async () => {
+    const setup = createCommands('2026-01-01T00:00:00.000Z');
+    const now = () => new Date('2026-01-01T00:00:00.000Z');
+    const handleRead = createQueryParticipantInstructorAccessReadModelsHandler(firestore, now);
+    const request = {
+      auth: { uid: instructorAccountId, token: {} },
+      data: { scope: 'instructor', participantId, instructorId },
+    } as Parameters<typeof handleRead>[0];
+    const denied = { scope: 'instructor' };
+    expect(await handleRead(request)).toEqual(denied);
+    const block: CommandEnvelope<'block_participant'> = {
+      kind: 'block_participant',
+      context: instructorContext('read-scope-block-emulator'),
+      intent: {
+        participantId, instructorId,
+        participantBlockId: participantBlockIdFromDirection({ participantId, instructorId, createdByKind: 'instructor' }),
+        reason: 'Emulator write authorization fixture',
+      },
+    };
+    const forbidden = { status: 'error', error: { code: 'forbidden' } };
+    expect(await setup.execute(block)).toMatchObject(forbidden);
+    await createConfirmedBooking(setup);
+    await freezeServiceParty(setup);
+    const future = await handleRead(request);
+    expect(future.item?.participantDisplayName).toBe('Emulator Participant 1');
+    expect(future.item?.authorizedActions).toEqual({
+      canCreateRelationship: false, canRevokeRelationship: false, canBlock: false, canUnblock: false,
+    });
+    expect(await setup.execute(block)).toMatchObject(forbidden);
+    const { startsAt } = await lessonInterval();
+    const atStart = createQueryParticipantInstructorAccessReadModelsHandler(
+      firestore,
+      () => new Date(canonicalTimestampToEpochMs(startsAt))
+    );
+    expect((await atStart(request)).item?.authorizedActions.canBlock).toBe(true);
+    const atStartCommands = createCommands(new Date(canonicalTimestampToEpochMs(startsAt)).toISOString());
+    expect(await atStartCommands.execute(block)).toMatchObject({ status: 'success' });
+    expect((await atStart(request)).item?.authorizedActions.canUnblock).toBe(true);
+
+    const actor = firestore.doc(`users/${instructorAccountId}`);
+    await actor.update({ lifecycle: { status: 'disabled', disabledAt: decidedAt } });
+    await expect(handleRead(request)).rejects.toMatchObject({ code: 'permission-denied' });
+    await actor.update({ lifecycle: { status: 'active' } });
+    const bookingRef = firestore.doc(`bookings/${bookingId}`);
+    await bookingRef.update({ 'occurrence.instructorId': 'instructor_reassigned_emulator' });
+    expect(await atStart(request)).toEqual(denied);
+    await bookingRef.update({ 'occurrence.instructorId': instructorId, lifecycle: {
+      status: 'cancelled', cancelledAt: decidedAt, reasonCode: 'administrator_cancelled',
+    } });
+    expect(BookingSchema.parse((await bookingRef.get()).data()).lifecycle.status).toBe('cancelled');
+    expect(await atStart(request)).toEqual(denied);
+  });
 
   it('A. instructor attendance write is durable and idempotent', async () => {
     const setupCommands = createCommands('2026-01-01T00:00:00.000Z');

@@ -11,7 +11,7 @@ import {
 } from '@ski-academy/shared-domain';
 import {
   assertAdministrator,
-  assertInstructorCapability,
+  assertCallableInstructorCapability,
   requireAccountActor,
 } from '../participantAccess/participantAccessAuthorization';
 
@@ -27,7 +27,7 @@ export function assertCreateBookingChangeRequestAuthorization(
     });
   }
   requireAccountActor(envelope);
-  assertInstructorCapability(envelope, booking.occurrence.instructorId);
+  assertCallableInstructorCapability(envelope, booking.occurrence.instructorId);
 
   if (!isConfirmedBooking(booking)) {
     throw new CanonicalCommandError('invalid_transition', {
@@ -50,7 +50,7 @@ export function assertWithdrawBookingChangeRequestAuthorization(
     });
   }
   requireAccountActor(envelope);
-  assertInstructorCapability(envelope, input.booking.occurrence.instructorId);
+  assertCallableInstructorCapability(envelope, input.booking.occurrence.instructorId);
 
   if (input.changeRequest.lifecycle.status !== 'open') {
     throw new CanonicalCommandError('invalid_transition', {

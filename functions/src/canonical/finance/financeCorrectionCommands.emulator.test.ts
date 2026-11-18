@@ -851,8 +851,8 @@ describe.skipIf(!runsOnFirestoreEmulator)('finance correction commands emulator'
       },
       intent: { bookingId: raceBookingId },
     });
-    await firestore.doc('users/account_instructor_fin_corr_race').set(
-      AccountSchema.parse({
+    await firestore.doc('users/account_instructor_fin_corr_race').set({
+      ...AccountSchema.parse({
         accountId: 'account_instructor_fin_corr_race',
         lifecycle: { status: 'active' },
         revision: 1,
@@ -863,8 +863,12 @@ describe.skipIf(!runsOnFirestoreEmulator)('finance correction commands emulator'
           lastChangedByCommandId: 'seed',
           correlationId,
         },
-      })
-    );
+      }),
+      instructorId: raceInstructorId,
+    });
+    await firestore.doc(`instructors/${raceInstructorId}`).update({
+      linkedAccountId: 'account_instructor_fin_corr_race',
+    });
 
     await firestore.doc(`payments/${racePaymentId}`).update({
       paidAmount: 0,

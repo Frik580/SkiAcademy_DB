@@ -1,7 +1,10 @@
 import {
+  bookingProvidesInstructorProgressEvidence,
+  evaluateInstructorParticipantAccess,
   evaluateParticipantInstructorAccessAuthorizedActions,
   evaluateParticipantManagementAccess,
   instructorRelationshipIdFromPair,
+  identityDocumentMatchesReadScope,
   participantBlockIdFromDirection,
   sanitizeParticipantBlockReasonForReadModel,
   type Account,
@@ -22,7 +25,11 @@ import {
 } from '@ski-academy/shared-domain';
 import type { Firestore } from 'firebase-admin/firestore';
 import { parseInstructorCatalog } from '../bookings/bookingStore';
-import { buildParticipantAccessTopology } from '../participantAccess/participantAccessAuthorization';
+import { hasInstructorAccountLink } from '../participantAccess/instructorIdentity';
+import {
+  buildParticipantAccessTopology,
+  resolveInstructorRelationshipGrant,
+} from '../participantAccess/participantAccessAuthorization';
 import {
   instructorRelationshipPath,
   parseAccount,
@@ -31,6 +38,7 @@ import {
   parseParticipantBlock,
   parseParticipantManagement,
 } from '../participantAccess/participantAccessStore';
+import { findInstructorProgressReadBooking } from '../progress/participantProgressAuthorization';
 import {
   createReadModelRequestContext,
   type ReadModelRequestContext,
@@ -150,6 +158,17 @@ async function buildParticipantInstructorAccessReadModel(input: Readonly<{
   readContext: ReadModelRequestContext;
   preloaded?: PreloadedAccessEntities;
 }>): Promise<ParticipantInstructorAccessReadModel | undefined> {
+  const instructorSnap = await input.readContext.instructor(input.instructorId);
+  const instructorData = instructorSnap.data();
+  if (
+    input.actor.kind === 'instructor' &&
+    !hasInstructorAccountLink(instructorData, input.instructorId, input.actor.accountId)
+  ) {
+    return undefined;
+  }
+  const instructorCatalog = parseInstructorCatalog(input.instructorId, instructorData);
+  if (!instructorCatalog) return undefined;
+
   const participant =
     input.preloaded?.participant ??
     parseParticipant(
@@ -157,18 +176,10 @@ async function buildParticipantInstructorAccessReadModel(input: Readonly<{
         | Record<string, unknown>
         | undefined
     );
-  if (!participant) {
+  if (!participant || participant.participantId !== input.participantId) {
     return undefined;
   }
-
-  const instructorSnap = await input.readContext.instructor(input.instructorId);
-  const instructorCatalog = parseInstructorCatalog(
-    input.instructorId,
-    instructorSnap.data() as Record<string, unknown> | undefined
-  );
-  if (!instructorCatalog) {
-    return undefined;
-  }
+  if (input.actor.kind === 'instructor' && participant.lifecycle.status !== 'active') return undefined;
 
   const relationshipId = instructorRelationshipIdFromPair({
     participantId: input.participantId,
@@ -197,7 +208,8 @@ async function buildParticipantInstructorAccessReadModel(input: Readonly<{
   // the scoped Participant/Instructor above establish the read boundary.
   const parsedRelationship = parseInstructorRelationship(relationshipSnap.data());
   const relationship =
-    parsedRelationship?.participantId === input.participantId &&
+    parsedRelationship?.instructorRelationshipId === relationshipId &&
+    parsedRelationship.participantId === input.participantId &&
     parsedRelationship.instructorId === input.instructorId
       ? parsedRelationship
       : undefined;
@@ -237,6 +249,45 @@ async function buildParticipantInstructorAccessReadModel(input: Readonly<{
     }
   }
 
+  let canWrite = true;
+  if (input.actor.kind === 'instructor') {
+    const request = {
+      participantId: participant.participantId,
+      instructorId: input.instructorId,
+      at: input.now,
+    };
+    const relationshipGrant = await resolveInstructorRelationshipGrant({
+      ...request,
+      participant,
+      relationship,
+      readManagement: async (id) => {
+        const data = (await input.readContext.participantManagement(id)).data();
+        return identityDocumentMatchesReadScope(input.readContext.readScope, data)
+          ? parseParticipantManagement(data)
+          : undefined;
+      },
+    });
+    const topology = buildParticipantAccessTopology({
+      participant,
+      instructorRelationship: relationshipGrant,
+      additionalBlocks: [managerBlock, instructorBlock].filter(
+        (block): block is ParticipantBlock => block !== undefined
+      ),
+    });
+    const access = evaluateInstructorParticipantAccess(topology, {
+      ...request,
+      bookingScopedEvidence: [],
+    });
+    if (!access.allowed) {
+      const booking = await findInstructorProgressReadBooking(input.firestore, {
+        ...request,
+        readScope: input.readContext.readScope,
+      });
+      if (!booking) return undefined;
+      canWrite = bookingProvidesInstructorProgressEvidence({ ...request, booking });
+    }
+  }
+
   const authorizedActions = evaluateParticipantInstructorAccessAuthorizedActions({
     actor: input.actor,
     account,
@@ -267,7 +318,9 @@ async function buildParticipantInstructorAccessReadModel(input: Readonly<{
       : {}),
     managerBlock: buildBlockProjection(managerBlock, input.actor),
     instructorBlock: buildBlockProjection(instructorBlock, input.actor),
-    authorizedActions,
+    authorizedActions: canWrite
+      ? authorizedActions
+      : { ...authorizedActions, canBlock: false, canUnblock: false },
   };
 }
 

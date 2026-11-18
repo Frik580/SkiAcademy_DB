@@ -21,6 +21,8 @@ import {
   timestampFromDate,
   accountCommandActor,
   guestCommandActor,
+  guestParticipantTransportMetadataFromProfile,
+  type GuestBookingActionCredential,
   guestSubjectIdFromBookingId,
   participantManagementIdFromGuestLink,
   type CommandEnvelope,
@@ -1066,23 +1068,6 @@ function guestFixture() {
       pricePerHourKZT: 18_000,
       isAvailable: true,
     },
-    [`participants/${guestParticipantId}`]: {
-      participantId: guestParticipantId,
-      displayName: 'Guest Reschedule Participant',
-      age: { kind: 'age_years', years: 25 },
-      skillLevel: 'beginner',
-      discipline: 'ski',
-      management: { kind: 'unmanaged_guest' },
-      lifecycle: { status: 'active' },
-      revision: 1,
-      createdAt: decidedAt,
-      updatedAt: decidedAt,
-      audit: {
-        createdByCommandId: 'command_seed_guest_participant',
-        lastChangedByCommandId: 'command_seed_guest_participant',
-        correlationId,
-      },
-    },
     [`participants/${guestBlockerParticipantId}`]: {
       participantId: guestBlockerParticipantId,
       displayName: 'Guest Instructor Blocker',
@@ -1184,7 +1169,7 @@ async function seedPendingGuestBooking(
     context: {
       actor: guestCommandActor(guestSubjectId),
       exercisedCapability: 'guest',
-      idempotencyKey: 'guest-create-pending-reschedule',
+      idempotencyKey: 'create-guest-private:149ae19d3fda24338999ceeacfc4ebdf',
       correlationId,
       source: 'guest_callable',
       calendarInput: {
@@ -1193,6 +1178,12 @@ async function seedPendingGuestBooking(
         durationMinutes: 60,
       },
       timezone: 'Asia/Almaty',
+      transportMetadata: guestParticipantTransportMetadataFromProfile({
+        displayName: 'Guest Reschedule Participant',
+        skillLevel: 'beginner',
+        discipline: 'ski',
+        ageYears: 25,
+      }),
     },
     intent: {
       bookingId: guestBookingId,
@@ -1200,7 +1191,10 @@ async function seedPendingGuestBooking(
       participantIds: [guestParticipantId],
     },
   });
-  expect(createResult.status).toBe('success');
+  if (createResult.status !== 'success') throw new Error('Guest booking fixture failed');
+  const proof = createResult.payload?.guestActionCredential?.linkCredential;
+  if (!proof) throw new Error('Guest booking fixture is missing profile proof');
+  return proof;
 }
 
 async function seedConfirmedGuestBooking(
@@ -1212,7 +1206,7 @@ async function seedConfirmedGuestBooking(
     context: {
       actor: guestCommandActor(guestSubjectId),
       exercisedCapability: 'guest',
-      idempotencyKey: 'guest-create-reschedule',
+      idempotencyKey: 'create-guest-private:249ae19d3fda24338999ceeacfc4ebdf',
       correlationId,
       source: 'guest_callable',
       calendarInput: {
@@ -1221,6 +1215,12 @@ async function seedConfirmedGuestBooking(
         durationMinutes: 60,
       },
       timezone: 'Asia/Almaty',
+      transportMetadata: guestParticipantTransportMetadataFromProfile({
+        displayName: 'Guest Reschedule Participant',
+        skillLevel: 'beginner',
+        discipline: 'ski',
+        ageYears: 25,
+      }),
     },
     intent: {
       bookingId: guestBookingId,
@@ -1228,7 +1228,9 @@ async function seedConfirmedGuestBooking(
       participantIds: [guestParticipantId],
     },
   });
-  expect(createResult.status).toBe('success');
+  if (createResult.status !== 'success') throw new Error('Guest booking fixture failed');
+  const proof = createResult.payload?.guestActionCredential?.linkCredential;
+  if (!proof) throw new Error('Guest booking fixture is missing profile proof');
 
   const payment = executor.snapshot().docs.get(`payments/${guestPaymentId}`)?.data;
   const confirmResult = await commands.execute({
@@ -1249,10 +1251,12 @@ async function seedConfirmedGuestBooking(
     },
   });
   expect(confirmResult.status).toBe('success');
+  return proof;
 }
 
 async function linkGuestBookingToAccount(
   executor: ReturnType<typeof createInMemoryCanonicalTransactionExecutor>,
+  guestLinkCredential: NonNullable<GuestBookingActionCredential['linkCredential']>,
   actorAccountId = linkAccountId
 ) {
   const commands = guestCommands(executor);
@@ -1267,7 +1271,7 @@ async function linkGuestBookingToAccount(
       source: 'client_callable',
       expectedRevision: AggregateRevisionSchema.parse(bookingRevision ?? 1),
     },
-    intent: { bookingId: guestBookingId, participantId: guestParticipantId },
+    intent: { bookingId: guestBookingId, participantId: guestParticipantId, guestLinkCredential },
   });
   expect(result.status).toBe('success');
 }
@@ -1350,8 +1354,8 @@ describe('linked guest-origin reschedule authorization', () => {
 
   it('allows linked guest-origin booking reschedule for authorized manager and preserves provenance', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(guestFixture());
-    await seedConfirmedGuestBooking(executor);
-    await linkGuestBookingToAccount(executor);
+    const proof = await seedConfirmedGuestBooking(executor);
+    await linkGuestBookingToAccount(executor, proof);
 
     const startsAt = executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.occurrence
       .interval.startsAt;
@@ -1384,8 +1388,8 @@ describe('linked guest-origin reschedule authorization', () => {
 
   it('forbids linked guest-origin booking reschedule for unauthorized account', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(guestFixture());
-    await seedConfirmedGuestBooking(executor);
-    await linkGuestBookingToAccount(executor);
+    const proof = await seedConfirmedGuestBooking(executor);
+    await linkGuestBookingToAccount(executor, proof);
 
     const startsAt = executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.occurrence
       .interval.startsAt;
@@ -1405,8 +1409,8 @@ describe('linked guest-origin reschedule authorization', () => {
 
   it('forbids linked guest-origin booking reschedule when participant management is revoked', async () => {
     const setupExecutor = createInMemoryCanonicalTransactionExecutor(guestFixture());
-    await seedConfirmedGuestBooking(setupExecutor);
-    await linkGuestBookingToAccount(setupExecutor);
+    const proof = await seedConfirmedGuestBooking(setupExecutor);
+    await linkGuestBookingToAccount(setupExecutor, proof);
 
     const managementId = participantManagementIdFromGuestLink({
       participantId: guestParticipantId,
@@ -1442,8 +1446,8 @@ describe('linked guest-origin reschedule authorization', () => {
 
   it('does not grant reschedule authority from payerAccountId without participant management', async () => {
     const setupExecutor = createInMemoryCanonicalTransactionExecutor(guestFixture());
-    await seedConfirmedGuestBooking(setupExecutor);
-    await linkGuestBookingToAccount(setupExecutor);
+    const proof = await seedConfirmedGuestBooking(setupExecutor);
+    await linkGuestBookingToAccount(setupExecutor, proof);
 
     const linkedDocs: Record<string, Record<string, unknown>> = {};
     for (const [path, doc] of setupExecutor.snapshot().docs.entries()) {
@@ -1595,8 +1599,8 @@ describe('admin reschedule pending unpaid booking', () => {
 
   it('rejects client self-service reschedule for pending unpaid booking', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(guestFixture());
-    await seedPendingGuestBooking(executor);
-    await linkGuestBookingToAccount(executor);
+    const proof = await seedPendingGuestBooking(executor);
+    await linkGuestBookingToAccount(executor, proof);
     const bookingRevision = executor.snapshot().docs.get(`bookings/${guestBookingId}`)?.data.revision;
     const commands = guestCommands(executor, '2026-01-14T09:00:01.000Z');
     const result = await commands.execute(

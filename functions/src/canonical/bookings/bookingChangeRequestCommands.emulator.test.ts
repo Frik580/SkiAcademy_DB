@@ -168,6 +168,7 @@ async function seedInstructor(
     .doc(id)
     .set({
       id,
+      ...(id === instructorId ? { linkedAccountId: instructorAccountId } : {}),
       name: `Emulator Instructor ${id}`,
       isAvailable: true,
       ...tariff,
@@ -180,7 +181,7 @@ async function seedSharedFixture(walletBalance = WALLET_START_KZT): Promise<void
   await firestore
     .collection('users')
     .doc(instructorAccountId)
-    .set(seedAccount(instructorAccountId));
+    .set({ ...seedAccount(instructorAccountId), instructorId });
   await firestore.collection('users').doc(adminAccountId).set(seedAccount(adminAccountId));
   await firestore
     .collection('users')

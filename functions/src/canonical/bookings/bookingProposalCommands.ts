@@ -94,6 +94,7 @@ import {
   readAndPlanAcquireResourceClaim,
   type ResourceClaimOperationPlan,
 } from '../resourceClaims/resourceClaimEngine';
+import { readVerifiedInstructorCatalog } from '../participantAccess/instructorIdentity';
 import {
   assertAcceptProposalAuthorization,
   assertCancelProposalActorMatchesProposal,
@@ -509,7 +510,6 @@ function createBookingProposalHandler(
   const { participantIds } = assertCreateProposalParty(envelope);
 
   const proposalDocumentPath = bookingProposalPath(envelope.intent.bookingProposalId);
-  const instructorDocumentPath = instructorCatalogPath(envelope.intent.instructorId);
 
   let notificationAccountId!: ParticipantManagement['accountId'];
   let schedule!: ReturnType<typeof resolveBookingScheduleFromCalendarInput>;
@@ -586,11 +586,14 @@ function createBookingProposalHandler(
         });
       }
 
-      const instructorRead = await session.tx.get({ path: instructorDocumentPath });
-      session.plan.planRead({ path: instructorDocumentPath, category: 'authorization_check' });
+      const instructorRecord = await readVerifiedInstructorCatalog(
+        session,
+        envelope,
+        envelope.intent.instructorId
+      );
       const parsedInstructor = parseInstructorCatalog(
         envelope.intent.instructorId,
-        instructorRead.exists ? instructorRead.data : undefined
+        instructorRecord
       );
       if (!parsedInstructor || isSyntheticCourseInstructorId(envelope.intent.instructorId)) {
         throw new CanonicalCommandError('validation', {
@@ -1223,6 +1226,9 @@ function cancelBookingProposalHandler(
         parseBookingProposal(proposalRead.exists ? proposalRead.data : undefined)
       );
       assertCancelProposalActorMatchesProposal(envelope, proposal, cancelActor);
+      if (cancelActor === 'instructor') {
+        await readVerifiedInstructorCatalog(session, envelope, proposal.instructorId);
+      }
       const partyParticipantIds = proposalParticipantIds(proposal);
 
       const participantRecords: Participant[] = [];

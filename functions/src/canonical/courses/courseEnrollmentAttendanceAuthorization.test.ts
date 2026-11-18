@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AccountIdSchema,
+  AccountSchema,
   CorrelationIdSchema,
   CourseDayIdSchema,
   CourseEnrollmentIdSchema,
@@ -29,6 +30,14 @@ const correlationId = CorrelationIdSchema.parse('correlation_attendance_auth_mul
 const startsAt = timestampFromDate(new Date('2026-02-01T09:00:00.000Z'));
 const endsAt = timestampFromDate(new Date('2026-02-01T11:00:00.000Z'));
 const now = timestampFromDate(new Date('2026-02-01T10:00:00.000Z'));
+const instructorAccount = AccountSchema.parse({
+  accountId: instructorAccountId,
+  lifecycle: { status: 'active' },
+  revision: 1,
+  createdAt: startsAt,
+  updatedAt: startsAt,
+  audit: { createdByCommandId: 'seed', lastChangedByCommandId: 'seed', correlationId },
+});
 
 const enrollment: CourseEnrollment = {
   enrollmentId,
@@ -79,7 +88,8 @@ function envelope(
       authUid: instructorAccountId,
       commandKind: 'record_course_day_attendance',
       exercisedCapability: 'instructor',
-    }
+    },
+    instructorAccount
   );
   return buildCommandEnvelopeFromCallable(accountContext, {
     kind: 'record_course_day_attendance',

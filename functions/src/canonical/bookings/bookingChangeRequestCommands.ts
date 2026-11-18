@@ -30,6 +30,7 @@ import {
   type AuthoritativeIdempotentCanonicalCommandHandler,
 } from '../commands/idempotentCommandExecution';
 import { accountPath, parseAccount, parsePayment, paymentPath } from '../finance/financeStore';
+import { readVerifiedInstructorCatalog } from '../participantAccess/instructorIdentity';
 import {
   parseParticipant,
   parseParticipantBlock,
@@ -147,6 +148,7 @@ function createBookingChangeRequestHandler(
       }
       booking = parsedBooking;
       assertCreateBookingChangeRequestAuthorization(envelope, booking);
+      await readVerifiedInstructorCatalog(session, envelope, booking.occurrence.instructorId);
 
       const changeRequestRead = await session.tx.get({ path: changeRequestDocumentPath });
       session.plan.planRead({ path: changeRequestDocumentPath, category: 'aggregate' });
@@ -243,6 +245,7 @@ function withdrawBookingChangeRequestHandler(
         }
         booking = parsedBooking;
         assertWithdrawBookingChangeRequestAuthorization(envelope, { changeRequest, booking });
+        await readVerifiedInstructorCatalog(session, envelope, booking.occurrence.instructorId);
 
         plannedChangeRequestRevision = nextAggregateRevision(changeRequest.revision);
         session.plan.planMutation({

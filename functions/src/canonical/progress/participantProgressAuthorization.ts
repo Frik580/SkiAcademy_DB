@@ -1,10 +1,12 @@
 import {
   bookingScopedEvidenceFromQualifyingProgressBooking,
   bookingScopedEvidenceFromQualifyingProgressReadBooking,
+  bookingProvidesInstructorProgressReadEvidence,
   timestampFromDate,
   documentMatchesReadScope,
   type CanonicalReadScope,
   type BookingScopedParticipantAccessEvidence,
+  type Booking,
   type InstructorId,
   type ParticipantId,
 } from '@ski-academy/shared-domain';
@@ -61,7 +63,7 @@ export async function readInstructorProgressBookingScopedEvidence(
   return [];
 }
 
-export async function loadInstructorProgressReadBookingScopedEvidence(
+export async function findInstructorProgressReadBooking(
   firestore: Firestore,
   input: Readonly<{
     instructorId: InstructorId;
@@ -69,7 +71,7 @@ export async function loadInstructorProgressReadBookingScopedEvidence(
     at: ReturnType<typeof timestampFromDate>;
     readScope?: CanonicalReadScope;
   }>
-): Promise<readonly BookingScopedParticipantAccessEvidence[]> {
+): Promise<Booking | undefined> {
   const bookingQuery = firestore
     .collection('bookings')
     .where('party.participantIds', 'array-contains', input.participantId)
@@ -85,15 +87,18 @@ export async function loadInstructorProgressReadBookingScopedEvidence(
       if (input.readScope && !documentMatchesReadScope(input.readScope, data)) continue;
       const booking = parseBooking(data);
       if (!booking) continue;
-      const scoped = bookingScopedEvidenceFromQualifyingProgressReadBooking({
-        booking,
-        instructorId: input.instructorId,
-        participantId: input.participantId,
-        at: input.at,
-      });
-      if (scoped) return [scoped];
+      if (bookingProvidesInstructorProgressReadEvidence({ ...input, booking })) return booking;
     }
-    if (page.docs.length < 50) return [];
+    if (page.docs.length < 50) return undefined;
     cursor = page.docs[page.docs.length - 1];
   }
+}
+
+export async function loadInstructorProgressReadBookingScopedEvidence(
+  firestore: Firestore,
+  input: Parameters<typeof findInstructorProgressReadBooking>[1]
+): Promise<readonly BookingScopedParticipantAccessEvidence[]> {
+  const booking = await findInstructorProgressReadBooking(firestore, input);
+  const evidence = booking && bookingScopedEvidenceFromQualifyingProgressReadBooking({ ...input, booking });
+  return evidence ? [evidence] : [];
 }

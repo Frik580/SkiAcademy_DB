@@ -87,7 +87,7 @@ function adminContext(
 
 function seedBase() {
   return {
-    [`users/${instructorAccountId}`]: AccountSchema.parse({
+    [`users/${instructorAccountId}`]: { ...AccountSchema.parse({
       accountId: instructorAccountId,
       lifecycle: { status: 'active' },
       revision: 1,
@@ -98,7 +98,7 @@ function seedBase() {
         lastChangedByCommandId: 'command_seed_instructor_account',
         correlationId,
       },
-    }),
+    }), instructorId },
     [`users/${adminAccountId}`]: AccountSchema.parse({
       accountId: adminAccountId,
       lifecycle: { status: 'active' },
@@ -191,6 +191,7 @@ function seedBase() {
     },
     [`instructors/${instructorId}`]: {
       id: instructorId,
+      linkedAccountId: instructorAccountId,
       name: 'Coach Change Request',
       pricePerHourKZT: 12_000,
       isAvailable: true,

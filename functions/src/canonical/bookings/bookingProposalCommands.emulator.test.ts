@@ -31,6 +31,7 @@ const PROJECT_ID = 'demo-ski-school-e2e';
 const correlationId = CorrelationIdSchema.parse('correlation_proposal_emulator_01');
 const accountId = AccountIdSchema.parse('account_proposal_emulator_01');
 const instructorAccountId = AccountIdSchema.parse('account_proposal_emulator_instructor_01');
+const instructorAccountIdB = AccountIdSchema.parse('account_proposal_emulator_instructor_02');
 const participantId = ParticipantIdSchema.parse('participant_proposal_emulator_01');
 const participantIdB = ParticipantIdSchema.parse('participant_proposal_emulator_02');
 const managementId = ParticipantManagementIdSchema.parse('management_proposal_emulator_01');
@@ -226,6 +227,7 @@ async function seedInstructor(
     .doc(id)
     .set({
       id,
+      linkedAccountId: id === instructorId ? instructorAccountId : instructorAccountIdB,
       name: `Emulator Instructor ${id}`,
       isAvailable: true,
       ...tariff,
@@ -245,7 +247,10 @@ async function seedSharedFixture(
   await firestore
     .collection('users')
     .doc(instructorAccountId)
-    .set(seedAccount(instructorAccountId));
+    .set({ ...seedAccount(instructorAccountId), instructorId });
+  await firestore.collection('users').doc(instructorAccountIdB).set({
+    ...seedAccount(instructorAccountIdB), instructorId: instructorIdB,
+  });
   await firestore
     .collection('users')
     .doc(accountId)
@@ -313,7 +318,7 @@ function instructorContext(
 ) {
   const resolvedInstructorId = input.instructorId ?? instructorId;
   return {
-    actor: accountCommandActor(instructorAccountId),
+    actor: accountCommandActor(resolvedInstructorId === instructorId ? instructorAccountId : instructorAccountIdB),
     exercisedCapability: 'instructor' as const,
     idempotencyKey,
     correlationId,

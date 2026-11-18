@@ -142,6 +142,7 @@ function seedManagement() {
 function seedInstructor() {
   return {
     id: instructorId,
+    linkedAccountId: instructorAccountId,
     name: 'Coach Proposal',
     avatarUrl: 'https://example.com/avatar.png',
     pricePerHourKZT: 12_000,
@@ -238,7 +239,7 @@ function seedWallet(balance: number) {
 function baseFixture(extra: Record<string, unknown> = {}) {
   return {
     [`users/${accountId}`]: seedAccount(),
-    [`users/${instructorAccountId}`]: seedAccount(instructorAccountId),
+    [`users/${instructorAccountId}`]: { ...seedAccount(instructorAccountId), instructorId },
     [`participants/${participantId}`]: seedParticipant(),
     [`participant_management/${managementId}`]: seedManagement(),
     [`instructor_relationships/${relationshipId}`]: seedRelationship(),
@@ -516,12 +517,17 @@ describe('booking proposal commands', () => {
 
   it('keeps the proposal open when participant acceptance hits a participant conflict', async () => {
     const conflictingBookingId = BookingIdSchema.parse('booking_proposal_participant_conflict_01');
+    const instructorTwoAccountId = AccountIdSchema.parse('account_proposal_instructor_02');
     const instructorTwoRelationshipId = instructorRelationshipIdFromPair({
       participantId,
       instructorId: instructorTwoId,
     });
     const executor = createInMemoryCanonicalTransactionExecutor(
       baseFixture({
+        [`users/${instructorTwoAccountId}`]: { ...seedAccount(instructorTwoAccountId), instructorId: instructorTwoId },
+        [`instructors/${instructorTwoId}`]: {
+          ...seedInstructor(), id: instructorTwoId, linkedAccountId: instructorTwoAccountId,
+        },
         [`instructor_relationships/${instructorTwoRelationshipId}`]: {
           ...seedRelationship(),
           instructorRelationshipId: instructorTwoRelationshipId,
@@ -545,7 +551,7 @@ describe('booking proposal commands', () => {
         context: {
           ...accountContext(
             'instructor',
-            instructorAccountId,
+            instructorTwoAccountId,
             'proposal-create-participant-conflict-01'
           ),
           transportMetadata: { instructor_id: instructorTwoId },

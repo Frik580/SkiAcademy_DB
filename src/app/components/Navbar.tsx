@@ -461,11 +461,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               id={mobilePanelId}
               role="region"
               aria-label={mobileMenuLabel}
-              initial={{ y: -12 }}
-              animate={{ y: 0 }}
-              exit={{ y: -12 }}
-              transition={{ duration: 0.2 }}
-              className="ui-navbar-panel lg:hidden absolute top-[calc(100%+0.5rem)] right-2 sm:right-4 w-[min(20rem,calc(100%-1rem))] rounded-2xl p-3 sm:p-4 flex flex-col gap-2 sm:gap-3 z-50 max-h-[calc(100dvh-var(--app-navbar-height,60px)-0.5rem)] overflow-y-auto shadow-[var(--shadow-soft)]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.12 }}
+              className="ui-navbar-panel lg:hidden absolute top-[calc(100%+0.5rem)] left-2 right-2 min-[450px]:left-auto min-[450px]:w-[min(20rem,calc(100%-1rem))] sm:right-4 rounded-2xl p-3 sm:p-4 flex flex-col gap-2 sm:gap-3 z-50 max-h-[calc(100dvh-var(--app-navbar-height,60px)-0.5rem)] overflow-y-auto shadow-[var(--shadow-soft)]"
             >
               {userProfile && (
                 <>

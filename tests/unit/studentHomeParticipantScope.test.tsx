@@ -10,7 +10,7 @@ vi.mock('../../src/features/settings/schoolTimeZone', () => ({
 }));
 import { cabinetLessonTiming } from '../fixtures/cabinetLessonTiming';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -37,6 +37,8 @@ import { canonicalTimestampToEpochMs } from '@ski-academy/shared-domain/canonica
 import type { ManagedRecommendation } from '@ski-academy/shared-domain';
 import type { LessonBookingReadModel } from '@ski-academy/shared-domain';
 import { useAccountParticipantLessonStatsStore } from '../../src/features/lesson-bookings/accountParticipantLessonStatsStore';
+import { useLessonBookingStore } from '../../src/features/lesson-bookings/lessonBookingStore';
+import { useAccountCourseSessionStore } from '../../src/features/course-enrollments/accountCourseSessionStore';
 
 const homeworkHistoryCalls = vi.hoisted(() => ({
   sources: [] as string[],
@@ -726,6 +728,28 @@ describe('Student Home dashboard grid', () => {
       'homework',
       'weather',
     ];
+    const grid = screen.getByTestId('student-dashboard-grid');
+    const tile = within(grid.querySelector<HTMLElement>('[data-dashboard-tile="nextSession"]')!);
+    const calendar = tile.getByRole('button', { name: 'scFullCalendar' });
+    expect(tile.getByRole('status')).toHaveTextContent('loading');
+    expect(tile.queryByText('scNoUpcomingSession')).not.toBeInTheDocument();
+
+    act(() => useLessonBookingStore.setState({ loaded: true }));
+    expect(tile.getByRole('status')).toHaveTextContent('loading');
+    expect(tile.queryByText('scNoUpcomingSession')).not.toBeInTheDocument();
+
+    act(() => useAccountCourseSessionStore.setState({ error: 'Network unavailable' }));
+    expect(tile.getByRole('alert')).toHaveTextContent('scUpcomingSessionsLoadError');
+    expect(tile.getByRole('button', { name: 'retry' })).toBeInTheDocument();
+    expect(tile.queryByRole('status')).not.toBeInTheDocument();
+    expect(tile.queryByText('scNoUpcomingSession')).not.toBeInTheDocument();
+
+    act(() => useAccountCourseSessionStore.setState({ loaded: true, error: undefined }));
+    expect(tile.queryByRole('alert')).not.toBeInTheDocument();
+    expect(tile.queryByRole('status')).not.toBeInTheDocument();
+    expect(tile.getByText('scNoUpcomingSession')).toBeInTheDocument();
+    expect(tile.getByRole('button', { name: 'scFullCalendar' })).toBe(calendar);
+    expect(tile.getAllByTitle('noLessons')).toHaveLength(7);
     expect(tileOrder()).toEqual(
       DEFAULT_STUDENT_DASHBOARD_LAYOUT.order.filter((key) => visible.includes(key))
     );
@@ -733,9 +757,12 @@ describe('Student Home dashboard grid', () => {
     expect(tileOrder()).not.toContain('currentSessions');
     expect(tileOrder()).not.toContain('todayAchievements');
     expect(tileOrder()).not.toContain('needsAttention');
-    // The next-session empty state still provides the calendar, as before.
-    expect(screen.getByText('scNoUpcomingSession')).toBeInTheDocument();
-    expect(screen.getByText('scFullCalendar')).toBeInTheDocument();
+    for (const item of grid.querySelectorAll('[data-dashboard-item]')) {
+      expect(item.firstElementChild).toHaveAttribute(
+        'data-dashboard-tile',
+        item.getAttribute('data-dashboard-item')
+      );
+    }
   });
 
   it('applies realtime layout updates in DOM order without remounting cards', () => {
@@ -887,6 +914,9 @@ describe('Student Home dashboard grid', () => {
 });
 
 afterEach(() => {
+  cleanup();
+  useLessonBookingStore.getState().reset();
+  useAccountCourseSessionStore.getState().reset();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -1254,6 +1284,33 @@ function calendarHome(id = 'alice') {
   );
 }
 describe('B6 Home school calendar readiness and scope', () => {
+  it('keeps the loaded session and calendar during a background refresh and after a read error', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-12T19:30:00Z'));
+    useLessonBookingStore.setState({ loaded: true });
+    useAccountCourseSessionStore.setState({ loaded: true });
+    await act(async () => {
+      render(calendarHome());
+    });
+    const grid = screen.getByTestId('student-dashboard-grid');
+    const tile = within(grid.querySelector<HTMLElement>('[data-dashboard-tile="nextSession"]')!);
+    const session = tile.getByText('Calendar alice');
+    const calendarDay = tile.getByText('13', { selector: '[aria-current="date"]' });
+
+    act(() => useLessonBookingStore.getState().setHotLoading(true));
+    expect(tile.queryByRole('status')).not.toBeInTheDocument();
+    expect(tile.getByText('Calendar alice')).toBe(session);
+    expect(calendarDay).toBeInTheDocument();
+
+    act(() =>
+      useLessonBookingStore.setState({ hotLoading: false, error: 'Network unavailable' })
+    );
+    expect(tile.getByRole('alert')).toHaveTextContent('scUpcomingSessionsLoadError');
+    expect(tile.getByText('Calendar alice')).toBe(session);
+    expect(calendarDay).toBeInTheDocument();
+    expect(tile.queryByText('scNoUpcomingSession')).not.toBeInTheDocument();
+  });
+
   it('waits for confirmation, surfaces errors and retry, and updates after a school zone change', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-11-12T19:30:00Z'));

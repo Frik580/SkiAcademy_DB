@@ -16,6 +16,7 @@ import {
   createCanonicalCommandRuntime,
   readGuestActionTokenSecret,
 } from './canonicalCommandRuntime';
+import { getCommandPolicy } from './commandPolicies';
 import {
   deriveGuestReservationActorKey,
   type GuestReservationAdmissionPolicy,
@@ -43,11 +44,8 @@ export function createExecuteGuestCanonicalCommandHandler(
     }
 
     const envelope = buildGuestCommandEnvelopeFromCallable(guestSubjectId, transportInput);
-    const isReservationCreation =
-      transportInput.kind === 'create_guest_booking_request' ||
-      transportInput.kind === 'create_course_enrollments';
     let guestReservationAdmission: GuestReservationAdmissionPolicy | undefined;
-    if (isReservationCreation && limits) {
+    if (getCommandPolicy(transportInput.kind)?.guestAdmission && limits) {
       const forwardedFor = request.rawRequest.headers['x-forwarded-for'];
       const actorKey = guestActionTokenSecret
         ? deriveGuestReservationActorKey(forwardedFor, guestActionTokenSecret)
@@ -82,7 +80,7 @@ export function createExecuteGuestCanonicalCommandHandler(
     const commands = runtime.createCommands(LIVE_CANONICAL_EXECUTION_SCOPE);
 
     try {
-      const result = await commands.execute(envelope);
+      const result = await commands.execute(envelope, 'guest_callable');
       if (result.status === 'error') {
         if (result.error.code === 'guest_reservation_limit') {
           console.warn(JSON.stringify({

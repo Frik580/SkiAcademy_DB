@@ -56,3 +56,88 @@ describe('canonical callable unexpected exception diagnostics', () => {
     expect(logError).not.toHaveBeenCalled();
   });
 });
+
+describe('canonical callable authorization inputs', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  function call(data: Record<string, unknown>, profile?: Record<string, unknown>) {
+    const get = vi.fn(async () => ({ data: () => profile }));
+    const firestore = {
+      collection: () => ({ doc: () => ({ get }) }),
+    } as unknown as Firestore;
+    const handler = createExecuteCanonicalCommandHandler(firestore);
+    return {
+      get,
+      result: handler({
+        auth: { uid: 'account_callable_authorization' },
+        data: {
+          idempotencyKey: 'callable-authorization',
+          correlationId: CorrelationIdSchema.parse('correlation_callable_authorization'),
+          intent: {},
+          ...data,
+        },
+      } as unknown as Parameters<typeof handler>[0]),
+    };
+  }
+
+  it('rejects unknown command kinds before an Account read', async () => {
+    const { get, result } = call({ kind: 'toString' });
+    await expect(result).rejects.toMatchObject({
+      code: 'invalid-argument',
+      details: { code: 'validation' },
+    });
+    expect(get).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('does not dispatch for a disabled profile even if it lacks other canonical Account fields', async () => {
+    await expect(
+      call(
+        { kind: 'provision_self_participant' },
+        {
+          lifecycle: { status: 'disabled' },
+        }
+      ).result
+    ).rejects.toMatchObject({ code: 'permission-denied' });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('keeps the missing Account bootstrap and derives source and actor on the server', async () => {
+    execute.mockResolvedValueOnce({ status: 'success' });
+    await expect(
+      call({
+        kind: 'provision_self_participant',
+        exercisedCapability: 'system',
+        source: 'scheduler',
+        actor: { kind: 'system' },
+      }).result
+    ).resolves.toMatchObject({ status: 'success' });
+    expect(execute).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        context: expect.objectContaining({
+          source: 'client_callable',
+          actor: { kind: 'account', accountId: 'account_callable_authorization' },
+          exercisedCapability: 'account_owner',
+        }),
+      }),
+      'authenticated_callable'
+    );
+  });
+
+  it('rejects explicit administrator capability and an unverified admin profile', async () => {
+    await expect(
+      call(
+        {
+          kind: 'create_confirmed_booking',
+          exercisedCapability: 'administrator',
+          administratorContext: true,
+        },
+        { role: 'user' }
+      ).result
+    ).rejects.toMatchObject({ code: 'permission-denied' });
+    await expect(
+      call({ kind: 'confirm_guest_booking' }, { role: 'admin' }).result
+    ).rejects.toMatchObject({ code: 'permission-denied' });
+    expect(execute).not.toHaveBeenCalled();
+  });
+});

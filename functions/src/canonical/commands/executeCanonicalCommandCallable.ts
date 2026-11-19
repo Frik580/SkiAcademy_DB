@@ -21,6 +21,7 @@ import {
   createCanonicalCommandRuntime,
   readGuestActionTokenSecret,
 } from './canonicalCommandRuntime';
+import { getCommandPolicy } from './commandPolicies';
 import {
   mapCommandErrorTransportToHttpsError,
   rethrowCanonicalCommandErrorAsHttps,
@@ -112,11 +113,12 @@ export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
     }
 
     const transportInput = parseAuthenticatedCallableCommandTransportInput(request);
+    const progressContract = getCommandPolicy(transportInput.kind)?.participantProgressContract;
     // Old tabs silently submitted level assignments through progress updates.
     // Reject before any domain transaction; refreshing loads the canonical UX.
     if (
-      ['update_participant_progress', 'manage_participant_level'].includes(transportInput.kind) &&
-      transportInput.participantProgressContract !== 2
+      progressContract !== undefined &&
+      transportInput.participantProgressContract !== progressContract
     ) {
       throw new HttpsError(
         'failed-precondition',
@@ -145,17 +147,20 @@ export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
       mapCallableContextError(error);
     }
 
-    if (accountContext.capability === 'administrator' && !isAdministratorProfile(profile)) {
+    const lifecycle = userData?.lifecycle;
+    if (
+      lifecycle &&
+      typeof lifecycle === 'object' &&
+      'status' in lifecycle &&
+      lifecycle.status === 'disabled'
+    ) {
       throw new HttpsError('permission-denied', 'This action is not permitted.');
     }
-    if (accountContext.capability === 'administrator') {
-      if (!account || account.lifecycle.status !== 'active') {
-        throw new HttpsError('permission-denied', 'This action is not permitted.');
-      }
-    } else if (accountContext.source === 'client_callable') {
-      if (account?.lifecycle.status === 'disabled') {
-        throw new HttpsError('permission-denied', 'This action is not permitted.');
-      }
+    if (
+      accountContext.source === 'admin_callable' &&
+      (account?.accountId !== accountContext.accountId || account.lifecycle.status !== 'active')
+    ) {
+      throw new HttpsError('permission-denied', 'This action is not permitted.');
     }
 
     let executionScope: CanonicalExecutionScope;
@@ -188,7 +193,7 @@ export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
     const commands = runtime.createCommands(executionScope);
 
     try {
-      const result = await commands.execute(envelope);
+      const result = await commands.execute(envelope, 'authenticated_callable');
       if (result.status === 'error') {
         throw mapCommandErrorTransportToHttpsError(result.error);
       }

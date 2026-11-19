@@ -42,6 +42,7 @@ import {
 } from '@ski-academy/shared-domain';
 import type { CanonicalAtomicTransactionSession } from '../transactions/firestoreTransactionExecutor';
 import type { CommandHandlerMap } from '../commands/canonicalCommands';
+import { getCommandPolicyError } from '../commands/commandPolicies';
 import {
   executeAuthoritativeIdempotentCanonicalCommand,
   type AuthoritativeIdempotentCanonicalCommandHandler,
@@ -1002,6 +1003,9 @@ export async function reconcileGuestConfirmationLifecycleMismatchAfterCommand(in
   >[0]['executor'];
   readonly eventLoader?: MonetaryEventLoader;
 }): Promise<GuestConfirmationLifecycleMismatchReconciliationOutcome> {
+  // Guest confirmation is LIVE-only, including the preliminary payment read.
+  if (input.environment.scope?.dataScope === 'test') return 'aligned';
+
   const mismatch = await input.executor.runAtomic({
     correlationId: input.correlationId,
     run: async (session) => {
@@ -1070,6 +1074,13 @@ export async function reconcileGuestConfirmationLifecycleMismatchAfterCommand(in
     },
     intent: { operation: 'reconcile_payment', paymentId: input.paymentId },
   };
+  const policyError = getCommandPolicyError(
+    reconciliationEnvelope,
+    input.environment.scope,
+    'server'
+  );
+  if (policyError) throw policyError;
+
   const runReconciliation = () =>
     recordAuditCorrectionHandler(
       reconciliationEnvelope,

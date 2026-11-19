@@ -6,17 +6,18 @@ import { refreshManagedParticipantAchievements } from './participantAchievements
 import { useParticipantAchievementsStore } from './participantAchievementsStore';
 
 export function useParticipantAchievementsSync() {
-  const firebaseUser = useAuthStore((state) => state.firebaseUser);
-  const userProfile = useProfileStore((state) => state.userProfile);
+  const accountId = useAuthStore((state) => state.firebaseUser?.uid);
+  const authGeneration = useAuthStore((state) => state.authGeneration);
+  const profileId = useProfileStore((state) => state.userProfile?.uid);
+  const role = useProfileStore((state) => state.userProfile?.role);
   const canonicalReadyAccountId = useProfileStore((state) => state.canonicalReadyAccountId);
 
   useEffect(() => {
     if (
-      !firebaseUser ||
-      !userProfile ||
-      userProfile.role !== 'user' ||
-      canonicalReadyAccountId !== firebaseUser.uid ||
-      userProfile.uid !== firebaseUser.uid
+      !accountId ||
+      role !== 'user' ||
+      canonicalReadyAccountId !== accountId ||
+      profileId !== accountId
     ) {
       useParticipantAchievementsStore.getState().clear();
       return;
@@ -24,5 +25,5 @@ export function useParticipantAchievementsSync() {
     void refreshManagedParticipantAchievements().catch((error) => {
       logger.warn('Failed to load managed participant achievements', error);
     });
-  }, [firebaseUser, userProfile, canonicalReadyAccountId]);
+  }, [accountId, authGeneration, canonicalReadyAccountId, profileId, role]);
 }

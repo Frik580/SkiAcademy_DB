@@ -142,6 +142,26 @@ describe('lessonBooking read sync integration', () => {
     });
   });
 
+  it('stops after a failed history read and retries page one only on request', async () => {
+    queryLessonBookingReadModelsMock
+      .mockRejectedValueOnce(new Error('history unavailable'))
+      .mockResolvedValueOnce({ scope: 'account_history', items: [], hasMore: false });
+    renderHook(() => useLessonBookingReadSync(true, 'account_fixture_01', true, false));
+    await waitFor(() => expect(useLessonBookingStore.getState().historyError).toBeDefined());
+    expect(useLessonBookingStore.getState()).toMatchObject({
+      historyLoading: false,
+      historyInitialized: false,
+    });
+    expect(queryLessonBookingReadModelsMock).toHaveBeenCalledTimes(1);
+    act(() => useLessonBookingStore.getState().requestHistoryPage());
+    await waitFor(() => expect(useLessonBookingStore.getState().historyInitialized).toBe(true));
+    expect(useLessonBookingStore.getState().historyError).toBeUndefined();
+    expect(queryLessonBookingReadModelsMock.mock.calls).toEqual([
+      [{ scope: 'account_history' }],
+      [{ scope: 'account_history' }],
+    ]);
+  });
+
   it('includes cursor on paginated account_history sync request', async () => {
     const cursor = 'cursor_page_2_fixture';
     queryLessonBookingReadModelsMock

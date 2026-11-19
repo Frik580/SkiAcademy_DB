@@ -5,7 +5,7 @@ import { CourseCatalogFeedback } from './CourseCatalogFeedback';
 import { useCourseEnrollmentStore as useCatalogStore } from '../../course-enrollments/courseEnrollmentStore';
 import { reloadCourseCatalog } from '../../course-enrollments/useCourseEnrollmentReadSync';
 import { GUEST_COURSE_COMMENT_MAX_LENGTH } from '@ski-academy/shared-domain/canonical/courseEnrollmentAttendanceAdminIssue';
-import React, { useCallback, useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useState, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { X, User, Phone, Mail, Send } from 'lucide-react';
 import { ActionButton } from '../../../ui/ActionButton';
@@ -122,10 +122,12 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     enrollmentId: string;
     request: ReturnType<typeof loadGuestSingleCourseEnrollment>;
   } | null>(null);
+  const guestLookupGeneration = useRef(0);
   const isSubmittingRef = useRef(false);
   const guestEnrollmentAttemptKeyRef = useRef<string | null>(null);
 
   const activeAccountId = authenticatedProfile?.uid;
+  const profileAccountId = userProfile?.uid;
   const {
     participants,
     loading: participantsLoading,
@@ -178,39 +180,43 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   const previousGuestEnrollmentId = course
     ? (rememberedGuestReservation('course', course.id) ?? guestActiveEnrollment?.enrollmentId)
     : null;
-  const checkPreviousGuestStatus = useCallback(
-    async (isCurrent: () => boolean = () => true) => {
-      if (!courseId || !previousGuestEnrollmentId) return;
-      const request =
-        guestLookupInFlightRef.current?.enrollmentId === previousGuestEnrollmentId
-          ? guestLookupInFlightRef.current.request
-          : loadGuestSingleCourseEnrollment(previousGuestEnrollmentId);
-      guestLookupInFlightRef.current = { enrollmentId: previousGuestEnrollmentId, request };
-      setGuestRefreshing(true);
-      setGuestLookupError(null);
-      try {
-        const reservation = await request;
-        if (!isCurrent()) return;
-        setGuestReservation(reservation);
-        setGuestCreatedEnrollmentId(previousGuestEnrollmentId);
-        setGuestRefreshError(false);
-      } catch (error) {
-        if (!isCurrent()) return;
-        if (isUnusableGuestReservationError(error)) {
-          forgetGuestReservation('course', courseId, previousGuestEnrollmentId);
-          setGuestLookupError('stale');
-        } else {
-          setGuestLookupError('recoverable');
-        }
-      } finally {
-        if (guestLookupInFlightRef.current?.request === request) {
-          guestLookupInFlightRef.current = null;
-          setGuestRefreshing(false);
-        }
+  useLayoutEffect(() => {
+    return () => {
+      guestLookupGeneration.current += 1;
+    };
+  }, [courseId, isOpen, activeAccountId]);
+  const checkPreviousGuestStatus = useCallback(async () => {
+    if (!isOpen || !courseId || !previousGuestEnrollmentId) return;
+    const generation = ++guestLookupGeneration.current;
+    const isCurrent = () => guestLookupGeneration.current === generation;
+    const request =
+      guestLookupInFlightRef.current?.enrollmentId === previousGuestEnrollmentId
+        ? guestLookupInFlightRef.current.request
+        : loadGuestSingleCourseEnrollment(previousGuestEnrollmentId);
+    guestLookupInFlightRef.current = { enrollmentId: previousGuestEnrollmentId, request };
+    setGuestRefreshing(true);
+    setGuestLookupError(null);
+    try {
+      const reservation = await request;
+      if (!isCurrent()) return;
+      setGuestReservation(reservation);
+      setGuestCreatedEnrollmentId(previousGuestEnrollmentId);
+      setGuestRefreshError(false);
+    } catch (error) {
+      if (!isCurrent()) return;
+      if (isUnusableGuestReservationError(error)) {
+        forgetGuestReservation('course', courseId, previousGuestEnrollmentId);
+        setGuestLookupError('stale');
+      } else {
+        setGuestLookupError('recoverable');
       }
-    },
-    [courseId, previousGuestEnrollmentId]
-  );
+    } finally {
+      if (guestLookupInFlightRef.current?.request === request) {
+        guestLookupInFlightRef.current = null;
+      }
+      if (isCurrent()) setGuestRefreshing(false);
+    }
+  }, [courseId, isOpen, previousGuestEnrollmentId]);
 
   useEffect(() => {
     setAuthenticatedProfile(userProfile ?? null);
@@ -230,9 +236,9 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     setShowGuestProfileCompletion(false);
     setIsCompletingGuestProfile(false);
     if (!isOpen) {
-      setUnauthTab(userProfile ? 'auth' : 'guest');
+      setUnauthTab(profileAccountId ? 'auth' : 'guest');
     }
-  }, [course?.id, isOpen, userProfile]);
+  }, [course?.id, isOpen, profileAccountId]);
 
   useEffect(() => {
     if (isOpen && userProfile) {
@@ -249,11 +255,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
       !readGuestCourseEnrollmentCredential(previousGuestEnrollmentId).credential
     )
       return;
-    let current = true;
-    void checkPreviousGuestStatus(() => current);
-    return () => {
-      current = false;
-    };
+    void checkPreviousGuestStatus();
   }, [
     isOpen,
     authenticatedProfile,

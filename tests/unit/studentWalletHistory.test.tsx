@@ -132,13 +132,20 @@ describe('student wallet history', () => {
   });
 
   it('refreshes on committed wallet event revision even when the balance stays the same', async () => {
-    mocks.query
-      .mockResolvedValueOnce({ operations: [operations[0]] })
-      .mockResolvedValue({ operations });
+    let finishRefresh!: (value: { operations: typeof operations }) => void;
+    mocks.query.mockResolvedValueOnce({ operations: [operations[0]] }).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishRefresh = resolve;
+        })
+    );
     const hook = renderHook(() => useAccountWalletHistory());
     await waitFor(() => expect(hook.result.current.operations).toHaveLength(1));
     mocks.revision += 2;
     hook.rerender();
+    expect(hook.result.current.loading).toBe(true);
+    expect(hook.result.current.operations).toEqual([operations[0]]);
+    await act(async () => finishRefresh({ operations }));
     await waitFor(() => expect(hook.result.current.operations).toHaveLength(2));
     expect(mocks.query).toHaveBeenCalledTimes(2);
   });

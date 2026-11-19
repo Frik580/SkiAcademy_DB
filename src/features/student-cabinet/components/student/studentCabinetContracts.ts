@@ -72,6 +72,11 @@ export interface SessionParticipantInput {
 }
 
 export interface NextSessionBlockInput {
+  readState?: {
+    readonly initialLoading: boolean;
+    readonly error: boolean;
+    readonly onRetry: () => void;
+  };
   participantsBySessionKey?: Readonly<Record<string, readonly SessionParticipantInput[]>>;
   nextSessions: NextSessionItem[];
   miniDays: MiniCalendarDay[];

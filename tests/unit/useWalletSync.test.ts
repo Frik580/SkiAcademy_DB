@@ -56,6 +56,8 @@ describe('canonical Wallet synchronization', () => {
     const view = renderHook(() => useWalletSync());
     act(() => listeners[0].next(snapshot('account_wallet_a', true)));
     expect(useWalletStore.getState().canonicalWalletTrusted).toBe(false);
+    expect(useWalletStore.getState().canonicalWalletLoaded).toBe(false);
+    expect(useWalletStore.getState().canonicalBalanceKzt).toBeNull();
     act(() => listeners[0].next(snapshot('account_wallet_a', false, true)));
     expect(useWalletStore.getState().canonicalWalletTrusted).toBe(false);
     act(() => listeners[0].next(snapshot()));
@@ -64,25 +66,44 @@ describe('canonical Wallet synchronization', () => {
     act(() => useWalletStore.getState().refreshCanonicalWallet());
     expect(listeners[0].unsubscribe).toHaveBeenCalledOnce();
     expect(listeners).toHaveLength(2);
-    expect(useWalletStore.getState().canonicalWalletLoaded).toBe(false);
+    expect(useWalletStore.getState().canonicalWalletLoaded).toBe(true);
+    expect(useWalletStore.getState().canonicalBalanceKzt).toBe(20000);
+    expect(useWalletStore.getState().canonicalWalletTrusted).toBe(false);
+    act(() => listeners[0].next(snapshot()));
+    expect(useWalletStore.getState().canonicalWalletTrusted).toBe(false);
+    act(() => listeners[1].error(new Error('unavailable')));
+    expect(useWalletStore.getState().canonicalWalletError).toBe(true);
+    expect(useWalletStore.getState().canonicalBalanceKzt).toBe(20000);
     view.unmount();
   });
 
-  it.each(['missing', 'invalid', 'mismatch', 'error'])('marks %s Wallet unavailable', (kind) => {
+  it('confirms absence only after a server snapshot', () => {
+    renderHook(() => useWalletSync());
+    act(() => listeners[0].next({ ...snapshot('account_wallet_a', true), exists: () => false }));
+    expect(useWalletStore.getState().canonicalWalletLoaded).toBe(false);
+    act(() => listeners[0].next({ ...snapshot(), exists: () => false }));
+    expect(useWalletStore.getState()).toMatchObject({
+      canonicalWalletAccountId: 'account_wallet_a',
+      canonicalWalletLoaded: true,
+      canonicalWalletExists: false,
+      canonicalWalletError: false,
+      canonicalBalanceKzt: 0,
+    });
+  });
+
+  it.each(['invalid', 'mismatch', 'error'])('marks %s Wallet as a read failure', (kind) => {
     renderHook(() => useWalletSync());
     act(() => {
       if (kind === 'error') listeners[0].error(new Error('permission denied'));
       else
         listeners[0].next(
-          kind === 'missing'
-            ? { exists: () => false }
-            : kind === 'invalid'
-              ? { exists: () => true, data: () => ({}) }
-              : snapshot('account_wallet_b')
+          kind === 'invalid' ? { ...snapshot(), data: () => ({}) } : snapshot('account_wallet_b')
         );
     });
     expect(useWalletStore.getState().canonicalWalletAccountId).toBe('account_wallet_a');
-    expect(useWalletStore.getState().canonicalWalletLoaded).toBe(true);
+    expect(useWalletStore.getState().canonicalWalletLoaded).toBe(false);
+    expect(useWalletStore.getState().canonicalWalletError).toBe(true);
+    expect(useWalletStore.getState().canonicalBalanceKzt).toBeNull();
     expect(useWalletStore.getState().canonicalWalletTrusted).toBe(false);
   });
 

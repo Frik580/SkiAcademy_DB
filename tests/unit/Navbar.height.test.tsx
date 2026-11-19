@@ -6,7 +6,10 @@ import { Navbar } from '../../src/app/components/Navbar';
 vi.mock('../../src/app/providers/LanguageContext', () => ({
   useLanguage: () => ({ language: 'en', t: (key: string) => key, setLanguage: vi.fn() }),
 }));
-vi.mock('../../src/features/wallet', () => ({ useEffectiveBalance: () => 0 }));
+vi.mock('../../src/features/wallet', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/features/wallet')>()),
+  useEffectiveBalance: () => 0,
+}));
 vi.mock('../../src/features/student-cabinet/useNavbarParticipantSwitcher', () => ({
   useNavbarParticipantSwitcher: () => ({ items: [] }),
 }));

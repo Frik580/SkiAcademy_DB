@@ -16,6 +16,7 @@ import {
   mapCourseCatalogReadModelToOperationalState,
 } from '../../src/features/course-enrollments/courseEnrollmentViewModel';
 import { useAuthStore } from '../../src/features/auth/authStore';
+import { useCoursesStore } from '../../src/features/courses/coursesStore';
 
 const mocks = vi.hoisted(() => ({ language: 'en' as 'en' | 'ru', query: vi.fn() }));
 vi.mock('../../src/app/providers/LanguageContext', async (importOriginal) => ({
@@ -86,6 +87,7 @@ const operational = mapCourseCatalogReadModelToOperationalState(catalogReadModel
 
 beforeEach(() => {
   useCourseEnrollmentStore.getState().reset();
+  useCoursesStore.setState({ publicCoursesStatus: 'loading' });
   useAuthStore.setState({ firebaseUser: null, authGeneration: 0 });
   mocks.query.mockReset();
 });
@@ -239,7 +241,14 @@ it('offers retry for a failed empty course list', async () => {
     />
   );
   expect(screen.getByRole('alert')).toHaveTextContent(translations.en.courseCatalogLoadError);
+  expect(screen.queryByText(translations.en.noIntensiveCoursesAvailable)).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: translations.en.retry }));
   await waitFor(() => expect(useCourseEnrollmentStore.getState().catalogStatus).toBe('ready'));
   expect(mocks.query).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole('status')).toBeVisible();
+  expect(screen.queryByText(translations.en.noIntensiveCoursesAvailable)).not.toBeInTheDocument();
+  act(() => useCoursesStore.setState({ publicCoursesStatus: 'ready' }));
+  expect(screen.getByText(translations.en.noIntensiveCoursesAvailable)).toBeVisible();
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });

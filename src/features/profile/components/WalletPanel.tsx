@@ -6,6 +6,8 @@ import { ScPageIntro } from '../../../features/student-cabinet';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { StudentCabinetTab } from '../../../features/student-cabinet';
 import { useAccountWalletHistory } from '../../wallet';
+import { useWalletStore } from '../../wallet/walletStore';
+import { ActionButton } from '../../../ui/ActionButton';
 import { prepareAccountWalletHistory } from '../../../domain/wallet';
 import { STUDENT_CABINET_CONTENT_CLASS } from '../../student-cabinet/components/student/studentCabinetPresentation';
 
@@ -27,6 +29,10 @@ export const WalletPanel: React.FC<WalletPanelProps> = ({
 }) => {
   const { t, language } = useLanguage();
   const history = useAccountWalletHistory();
+  const balanceError = useWalletStore(
+    (state) => state.canonicalWalletAccountId === userId && state.canonicalWalletError
+  );
+  const retryBalance = useWalletStore((state) => state.refreshCanonicalWallet);
   const operations = useMemo(
     () =>
       prepareAccountWalletHistory(
@@ -46,6 +52,14 @@ export const WalletPanel: React.FC<WalletPanelProps> = ({
         title={t('scProfileWalletHistory')}
         subtitle={t('scProfileWalletHistorySub')}
       />
+      {balanceError && (
+        <div role="alert" className="space-y-2">
+          <p>{t('walletBalanceLoadError')}</p>
+          <ActionButton onClick={retryBalance} size="sm">
+            {t('retry')}
+          </ActionButton>
+        </div>
+      )}
       <KaspiPaymentPanel accountId={userId} />
       <StudentWalletHistoryList {...history} operations={operations} />
     </div>

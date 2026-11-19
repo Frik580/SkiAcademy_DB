@@ -13,6 +13,7 @@ import { useAccountCourseSessionStore } from '../features/course-enrollments/acc
 import { useProfileStore } from '../features/profile/profileStore';
 import { useCabinetProgressParticipantSelectionStore } from '../features/student-cabinet/cabinetProgressParticipantSelectionStore';
 import { useWalletStore } from '../features/wallet/walletStore';
+import { useInstructorCourseStore } from '../features/instructor-courses/instructorCourseStore';
 import { QUERY_LIMITS } from '../shared';
 
 /** Clears user-scoped cached data when an auth session ends or changes. */
@@ -30,10 +31,11 @@ export function resetUserScopedStores(): void {
     reviewPaginationByInstructor: {},
     reviewSyncRequest: 0,
   });
-  useCoursesStore.setState({ courses: [] });
+  useCoursesStore.setState({ courses: [], publicCoursesStatus: 'loading' });
   useProfileStore.setState({
     userProfile: null,
     profileLoading: false,
+    profileLoadError: false,
     canonicalReadyAccountId: null,
     usersList: [],
     dismissedReviewIds: [],
@@ -43,14 +45,8 @@ export function resetUserScopedStores(): void {
     activityLogsPageSize: QUERY_LIMITS.activityLogs,
     activityLogsHasMore: false,
   });
-  useWalletStore.setState({
-    walletLedgerEntries: [],
-    optimisticBalanceDelta: 0,
-    canonicalBalanceKzt: null,
-    canonicalWalletEventRevision: null,
-    canonicalWalletExists: false,
-    canonicalWalletLoaded: false,
-  });
+  useWalletStore.getState().resetCanonicalWallet();
+  useWalletStore.getState().setWalletLedgerEntries([]);
   useNotificationsStore.setState({
     dbNotifications: [],
     notificationsPageSize: QUERY_LIMITS.notifications,
@@ -62,7 +58,8 @@ export function resetUserScopedStores(): void {
   useAccountParticipantLessonStatsStore.getState().reset();
   useLessonBookingStore.getState().reset();
   useManagedParticipantsStore.getState().reset();
-  useCourseEnrollmentStore.getState().clearScopedEnrollments();
+  useCourseEnrollmentStore.getState().reset();
+  useInstructorCourseStore.getState().reset();
   useAccountCourseSessionStore.getState().reset();
   useCabinetProgressParticipantSelectionStore.getState().reset();
   // Participant-access query cache is session-scoped; wipe on logout/account end.

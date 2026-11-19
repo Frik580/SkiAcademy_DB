@@ -49,6 +49,7 @@ export const InstructorRouteContainer: React.FC = () => {
         {userProfile && (
           <LazyLoad fallback={<InstructorLoadingFallback label={t('loading')} />}>
             <InstructorWorkspace
+              key={JSON.stringify([userProfile.uid, userProfile.instructorId])}
               userProfile={userProfile}
               instructors={instructors}
               lessonBookings={lessonBookings}

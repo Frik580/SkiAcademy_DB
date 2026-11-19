@@ -5,6 +5,8 @@ import { isInstructorWorkspaceUser } from '../../lib/workspaceRoutes';
 import { useAuthStore } from '../auth/authStore';
 import { useProfileStore } from '../profile/profileStore';
 import { RouteContentLoading } from '../../ui/RouteContentLoading';
+import { ActionButton } from '../../ui/ActionButton';
+import { useLanguage } from '../../app/providers/LanguageContext';
 
 export type RouteGateRole = 'auth' | 'admin' | 'instructor';
 
@@ -23,10 +25,22 @@ export const RouteGate: React.FC<RouteGateProps> = ({
 }) => {
   const authLoading = useAuthStore((s) => s.authLoading);
   const profileLoading = useProfileStore((s) => s.profileLoading);
+  const profileLoadError = useProfileStore((s) => s.profileLoadError);
+  const retryProfileLoad = useProfileStore((s) => s.retryProfileLoad);
+  const { t } = useLanguage();
 
   // Wait for auth + profile before redirecting — avoids /cabinet → / → /cabinet on reload.
   if (authLoading || profileLoading) {
     return <RouteContentLoading />;
+  }
+
+  if (profileLoadError) {
+    return (
+      <div role="alert" className="space-y-2 p-6">
+        <p>{t('profileLoadError')}</p>
+        <ActionButton onClick={retryProfileLoad}>{t('retry')}</ActionButton>
+      </div>
+    );
   }
 
   if (!userProfile) {

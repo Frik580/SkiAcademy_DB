@@ -8,7 +8,10 @@ import { LanguageProvider } from '../../src/app/providers/LanguageContext';
 import { ModalLayer } from '../../src/ui/ModalLayer';
 import type { UserProfile } from '../../src/types';
 
-vi.mock('../../src/features/wallet', () => ({ useEffectiveBalance: () => 0 }));
+vi.mock('../../src/features/wallet', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/features/wallet')>()),
+  useEffectiveBalance: () => 0,
+}));
 vi.mock('../../src/features/student-cabinet/useNavbarParticipantSwitcher', () => ({
   useNavbarParticipantSwitcher: () => ({ items: [] }),
 }));

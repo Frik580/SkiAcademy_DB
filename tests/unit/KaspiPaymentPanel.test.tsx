@@ -71,6 +71,16 @@ describe('Kaspi payment request UI', () => {
     expect(screen.queryByText('kaspiTopup')).not.toBeInTheDocument();
     expect(service.createKaspiRequest).not.toHaveBeenCalled();
   });
+  it('reports an initial history error and enables payment only after a successful retry', async () => {
+    service.loadKaspiRequests.mockRejectedValueOnce(new Error('Unavailable'));
+    render(<KaspiPaymentPanel accountId="owner" />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('kaspiError');
+    expect(screen.queryByRole('button', { name: 'kaspiTopup' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'guestCheckStatus' }));
+    expect(await screen.findByRole('button', { name: 'kaspiTopup' })).toBeEnabled();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(service.loadKaspiRequests).toHaveBeenCalledTimes(2);
+  });
   it.each(['en', 'ru'] as const)('uses the same visibility rule in %s', async (locale) => {
     service.locale = locale;
     const { container } = render(<KaspiPaymentPanel accountId="owner" />);
@@ -110,7 +120,7 @@ describe('Kaspi payment request UI', () => {
     expect(container).toBeEmptyDOMElement();
     expect(service.createKaspiRequest).not.toHaveBeenCalled();
   });
-  it('renders nothing while configuration is loading or fails', async () => {
+  it('keeps payment controls hidden while configuration is loading or fails', async () => {
     let reject!: (reason: Error) => void;
     service.kaspiConfiguration.mockReturnValue(
       new Promise((_, fail) => {
@@ -121,7 +131,10 @@ describe('Kaspi payment request UI', () => {
     await act(async () => {});
     expect(container).toBeEmptyDOMElement();
     await act(async () => reject(new Error('offline')));
-    expect(container).toBeEmptyDOMElement();
+    expect(screen.getByRole('alert')).toHaveTextContent('kaspiError');
+    expect(screen.queryByText('kaspiTopup')).not.toBeInTheDocument();
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(service.createKaspiRequest).not.toHaveBeenCalled();
   });
   it('revalidates ON/OFF and fails closed on a failed refresh', async () => {
     const { container } = render(<KaspiPaymentPanel accountId="owner" />);
@@ -134,7 +147,10 @@ describe('Kaspi payment request UI', () => {
     expect(screen.getByText('kaspiTopup')).toBeInTheDocument();
     service.kaspiConfiguration.mockRejectedValue(new Error('offline'));
     await act(async () => document.dispatchEvent(new Event('visibilitychange')));
-    expect(container).toBeEmptyDOMElement();
+    expect(screen.getByRole('alert')).toHaveTextContent('kaspiError');
+    expect(screen.queryByText('kaspiTopup')).not.toBeInTheDocument();
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(service.createKaspiRequest).not.toHaveBeenCalled();
   });
   it('ignores an older ON response after a newer OFF response', async () => {
     let resolve!: (value: { enabled: boolean }) => void;
@@ -239,9 +255,10 @@ describe('Kaspi payment request UI', () => {
   });
   it('fails closed when history cannot be loaded', async () => {
     service.loadKaspiRequests.mockRejectedValue(new Error('offline'));
-    const { container } = render(<KaspiPaymentPanel accountId="owner" />);
-    await act(async () => {});
-    expect(container).toBeEmptyDOMElement();
+    render(<KaspiPaymentPanel accountId="owner" />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('kaspiError');
+    expect(screen.queryByText('kaspiTopup')).not.toBeInTheDocument();
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
     expect(service.createKaspiRequest).not.toHaveBeenCalled();
   });
   it('accepts a statement about an expired payment without displaying a payable QR', async () => {

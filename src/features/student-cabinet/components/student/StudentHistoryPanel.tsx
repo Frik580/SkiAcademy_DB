@@ -45,6 +45,7 @@ export const StudentHistoryPanel: React.FC<StudentHistoryPanelProps> = ({
   const lessonHistoryHasMore = useLessonBookingStore((state) => state.historyHasMore);
   const lessonHistoryInitialized = useLessonBookingStore((state) => state.historyInitialized);
   const lessonHistoryLoading = useLessonBookingStore((state) => state.historyLoading);
+  const lessonHistoryError = useLessonBookingStore((state) => state.historyError);
   const requestLessonHistoryPage = useLessonBookingStore((state) => state.requestHistoryPage);
   const feedback = usePresentedParticipantLessonFeedback(bookings);
   const pendingByLessonId = useMemo(() => {
@@ -101,6 +102,11 @@ export const StudentHistoryPanel: React.FC<StudentHistoryPanelProps> = ({
           filter={filter}
           onFilterChange={setFilter}
           showFilters
+          lessonHistoryRead={{
+            initialLoading: !lessonHistoryInitialized,
+            error: Boolean(lessonHistoryError),
+            onRetry: requestLessonHistoryPage,
+          }}
           groupByMonth
           showDateLabels={false}
           expandedTrainingCards
@@ -109,11 +115,12 @@ export const StudentHistoryPanel: React.FC<StudentHistoryPanelProps> = ({
           onOpenDevelopment={onOpenDevelopment}
           onToggleRecommendation={onToggleRecommendation}
         />
-        {(activityLogsHasMore || (lessonHistoryInitialized && lessonHistoryHasMore)) && (
+        {(activityLogsHasMore ||
+          (lessonHistoryInitialized && lessonHistoryHasMore && !lessonHistoryError)) && (
           <div className="flex justify-center pt-3">
             <ActionButton
               onClick={() => {
-                if (lessonHistoryInitialized && lessonHistoryHasMore) {
+                if (lessonHistoryInitialized && lessonHistoryHasMore && !lessonHistoryError) {
                   requestLessonHistoryPage();
                 }
                 if (activityLogsHasMore) loadMoreActivityLogs();

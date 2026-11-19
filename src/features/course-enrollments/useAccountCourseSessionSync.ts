@@ -25,6 +25,7 @@ export function refreshAccountCourseSessions(afterCommand = false): Promise<void
     const state = useAccountCourseSessionStore.getState();
     return state.accountId === accountId && state.generation === generation;
   };
+  useAccountCourseSessionStore.setState({ error: undefined });
   const promise = (async () => {
     let items = new Map<string, CourseEnrollmentCabinetItem>();
     let cursor: string | undefined;
@@ -44,7 +45,11 @@ export function refreshAccountCourseSessions(afterCommand = false): Promise<void
       cursors.add(cursor);
     } while (cursor !== undefined);
     if (isCurrent()) {
-      useAccountCourseSessionStore.setState({ items: [...items.values()], error: undefined });
+      useAccountCourseSessionStore.setState({
+        items: [...items.values()],
+        loaded: true,
+        error: undefined,
+      });
     }
   })()
     .catch((error: unknown) => {

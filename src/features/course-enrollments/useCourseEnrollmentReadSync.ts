@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   CourseEnrollmentIdSchema,
   ParticipantIdSchema,
@@ -73,15 +73,6 @@ export function reloadCourseCatalog(): Promise<void> {
   return promise;
 }
 
-function finishScopedHotLoad(participantId: string, generation: number): boolean {
-  const state = useCourseEnrollmentStore.getState();
-  if (state.loadGeneration !== generation || state.scopedParticipantId !== participantId) {
-    return false;
-  }
-  useCourseEnrollmentStore.getState().setHotLoading(false);
-  return true;
-}
-
 function finishScopedHistoryLoad(participantId: string, generation: number): boolean {
   const state = useCourseEnrollmentStore.getState();
   if (state.loadGeneration !== generation || state.scopedParticipantId !== participantId) {
@@ -147,23 +138,40 @@ export function useCourseEnrollmentReadSync(
   selectedParticipantId?: string
 ) {
   const historyRequestNonce = useCourseEnrollmentStore((state) => state.historyRequestNonce);
+  const lastHistoryRequest = useRef(historyRequestNonce);
+  const hotRequest = useRef(0);
+  const activeScope = useRef<{ accountId: string; participantId: string }>();
 
   const loadHot = useCallback(async (participantId: string, generation: number, drain = false) => {
-    useCourseEnrollmentStore.getState().setError(undefined);
+    const request = hotRequest.current + 1;
+    const isCurrent = () => {
+      const state = useCourseEnrollmentStore.getState();
+      return (
+        state.loadGeneration === generation &&
+        state.scopedParticipantId === participantId &&
+        hotRequest.current === request
+      );
+    };
+    const state = useCourseEnrollmentStore.getState();
+    if (state.loadGeneration !== generation || state.scopedParticipantId !== participantId) {
+      return false;
+    }
+    hotRequest.current = request;
+    useCourseEnrollmentStore.setState({ hotLoading: true, error: undefined });
     try {
       let cursor: QueryCourseEnrollmentReadModelsInput['cursor'];
       const seenCursors = new Set<string>();
       do {
-        const state = useCourseEnrollmentStore.getState();
-        if (state.loadGeneration !== generation || state.scopedParticipantId !== participantId) {
-          return false;
-        }
+        if (!isCurrent()) return false;
         const result = await queryCourseEnrollmentReadModels({
           scope: 'account_hot',
           selectedParticipantId: ParticipantIdSchema.parse(participantId),
           ...(cursor ? { cursor } : {}),
         });
-        if (!applyScopedHotCourseEnrollmentPage({ participantId, generation, result, cursor })) {
+        if (
+          !isCurrent() ||
+          !applyScopedHotCourseEnrollmentPage({ participantId, generation, result, cursor })
+        ) {
           return false;
         }
         if (!drain || !result.hasMore) {
@@ -179,15 +187,14 @@ export function useCourseEnrollmentReadSync(
       } while (cursor !== undefined);
       return false;
     } catch (error) {
-      const state = useCourseEnrollmentStore.getState();
-      if (state.loadGeneration === generation && state.scopedParticipantId === participantId) {
+      if (isCurrent()) {
         useCourseEnrollmentStore
           .getState()
           .setError(error instanceof Error ? error.message : 'Failed to load course enrollments.');
       }
       return false;
     } finally {
-      finishScopedHotLoad(participantId, generation);
+      if (isCurrent()) useCourseEnrollmentStore.getState().setHotLoading(false);
     }
   }, []);
 
@@ -201,14 +208,14 @@ export function useCourseEnrollmentReadSync(
     ) {
       return;
     }
-    useCourseEnrollmentStore.getState().setHistoryLoading(true);
+    useCourseEnrollmentStore.setState({ historyLoading: true, error: undefined });
     try {
       const result = await queryCourseEnrollmentReadModels({
         scope: 'account_history',
         selectedParticipantId: ParticipantIdSchema.parse(participantId),
         ...(state.historyCursor ? { cursor: state.historyCursor } : {}),
       });
-      const merged = mergeCourseEnrollmentRecords(state.items, result);
+      const merged = mergeCourseEnrollmentRecords(new Map(), result);
       const applied = useCourseEnrollmentStore.getState().applyScopedItems({
         participantId,
         generation,
@@ -233,17 +240,30 @@ export function useCourseEnrollmentReadSync(
     }
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!enabled || !accountId) {
+      activeScope.current = undefined;
       if (useCourseEnrollmentStore.getState().scopedParticipantId) {
         useCourseEnrollmentStore.getState().clearScopedEnrollments();
       }
       return;
     }
     if (!selectedParticipantId) {
+      activeScope.current = undefined;
       useCourseEnrollmentStore.getState().clearScopedEnrollments();
       return;
     }
+    const previous = activeScope.current;
+    if (
+      previous?.accountId === accountId &&
+      previous.participantId === selectedParticipantId &&
+      useCourseEnrollmentStore.getState().scopedParticipantId === selectedParticipantId
+    )
+      return;
+    if (previous && previous.accountId !== accountId) {
+      useCourseEnrollmentStore.getState().clearScopedEnrollments();
+    }
+    activeScope.current = { accountId, participantId: selectedParticipantId };
     const generation = useCourseEnrollmentStore.getState().beginScopedLoad(selectedParticipantId);
     void loadHot(selectedParticipantId, generation, true).then((applied) => {
       if (applied) {
@@ -254,6 +274,8 @@ export function useCourseEnrollmentReadSync(
 
   useEffect(() => {
     // Initial history page is chained after hot load; nonce 0 would duplicate that request.
+    if (lastHistoryRequest.current === historyRequestNonce) return;
+    lastHistoryRequest.current = historyRequestNonce;
     if (!enabled || !accountId || !selectedParticipantId || historyRequestNonce === 0) return;
     const state = useCourseEnrollmentStore.getState();
     if (state.scopedParticipantId !== selectedParticipantId) return;
@@ -264,6 +286,7 @@ export function useCourseEnrollmentReadSync(
 }
 
 export async function loadGuestSingleCourseEnrollment(enrollmentId: string) {
+  const { authGeneration } = useAuthStore.getState();
   const stored = readGuestCourseEnrollmentCredential(enrollmentId);
   if (!stored.credential) {
     throw new Error(stored.error ?? 'missing');
@@ -274,6 +297,9 @@ export async function loadGuestSingleCourseEnrollment(enrollmentId: string) {
     guestActionNonce: stored.credential.nonce,
     guestActionSignature: stored.credential.signature,
   });
+  if (useAuthStore.getState().authGeneration !== authGeneration) {
+    throw new Error('Session changed while loading the guest enrollment.');
+  }
   if (result.items.length === 0) {
     throw new Error('Guest course enrollment read model was not found.');
   }

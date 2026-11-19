@@ -12,6 +12,7 @@ import {
 import { ScTextButton } from './StudentCabinetUI';
 import { HistoryLessonCard } from './HistoryLessonCard';
 import { StudentDevelopmentLink } from '../../../../ui/StudentDevelopmentLink';
+import { ActionButton } from '../../../../ui/ActionButton';
 
 const HISTORY_FILTERS: HistoryFilter[] = ['all', 'training', 'progress', 'homework'];
 
@@ -31,6 +32,11 @@ interface StudentHistoryListProps {
   filter: HistoryFilter;
   onFilterChange?: (filter: HistoryFilter) => void;
   showFilters?: boolean;
+  lessonHistoryRead?: {
+    readonly initialLoading: boolean;
+    readonly error: boolean;
+    readonly onRetry: () => void;
+  };
   groupByMonth?: boolean;
   limit?: number;
   showDateLabels?: boolean;
@@ -50,6 +56,7 @@ export const StudentHistoryList: React.FC<StudentHistoryListProps> = ({
   filter,
   onFilterChange,
   showFilters = false,
+  lessonHistoryRead,
   groupByMonth = false,
   limit,
   showDateLabels = true,
@@ -200,8 +207,20 @@ export const StudentHistoryList: React.FC<StudentHistoryListProps> = ({
         </div>
       )}
 
+      {lessonHistoryRead?.error ? (
+        <div role="alert" className="space-y-2">
+          <p>{t('historyError')}</p>
+          <ActionButton onClick={lessonHistoryRead.onRetry} size="sm">
+            {t('retry')}
+          </ActionButton>
+        </div>
+      ) : (
+        lessonHistoryRead?.initialLoading && <p role="status">{t('historyLoading')}</p>
+      )}
       {filteredEvents.length === 0 ? (
-        <p className="type-compact text-[var(--ink-dim)] py-2">{t('scHistoryEmpty')}</p>
+        lessonHistoryRead?.error || lessonHistoryRead?.initialLoading ? null : (
+          <p className="type-compact text-[var(--ink-dim)] py-2">{t('scHistoryEmpty')}</p>
+        )
       ) : groupByMonth && groups ? (
         <div className="space-y-6">
           {groups.map((group) => (

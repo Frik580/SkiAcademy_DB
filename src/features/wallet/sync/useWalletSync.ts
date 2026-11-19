@@ -19,32 +19,45 @@ function parseCanonicalWallet(data: Record<string, unknown> | undefined): Wallet
  * wallet panel through the owner-scoped server read model.
  */
 export const useWalletSync = () => {
-  const firebaseUser = useAuthStore((s) => s.firebaseUser);
+  const accountId = useAuthStore((s) => s.firebaseUser?.uid);
   const authGeneration = useAuthStore((s) => s.authGeneration);
   const refreshNonce = useWalletStore((s) => s.canonicalWalletRefreshNonce);
 
   // Canonical wallet balance — source of truth for Header / spendable balance UI.
   useEffect(() => {
-    useWalletStore.getState().resetCanonicalWallet();
-    if (!firebaseUser) {
-      return;
+    if (useWalletStore.getState().canonicalWalletAccountId !== (accountId ?? null)) {
+      useWalletStore.getState().resetCanonicalWallet();
     }
+    if (!accountId) return;
 
-    const walletRef = doc(db, 'users', firebaseUser.uid, 'wallet', 'state');
+    const walletRef = doc(db, 'users', accountId, 'wallet', 'state');
     let active = true;
     const isCurrentSession = () =>
       active &&
       useAuthStore.getState().authGeneration === authGeneration &&
-      useAuthStore.getState().firebaseUser?.uid === firebaseUser.uid;
+      useAuthStore.getState().firebaseUser?.uid === accountId &&
+      useWalletStore.getState().canonicalWalletRefreshNonce === refreshNonce;
+    const fail = () => {
+      useWalletStore.setState({
+        canonicalWalletAccountId: accountId,
+        canonicalWalletTrusted: false,
+        canonicalWalletError: true,
+      });
+    };
     const unsubscribe = onSnapshot(
       walletRef,
       { includeMetadataChanges: true },
       (snapshot) => {
         if (!isCurrentSession()) return;
+        if (snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites) {
+          useWalletStore.setState({ canonicalWalletTrusted: false });
+          return;
+        }
         if (!snapshot.exists()) {
           useWalletStore.getState().syncCanonicalWalletFromSnapshot({
             exists: false,
-            accountId: firebaseUser.uid,
+            accountId,
+            trusted: true,
             balanceKzt: 0,
           });
           return;
@@ -53,32 +66,24 @@ export const useWalletSync = () => {
         const wallet = parseCanonicalWallet(snapshot.data() as Record<string, unknown>);
         if (!wallet) {
           logger.error('Canonical wallet document failed schema validation', {
-            accountId: firebaseUser.uid,
+            accountId,
           });
-          useWalletStore.getState().syncCanonicalWalletFromSnapshot({
-            exists: false,
-            accountId: firebaseUser.uid,
-            balanceKzt: 0,
-          });
+          fail();
           return;
         }
 
-        if (wallet.accountId !== firebaseUser.uid) {
+        if (wallet.accountId !== accountId) {
           logger.error('Canonical wallet accountId mismatch; ignoring snapshot', {
-            accountId: firebaseUser.uid,
+            accountId,
             walletAccountId: wallet.accountId,
           });
-          useWalletStore.getState().syncCanonicalWalletFromSnapshot({
-            exists: false,
-            accountId: firebaseUser.uid,
-            balanceKzt: 0,
-          });
+          fail();
           return;
         }
 
         useWalletStore.getState().syncCanonicalWalletFromSnapshot({
-          accountId: firebaseUser.uid,
-          trusted: !snapshot.metadata.fromCache && !snapshot.metadata.hasPendingWrites,
+          accountId,
+          trusted: true,
           exists: true,
           balanceKzt: wallet.balance,
           eventRevision: wallet.eventRevision,
@@ -87,16 +92,12 @@ export const useWalletSync = () => {
       (error) => {
         if (!isCurrentSession()) return;
         logger.error('Canonical wallet sync error:', error);
-        useWalletStore.getState().syncCanonicalWalletFromSnapshot({
-          exists: false,
-          accountId: firebaseUser.uid,
-          balanceKzt: 0,
-        });
+        fail();
       }
     );
     return () => {
       active = false;
       unsubscribe();
     };
-  }, [firebaseUser, authGeneration, refreshNonce]);
+  }, [accountId, authGeneration, refreshNonce]);
 };

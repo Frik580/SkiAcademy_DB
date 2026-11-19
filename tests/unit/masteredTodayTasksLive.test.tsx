@@ -11,14 +11,16 @@ import { DEFAULT_SKILL_CONFIG } from '../../src/domain/achievements';
 
 const live = vi.hoisted(() => ({
   receive: undefined as undefined | ((snapshot: unknown) => void),
+  auth: { firebaseUser: { uid: 'account-live-today' }, authGeneration: 1 },
 }));
 vi.mock('../../src/features/auth/authStore', () => ({
-  useAuthStore: (select: (state: unknown) => unknown) =>
-    select({ firebaseUser: { uid: 'account-live-today' } }),
+  useAuthStore: Object.assign((select: (state: unknown) => unknown) => select(live.auth), {
+    getState: () => live.auth,
+  }),
 }));
 vi.mock('../../src/infrastructure/firebase', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/infrastructure/firebase')>()),
-  onSnapshot: vi.fn((_ref, receive) => {
+  onSnapshot: vi.fn((_ref, _options, receive) => {
     live.receive = receive;
     return vi.fn();
   }),
@@ -66,7 +68,14 @@ describe('mastered Today task live update', () => {
       },
     };
     const emit = (profile: unknown) =>
-      act(() => live.receive!({ exists: () => true, id: account.uid, data: () => profile }));
+      act(() =>
+        live.receive!({
+          exists: () => true,
+          id: account.uid,
+          data: () => profile,
+          metadata: { fromCache: false, hasPendingWrites: false },
+        })
+      );
     emit(account);
     expect(screen.getByText('Carving')).toBeInTheDocument();
     emit({

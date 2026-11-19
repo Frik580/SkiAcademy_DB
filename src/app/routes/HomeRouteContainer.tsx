@@ -34,9 +34,11 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
   const { theme } = useTheme();
   const authLoading = useAuthStore((state) => state.authLoading);
   const profileLoading = useProfileStore((state) => state.profileLoading);
+  const profileLoadError = useProfileStore((state) => state.profileLoadError);
   const userProfile = useProfileStore((state) => state.userProfile);
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
   const courses = useCoursesStore((state) => state.courses);
+  const catalogueScope = useCoursesStore((state) => state.catalogueScope);
   const courseEnrollments = useCourseEnrollmentStore(selectCourseEnrollmentItems);
   const catalogByCourseId = useCourseEnrollmentStore(selectAllCourseCatalogOperationalStates);
   const { participants } = useManagedParticipants(userProfile?.uid);
@@ -102,7 +104,13 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
     });
   };
 
-  if (!authLoading && !profileLoading && userProfile && userProfile.role !== 'admin') {
+  if (
+    !authLoading &&
+    !profileLoading &&
+    !profileLoadError &&
+    userProfile &&
+    userProfile.role !== 'admin'
+  ) {
     return <Navigate to={getDefaultWorkspacePath(userProfile)} replace />;
   }
 
@@ -138,7 +146,7 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
           >
             <GroupCoursesSection
               data={{
-                courses,
+                courses: catalogueScope === 'instructor' ? [] : courses,
                 courseEnrollments,
                 catalogByCourseId,
                 userProfile,

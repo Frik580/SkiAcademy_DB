@@ -16,7 +16,12 @@ const state = vi.hoisted(() => {
   const empty: never[] = [];
   return {
     auth: { authLoading: true, firebaseUser: null as { uid: string } | null },
-    profile: { profileLoading: false, userProfile: null as UserProfile | null },
+    profile: {
+      profileLoading: false,
+      profileLoadError: false,
+      retryProfileLoad: vi.fn(),
+      userProfile: null as UserProfile | null,
+    },
     empty,
     noop: vi.fn(),
     heroMount: vi.fn(),
@@ -225,10 +230,11 @@ beforeEach(async () => {
   state.auth.authLoading = true;
   state.auth.firebaseUser = null;
   state.profile.profileLoading = false;
+  state.profile.profileLoadError = false;
   state.profile.userProfile = null;
   state.visits.length = 0;
   vi.clearAllMocks();
-});
+}, 30_000);
 afterEach(cleanup);
 
 describe('cabinet route loading ownership', () => {
@@ -283,6 +289,19 @@ describe('cabinet route loading ownership', () => {
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/'));
     expect(state.cabinetRender).not.toHaveBeenCalled();
     expect(screen.getByTestId('hero')).toBeInTheDocument();
+  });
+
+  it('reports a failed profile read when the cabinet chunk is still pending', () => {
+    state.auth.authLoading = false;
+    state.auth.firebaseUser = { uid: 'account' };
+    state.profile.profileLoadError = true;
+    const view = open('/cabinet');
+    expect(screen.getByRole('alert')).toHaveTextContent('profileLoadError');
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent('/cabinet');
+    screen.getByRole('button', { name: 'retry' }).click();
+    expect(state.profile.retryProfileLoad).toHaveBeenCalledOnce();
+    view.unmount();
   });
 
   it('uses the cached route for client navigation and preserves navbar', async () => {

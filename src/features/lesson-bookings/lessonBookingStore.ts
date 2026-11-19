@@ -10,6 +10,7 @@ interface LessonBookingStoreState {
   readonly historyLoading: boolean;
   readonly historyHasMore: boolean;
   readonly historyInitialized: boolean;
+  readonly historyError?: { readonly firstPage: boolean; readonly message: string };
   readonly historyLoadedAtMs?: number;
   readonly historyCursor?: string;
   readonly loaded: boolean;
@@ -23,7 +24,7 @@ interface LessonBookingStoreState {
   readonly calendarGeneration: number;
   setCalendarScope: (scope: string) => void;
   readonly calendarMonths: ReadonlyMap<string, CalendarMonthLoadStatus>;
-  readonly calendarMonthError?: { readonly monthKey: string; readonly message: string };
+  readonly calendarMonthErrors: ReadonlyMap<string, string>;
   setItems: (items: ReadonlyMap<string, LessonBookingCabinetItem>) => void;
   mergeItems: (items: ReadonlyMap<string, LessonBookingCabinetItem>) => void;
   removeItems: (bookingIds: readonly string[]) => void;
@@ -32,7 +33,7 @@ interface LessonBookingStoreState {
   setHistoryHasMore: (hasMore: boolean) => void;
   setHistoryInitialized: (initialized: boolean) => void;
   setHistoryLoadedAtMs: (loadedAtMs: number) => void;
-  resetHistoryPagination: () => void;
+  setHistoryError: (error?: LessonBookingStoreState['historyError']) => void;
   setHistoryCursor: (cursor?: string) => void;
   setLoaded: (loaded: boolean) => void;
   setHotLoadedAtMs: (loadedAtMs: number) => void;
@@ -41,7 +42,7 @@ interface LessonBookingStoreState {
   requestHistoryPage: () => void;
   setCalendarMonthStatus: (monthKey: string, status: CalendarMonthLoadStatus) => void;
   clearCalendarMonthStatus: (monthKey: string) => void;
-  setCalendarMonthError: (error?: { readonly monthKey: string; readonly message: string }) => void;
+  setCalendarMonthError: (monthKey: string, error?: string) => void;
   reset: () => void;
 }
 
@@ -62,6 +63,7 @@ const initialState = {
   historyLoading: false,
   historyHasMore: true,
   historyInitialized: false,
+  historyError: undefined,
   historyLoadedAtMs: undefined,
   historyCursor: undefined,
   loaded: false,
@@ -72,7 +74,7 @@ const initialState = {
   calendarScope: undefined,
   calendarGeneration: 0,
   calendarMonths: EMPTY_CALENDAR_MONTHS,
-  calendarMonthError: undefined,
+  calendarMonthErrors: new Map<string, string>(),
 };
 
 export const useLessonBookingStore = create<LessonBookingStoreState>((set) => ({
@@ -85,7 +87,7 @@ export const useLessonBookingStore = create<LessonBookingStoreState>((set) => ({
             calendarScope,
             calendarGeneration: state.calendarGeneration + 1,
             calendarMonths: new Map(),
-            calendarMonthError: undefined,
+            calendarMonthErrors: new Map(),
           }
     ),
   setItems: (items) =>
@@ -136,13 +138,7 @@ export const useLessonBookingStore = create<LessonBookingStoreState>((set) => ({
   setHistoryHasMore: (historyHasMore) => set({ historyHasMore }),
   setHistoryInitialized: (historyInitialized) => set({ historyInitialized }),
   setHistoryLoadedAtMs: (historyLoadedAtMs) => set({ historyLoadedAtMs }),
-  resetHistoryPagination: () =>
-    set({
-      historyHasMore: true,
-      historyInitialized: false,
-      historyLoadedAtMs: undefined,
-      historyCursor: undefined,
-    }),
+  setHistoryError: (historyError) => set({ historyError }),
   setHistoryCursor: (historyCursor) => set({ historyCursor }),
   setLoaded: (loaded) => set({ loaded }),
   setHotLoadedAtMs: (hotLoadedAtMs) => set({ hotLoadedAtMs }),
@@ -157,12 +153,7 @@ export const useLessonBookingStore = create<LessonBookingStoreState>((set) => ({
       }
       const calendarMonths = new Map(state.calendarMonths);
       calendarMonths.set(monthKey, status);
-      return {
-        calendarMonths,
-        ...(state.calendarMonthError?.monthKey === monthKey
-          ? { calendarMonthError: undefined }
-          : {}),
-      };
+      return { calendarMonths };
     }),
   clearCalendarMonthStatus: (monthKey) =>
     set((state) => {
@@ -173,7 +164,13 @@ export const useLessonBookingStore = create<LessonBookingStoreState>((set) => ({
       calendarMonths.delete(monthKey);
       return { calendarMonths };
     }),
-  setCalendarMonthError: (calendarMonthError) => set({ calendarMonthError }),
+  setCalendarMonthError: (monthKey, error) =>
+    set((state) => {
+      const calendarMonthErrors = new Map(state.calendarMonthErrors);
+      if (error) calendarMonthErrors.set(monthKey, error);
+      else calendarMonthErrors.delete(monthKey);
+      return { calendarMonthErrors };
+    }),
   reset: () =>
     set((state) => ({
       ...initialState,

@@ -13,9 +13,14 @@ const onSnapshot = vi.hoisted(() =>
   vi.fn(
     (
       _query: unknown,
-      onNext: (snapshot: { docs: Array<{ id: string; data: () => unknown }> }) => void
+      _options: unknown,
+      onNext: (snapshot: {
+        docs: Array<{ id: string; data: () => unknown }>;
+        metadata: { fromCache: boolean };
+      }) => void
     ) => {
       onNext({
+        metadata: { fromCache: false },
         docs: [
           {
             id: 'course_live_base',
@@ -160,6 +165,28 @@ describe('product course catalogue client', () => {
       expect(queryCourseCatalogReadModels).toHaveBeenCalledWith({ scope: 'public' });
     });
     expect(queryCourseCatalogReadModels).not.toHaveBeenCalledWith({ scope: 'product' });
+  });
+
+  it('waits for both server snapshots before confirming an empty public list', () => {
+    const onNext: Array<(value: { docs: []; metadata: { fromCache: boolean } }) => void> = [];
+    onSnapshot
+      .mockImplementationOnce((_query, _options, receive) => {
+        onNext.push(receive);
+        return () => undefined;
+      })
+      .mockImplementationOnce((_query, _options, receive) => {
+        onNext.push(receive);
+        return () => undefined;
+      });
+    useCoursesStore.setState({ publicCoursesStatus: 'loading' });
+    renderHook(() => useCoursesSync(), { wrapper });
+    act(() => onNext.forEach((receive) => receive({ docs: [], metadata: { fromCache: true } })));
+    expect(useCoursesStore.getState().publicCoursesStatus).toBe('loading');
+    act(() => onNext[0]({ docs: [], metadata: { fromCache: false } }));
+    expect(useCoursesStore.getState().publicCoursesStatus).toBe('loading');
+    act(() => onNext[1]({ docs: [], metadata: { fromCache: false } }));
+    expect(useCoursesStore.getState().publicCoursesStatus).toBe('ready');
+    expect(onSnapshot).toHaveBeenCalledTimes(2);
   });
 
   it('shows only the server TEST course after sign-in and restores LIVE on logout', async () => {

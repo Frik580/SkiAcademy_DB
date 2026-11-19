@@ -28,12 +28,14 @@ type GenerationBoundRequest = {
 
 let syncInFlight: GenerationBoundRequest | undefined;
 let hotSyncInFlight: GenerationBoundRequest | undefined;
+let latestHotRequest = 0;
 const calendarMonthInFlight = new Map<string, Promise<void>>();
 
 /** Test-only reset for module-level sync coordination state. */
 export function resetAccountLessonBookingSyncStateForTests(): void {
   syncInFlight = undefined;
   hotSyncInFlight = undefined;
+  latestHotRequest = 0;
   calendarMonthInFlight.clear();
 }
 
@@ -128,12 +130,15 @@ async function applyAccountHotPages(input: {
   readonly firstPage: QueryLessonBookingReadModelsResult;
   readonly historyItems?: readonly LessonBookingReadModel[];
   readonly generation: number;
+  readonly request: number;
   readonly drain: boolean;
 }): Promise<void> {
   let page = input.firstPage;
   let cursor: QueryLessonBookingReadModelsInput['cursor'];
   const seenCursors = new Set<string>();
-  while (isCurrentSyncGeneration(input.generation)) {
+  const isCurrent = () =>
+    isCurrentSyncGeneration(input.generation) && latestHotRequest === input.request;
+  while (isCurrent()) {
     applyAccountLessonBookingReadResults({
       hotItems: page.items,
       historyItems: cursor === undefined ? (input.historyItems ?? []) : [],
@@ -150,7 +155,6 @@ async function applyAccountHotPages(input: {
     }
     seenCursors.add(page.nextCursor);
     cursor = page.nextCursor;
-    if (!isCurrentSyncGeneration(input.generation)) return;
     page = await queryLessonBookingReadModels({ scope: 'account_hot', cursor });
   }
 }
@@ -160,6 +164,7 @@ export async function syncAccountLessonBookingsFromServer(): Promise<void> {
   if (syncInFlight?.generation === generation) {
     return syncInFlight.promise;
   }
+  const request = ++latestHotRequest;
 
   const promise = (async () => {
     try {
@@ -167,10 +172,19 @@ export async function syncAccountLessonBookingsFromServer(): Promise<void> {
         queryLessonBookingReadModels({ scope: 'account_hot' }),
         queryLessonBookingReadModels({ scope: 'account_history' }),
       ]);
+      if (request !== latestHotRequest) {
+        applyAccountLessonBookingReadResults({
+          hotItems: [],
+          historyItems: history.items,
+          syncGeneration: generation,
+        });
+        return;
+      }
       await applyAccountHotPages({
         firstPage: hot,
         historyItems: history.items,
         generation,
+        request,
         drain: !loaded,
       });
     } finally {
@@ -190,11 +204,12 @@ export async function syncAccountHotLessonBookingsFromServer(): Promise<void> {
   if (hotSyncInFlight?.generation === generation) {
     return hotSyncInFlight.promise;
   }
+  const request = ++latestHotRequest;
 
   const promise = (async () => {
     try {
       const hot = await queryLessonBookingReadModels({ scope: 'account_hot' });
-      await applyAccountHotPages({ firstPage: hot, generation, drain: !loaded });
+      await applyAccountHotPages({ firstPage: hot, generation, request, drain: !loaded });
     } finally {
       if (hotSyncInFlight?.generation === generation) {
         hotSyncInFlight = undefined;
@@ -242,7 +257,7 @@ export async function ensureAccountCalendarMonthLoaded(input: {
   }
 
   store.setCalendarMonthStatus(input.monthKey, 'loading');
-  store.setCalendarMonthError(undefined);
+  store.setCalendarMonthError(input.monthKey);
 
   const request = (async () => {
     try {
@@ -265,10 +280,12 @@ export async function ensureAccountCalendarMonthLoaded(input: {
         return;
       }
       useLessonBookingStore.getState().clearCalendarMonthStatus(input.monthKey);
-      useLessonBookingStore.getState().setCalendarMonthError({
-        monthKey: input.monthKey,
-        message: error instanceof Error ? error.message : 'Failed to load calendar month.',
-      });
+      useLessonBookingStore
+        .getState()
+        .setCalendarMonthError(
+          input.monthKey,
+          error instanceof Error ? error.message : 'Failed to load calendar month.'
+        );
       throw error;
     } finally {
       calendarMonthInFlight.delete(inFlightKey);

@@ -30,7 +30,9 @@ export function useManagedParticipants(accountId: string | undefined) {
   const storedError = useManagedParticipantsStore((state) => state.error);
   const authenticatedAccountId = firebaseUid;
   const bootstrapReady =
-    Boolean(accountId) && Boolean(authenticatedAccountId) && profileUid === authenticatedAccountId;
+    Boolean(accountId) &&
+    accountId === authenticatedAccountId &&
+    profileUid === authenticatedAccountId;
 
   const reload = useCallback(async () => {
     if (!accountId || !authenticatedAccountId || !bootstrapReady) {
@@ -90,7 +92,7 @@ export function useManagedParticipants(accountId: string | undefined) {
     storedAccountId === authenticatedAccountId && storedAuthGeneration === authGeneration;
   return {
     participants: bootstrapReady && isCurrentScope ? storedParticipants : EMPTY_PARTICIPANTS,
-    loading: bootstrapReady && isCurrentScope ? storedLoading : false,
+    loading: bootstrapReady && (!isCurrentScope || storedLoading),
     error: bootstrapReady && isCurrentScope ? storedError : undefined,
     reload,
   };

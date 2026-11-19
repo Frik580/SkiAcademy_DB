@@ -9,7 +9,10 @@ import { ConditionsStrip } from '../../src/features/resort-conditions';
 import { useResortConditions } from '../../src/features/resort-conditions/hooks/useResortConditions';
 import { weatherService } from '../../src/features/resort-conditions/api/weatherService';
 
-vi.mock('../../src/features/wallet', () => ({ useEffectiveBalance: () => 0 }));
+vi.mock('../../src/features/wallet', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/features/wallet')>()),
+  useEffectiveBalance: () => 0,
+}));
 vi.mock('../../src/features/student-cabinet/useNavbarParticipantSwitcher', () => ({
   useNavbarParticipantSwitcher: () => ({ items: [] }),
 }));

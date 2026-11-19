@@ -23,7 +23,14 @@ export function resolveBookingWalletState(
   const validCost = Number.isSafeInteger(totalCost) && totalCost >= 0;
   return {
     balance,
-    status: !loaded ? 'loading' : balance === null ? 'unavailable' : 'ready',
+    status:
+      sameAccount && wallet.canonicalWalletError
+        ? 'unavailable'
+        : !loaded
+          ? 'loading'
+          : balance === null
+            ? 'unavailable'
+            : 'ready',
     insufficient: balance !== null && validCost && balance < totalCost,
     canPay: balance !== null && validCost && balance >= totalCost,
   } as const;

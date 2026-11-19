@@ -8,7 +8,7 @@ import { useCurrency } from '../../app/providers/CurrencyContext';
 import { isInstructorWorkspaceUser, getDefaultWorkspacePath } from '../../lib/workspaceRoutes';
 import { Logo } from './Logo';
 import { LanguageSwitch } from './LanguageSwitch';
-import { useEffectiveBalance } from '../../features/wallet';
+import { useEffectiveBalance, useWalletStore } from '../../features/wallet';
 import {
   CabinetParticipantAvatarSwitcher,
   useNavbarParticipantSwitcher,
@@ -36,6 +36,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   const { t, language, setLanguage } = useLanguage();
   const { formatPrice } = useCurrency();
   const effectiveBalance = useEffectiveBalance();
+  const balanceLoaded = useWalletStore(
+    (state) => state.canonicalWalletAccountId === userProfile?.uid && state.canonicalWalletLoaded
+  );
+  const balanceError = useWalletStore(
+    (state) => state.canonicalWalletAccountId === userProfile?.uid && state.canonicalWalletError
+  );
   const participantSwitcher = useNavbarParticipantSwitcher({
     accountId: userProfile?.uid,
     legacySelfAvatarUrl: userProfile?.avatarUrl,
@@ -58,7 +64,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   const notificationButtonTitle = hasUnreadNotifications
     ? `${t('newNotifications')} (${unreadNotificationCount})`
     : t('notifications');
-  const formattedBalance = formatPrice(effectiveBalance);
+  const formattedBalance = balanceLoaded ? formatPrice(effectiveBalance) : '—';
+  const balanceStatus = balanceError
+    ? t('walletBalanceLoadError')
+    : balanceLoaded
+      ? undefined
+      : t('loading');
   const workspaceItems = [
     ...(showClientNav
       ? [{ to: '/cabinet', label: t('clientCabinet'), active: isCabinetView }]
@@ -298,7 +309,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <span className="text-[var(--ink-dim)] normal-case hidden xl:inline">
                       {t('balance')}:
                     </span>
-                    <span className="font-bold" data-testid="navbar-balance">
+                    <span className="font-bold" data-testid="navbar-balance" title={balanceStatus}>
                       {formattedBalance}
                     </span>
                   </div>
@@ -502,7 +513,11 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                   <div className="flex items-center justify-between gap-2 type-compact text-[var(--ink)]">
                     <span className="text-[var(--ink-dim)]">{t('balance')}:</span>
-                    <span className="font-bold" data-testid="navbar-balance-mobile">
+                    <span
+                      className="font-bold"
+                      data-testid="navbar-balance-mobile"
+                      title={balanceStatus}
+                    >
                       {formattedBalance}
                     </span>
                   </div>

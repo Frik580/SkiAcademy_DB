@@ -182,6 +182,40 @@ it('preserves the open panel and focused language/theme controls across updates'
   expect(trigger()).toHaveAttribute('aria-expanded', 'true');
 });
 
+it('keeps icon hover surfaces centered and the mobile language switch identical to the header', async () => {
+  const { container } = mount();
+  const user = userEvent.setup();
+  const opener = trigger();
+  expect(opener).toHaveClass('items-center', 'justify-center', 'h-11', 'w-11');
+  expect(opener.querySelector('span')).toHaveClass(
+    'h-8',
+    'w-8',
+    'group-hover:bg-[var(--accent-muted)]'
+  );
+
+  await user.click(opener);
+  const region = panel();
+  const theme = within(region).getByRole('button', { name: 'Switch to Dark' });
+  expect(theme).toHaveClass('items-center', 'justify-center', 'h-11', 'w-11');
+  expect(theme.querySelector('span')).toHaveClass(
+    'h-8',
+    'w-8',
+    'group-hover:bg-[var(--accent-muted)]'
+  );
+  expect(region).not.toHaveClass('[&_button]:min-h-11', '[&_button]:min-w-11');
+  expect(region).toHaveClass('gap-2', 'p-3', 'rounded-2xl');
+
+  const groups = container.querySelectorAll('[role="group"][aria-label="Switch language"]');
+  expect(groups).toHaveLength(2);
+  expect(groups[0].className).toBe(groups[1].className);
+  expect(within(region).queryByText('Language')).toBeNull();
+  const headerButtons = groups[0].querySelectorAll('button');
+  const mobileButtons = groups[1].querySelectorAll('button');
+  expect(Array.from(mobileButtons, (button) => button.className)).toEqual(
+    Array.from(headerButtons, (button) => button.className)
+  );
+});
+
 it('retains authorized workspace links and closes on selection', async () => {
   mount({ uid: 'fixture', role: 'admin', displayName: 'Admin' } as UserProfile);
   const user = userEvent.setup();

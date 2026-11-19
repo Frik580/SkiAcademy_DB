@@ -412,9 +412,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                 aria-expanded={isMenuOpen}
                 aria-controls={mobilePanelId}
                 onClick={() => setIsMenuOpen((open) => !open)}
-                className="ui-icon-btn min-h-11 min-w-11 text-[var(--ink)] shrink-0"
+                className="group flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
               >
-                {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                <span className="flex h-8 w-8 items-center justify-center rounded-full transition-colors group-hover:bg-[var(--accent-muted)] group-focus-visible:bg-[var(--accent-muted)]">
+                  {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                </span>
               </button>
             </div>
           </div>
@@ -463,7 +465,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               animate={{ y: 0 }}
               exit={{ y: -12 }}
               transition={{ duration: 0.2 }}
-              className="ui-navbar-panel lg:hidden absolute top-full left-0 w-full p-6 sm:p-8 flex flex-col gap-5 sm:gap-6 z-50 max-h-[calc(100dvh-var(--app-navbar-height,60px))] overflow-y-auto [&_button]:min-h-11 [&_button]:min-w-11"
+              className="ui-navbar-panel lg:hidden absolute top-[calc(100%+0.5rem)] right-2 sm:right-4 w-[min(20rem,calc(100%-1rem))] rounded-2xl p-3 sm:p-4 flex flex-col gap-2 sm:gap-3 z-50 max-h-[calc(100dvh-var(--app-navbar-height,60px)-0.5rem)] overflow-y-auto shadow-[var(--shadow-soft)]"
             >
               {userProfile && (
                 <>
@@ -471,7 +473,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <Link
                       to="/cabinet"
                       onClick={closeMobileMenu}
-                      className={`w-full px-4 py-3 transition type-nav rounded-full normal-case no-underline text-center ${
+                      className={`w-full min-h-11 px-4 py-2 transition type-nav rounded-full normal-case no-underline text-center flex items-center justify-center ${
                         isCabinetView
                           ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
                           : 'bg-[var(--profile-bg)] border border-[var(--border)] text-[var(--ink)] border-none'
@@ -485,7 +487,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <Link
                       to="/instructor"
                       onClick={closeMobileMenu}
-                      className={`w-full px-4 py-3 transition type-nav rounded-full normal-case no-underline text-center ${
+                      className={`w-full min-h-11 px-4 py-2 transition type-nav rounded-full normal-case no-underline text-center flex items-center justify-center ${
                         isInstructorView
                           ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
                           : 'bg-[var(--profile-bg)] border border-[var(--border)] text-[var(--ink)] border-none'
@@ -501,7 +503,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         closeMobileMenu();
                         navigate(isAdminView ? '/' : '/admin');
                       }}
-                      className={`w-full px-4 py-3 transition cursor-pointer type-nav rounded-full normal-case ${
+                      className={`w-full min-h-11 px-4 py-2 transition cursor-pointer type-nav rounded-full normal-case ${
                         isAdminView
                           ? 'bg-amber-500 border border-amber-500 text-white'
                           : 'bg-[var(--profile-bg)] border border-[var(--border)] text-[var(--ink)] border-none'
@@ -527,7 +529,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       closeMobileMenu();
                       onOpenNotifications();
                     }}
-                    className="w-full flex justify-between items-center type-nav text-[var(--ink)]"
+                    className="w-full min-h-11 flex justify-between items-center type-nav text-[var(--ink)] cursor-pointer"
                   >
                     <span className="flex items-center gap-2">
                       {t('notifications')}
@@ -544,22 +546,23 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </>
               )}
 
-              <div className="flex items-center justify-between type-compact text-[var(--ink)]">
+              <div className="flex min-h-11 items-center justify-between type-compact text-[var(--ink)]">
                 <span>{t(theme === 'light' ? 'lightTheme' : 'darkTheme')}</span>
                 <button
                   onClick={onToggleTheme}
-                  className="ui-icon-btn"
+                  className="group flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
                   aria-label={t(theme === 'light' ? 'switchToDark' : 'switchToLight')}
                 >
-                  {theme === 'light' ? (
-                    <Moon className="w-4 h-4" />
-                  ) : (
-                    <Sun className="w-4 h-4 text-amber-400" />
-                  )}
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full transition-colors group-hover:bg-[var(--accent-muted)] group-focus-visible:bg-[var(--accent-muted)]">
+                    {theme === 'light' ? (
+                      <Moon className="w-4 h-4" />
+                    ) : (
+                      <Sun className="w-4 h-4 text-amber-400" />
+                    )}
+                  </span>
                 </button>
               </div>
-              <div className="flex items-center justify-between type-compact text-[var(--ink)]">
-                <span>{t('languageLabel')}</span>
+              <div className="flex items-center justify-center py-1">
                 <LanguageSwitch
                   language={language}
                   onChange={setLanguage}
@@ -572,7 +575,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     closeMobileMenu();
                     onSignInClick();
                   }}
-                  className="w-full max-w-xs mx-auto mt-2 px-4 py-3 btn-primary type-nav text-center"
+                  className="w-full min-h-11 mx-auto mt-1 px-4 py-2 btn-primary type-nav text-center"
                 >
                   {t('signInBtn')}
                 </button>
@@ -583,7 +586,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     closeMobileMenu();
                     onSignOut();
                   }}
-                  className="w-full mt-2 px-4 py-3 text-rose-500 hover:bg-rose-500/10 transition cursor-pointer type-nav rounded-full"
+                  className="w-full min-h-11 mt-1 px-4 py-2 text-rose-500 hover:bg-rose-500/10 transition cursor-pointer type-nav rounded-full"
                 >
                   {t('signOut')}
                 </button>

@@ -97,6 +97,47 @@ test('route and breakpoint changes close the panel without reopening it', async 
   await expect(trigger).toHaveAttribute('aria-expanded', 'false');
 });
 
+test('icon highlights are centered and the dropdown keeps the header language pill sizing', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const trigger = page.getByRole('button', { name: 'Navigation menu' });
+
+  const assertCenteredHalo = async (button: typeof trigger) => {
+    const buttonBox = (await button.boundingBox())!;
+    const haloBox = (await button.locator('span').first().boundingBox())!;
+    expect(buttonBox.width).toBe(44);
+    expect(buttonBox.height).toBe(44);
+    expect(haloBox.width).toBe(32);
+    expect(haloBox.height).toBe(32);
+    expect(Math.abs(haloBox.x + 16 - (buttonBox.x + 22))).toBeLessThan(1);
+    expect(Math.abs(haloBox.y + 16 - (buttonBox.y + 22))).toBeLessThan(1);
+    await button.hover();
+    expect(
+      await button
+        .locator('span')
+        .first()
+        .evaluate((el) => getComputedStyle(el).backgroundColor)
+    ).not.toBe('rgba(0, 0, 0, 0)');
+    expect(await button.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(
+      'rgba(0, 0, 0, 0)'
+    );
+  };
+
+  await assertCenteredHalo(trigger);
+  await trigger.click();
+  const panel = page.getByRole('region', { name: 'Navigation menu' });
+  const theme = panel.getByRole('button', { name: 'Switch to Dark' });
+  await assertCenteredHalo(theme);
+
+  expect((await panel.boundingBox())!.width).toBeLessThanOrEqual(320);
+  expect(await panel.evaluate((el) => getComputedStyle(el).rowGap)).toBe('8px');
+  const headerLanguage = page.locator('header [role="group"][aria-label="Switch language"]');
+  const menuLanguage = panel.getByRole('group', { name: 'Switch language' });
+  expect(await menuLanguage.getAttribute('class')).toBe(await headerLanguage.getAttribute('class'));
+  await expect(panel.getByText('Language', { exact: true })).toHaveCount(0);
+});
+
 for (const size of [
   { width: 320, height: 568 },
   { width: 375, height: 812 },
@@ -153,8 +194,12 @@ for (const size of [
             .toBe(true);
           for (const button of await panel.getByRole('button').all()) {
             const box = await button.boundingBox();
-            expect(box?.height).toBeGreaterThanOrEqual(44);
-            expect(box?.width).toBeGreaterThanOrEqual(44);
+            // The shared RU/EN segmented control keeps its compact header dimensions.
+            const isLanguageOption = await button.evaluate(
+              (el) => el.hasAttribute('aria-pressed') && !!el.closest('[role="group"]')
+            );
+            expect(box?.height).toBeGreaterThanOrEqual(isLanguageOption ? 30 : 44);
+            expect(box?.width).toBeGreaterThanOrEqual(isLanguageOption ? 30 : 44);
           }
           await panel
             .getByRole('button', { name: locale === 'ru' ? 'EN' : 'RU', exact: true })

@@ -1,9 +1,10 @@
 import React from 'react';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModalHost } from '../../src/features/shell/ModalHost';
 import { useUiStore } from '../../src/features/shell/uiStore';
-import type { Course, Instructor, UserProfile } from '../../src/types';
+import { PersonalCabinetModals } from '../../src/features/student-cabinet/components/PersonalCabinetModals';
+import type { Booking, Course, Instructor, UserProfile } from '../../src/types';
 import type { CourseEnrollmentCabinetItem } from '../../src/features/course-enrollments/courseEnrollmentContracts';
 import { selectEnrollmentForCourseParticipant } from '../../src/features/course-enrollments/courseProgressViewModel';
 import { useCabinetProgressParticipantSelectionStore } from '../../src/features/student-cabinet/cabinetProgressParticipantSelectionStore';
@@ -18,19 +19,54 @@ const loaders = vi.hoisted(() => ({
   details: vi.fn(),
   enrollment: vi.fn(),
   reviews: vi.fn(),
-  authMount: vi.fn(),
-  authUnmount: vi.fn(),
-  resolveAuth: () => {},
+  chat: vi.fn(),
+  resolve: new Map<string, () => void>(),
 }));
 
+async function delayImport(name: string) {
+  await new Promise<void>((resolve) => loaders.resolve.set(name, resolve));
+}
+
+async function finishImport(
+  name: string,
+  loader: ReturnType<typeof vi.fn>,
+  existingDialogs: HTMLElement[] = []
+) {
+  await waitFor(() => expect(loader).toHaveBeenCalledOnce(), { timeout: 5000 });
+  const resolve = loaders.resolve.get(name);
+  if (resolve) {
+    expect(screen.queryAllByRole('dialog', { hidden: true })).toEqual(existingDialogs);
+    expect(screen.queryByText('Загрузка...')).not.toBeInTheDocument();
+    loaders.resolve.delete(name);
+    await act(async () => resolve());
+  }
+  return screen.findByRole('dialog', { name });
+}
+
 vi.mock('../../src/app/providers/LanguageContext', () => ({
-  useLanguage: () => ({ t: (key: string) => key, language: 'en' }),
+  useLanguage: () => ({
+    t: (key: string) => (key === 'loading' ? 'Загрузка...' : key),
+    language: 'ru',
+  }),
   translateCourse: (course: unknown) => course,
 }));
 vi.mock('../../src/features/profile/profileStore', () => ({
   useProfileStore: (select: (state: unknown) => unknown) =>
     select({ userProfile: loaders.profile() ?? null }),
 }));
+vi.mock('../../src/features/profile', () => ({ ReviewFlow: () => null }));
+vi.mock('../../src/hooks/useTheme', () => ({ useTheme: () => ({ theme: 'light' }) }));
+vi.mock('../../src/features/bookings', async () => {
+  loaders.chat();
+  await delayImport('lesson chat');
+  return {
+    BookingChatModal: ({ onClose }: { onClose: () => void }) => (
+      <div role="dialog" aria-label="lesson chat">
+        <button onClick={onClose}>close chat</button>
+      </div>
+    ),
+  };
+});
 vi.mock('../../src/features/bookings/bookingsStore', () => ({
   useBookingsStore: (select: (state: unknown) => unknown) =>
     select({
@@ -61,29 +97,18 @@ vi.mock('../../src/features/notifications/NotificationsPanel', () => ({
   NotificationsPanel: () => null,
 }));
 vi.mock('../../src/features/reviews', () => ({ loadMoreCanonicalInstructorReviews: vi.fn() }));
-vi.mock('../../src/features/auth/components/AuthModal', async () => {
+vi.mock('../../src/features/auth/components/Auth', () => ({
+  Auth: () => <input aria-label="email" />,
+}));
+vi.mock('../../src/features/auth/components/AuthModal', async (importOriginal) => {
+  const original = await importOriginal();
   loaders.auth();
-  await new Promise<void>((resolve) => {
-    loaders.resolveAuth = resolve;
-  });
-  return {
-    AuthModal: ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
-      React.useEffect(() => {
-        loaders.authMount();
-        return () => {
-          loaders.authUnmount();
-        };
-      }, []);
-      return isOpen ? (
-        <div role="dialog" aria-label="auth">
-          <button onClick={onClose}>close auth</button>
-        </div>
-      ) : null;
-    },
-  };
+  await delayImport('welcomeTitle');
+  return original;
 });
-vi.mock('../../src/features/bookings/components/BookingModal', () => {
+vi.mock('../../src/features/bookings/components/BookingModal', async () => {
   loaders.booking();
+  await delayImport('booking');
   return {
     BookingModal: ({ onClose }: { onClose: () => void }) => (
       <div role="dialog" aria-label="booking">
@@ -92,8 +117,9 @@ vi.mock('../../src/features/bookings/components/BookingModal', () => {
     ),
   };
 });
-vi.mock('../../src/features/courses/components/CourseDetailsModal', () => {
+vi.mock('../../src/features/courses/components/CourseDetailsModal', async () => {
   loaders.details();
+  await delayImport('course details');
   return {
     CourseDetailsModal: (props: React.ComponentProps<typeof CourseDetailsModal>) => {
       loaders.detailsProps(props);
@@ -105,12 +131,14 @@ vi.mock('../../src/features/courses/components/CourseDetailsModal', () => {
     },
   };
 });
-vi.mock('../../src/features/courses/components/CourseEnrollmentModal', () => {
+vi.mock('../../src/features/courses/components/CourseEnrollmentModal', async () => {
   loaders.enrollment();
+  await delayImport('course enrollment');
   return { CourseEnrollmentModal: () => <div role="dialog" aria-label="course enrollment" /> };
 });
-vi.mock('../../src/features/profile/components/InstructorReviewsModal', () => {
+vi.mock('../../src/features/profile/components/InstructorReviewsModal', async () => {
   loaders.reviews();
+  await delayImport('reviews');
   return { InstructorReviewsModal: () => <div role="dialog" aria-label="reviews" /> };
 });
 
@@ -138,19 +166,18 @@ describe('global modal lazy boundaries', () => {
       expect(loader).not.toHaveBeenCalled();
     }
     act(() => useUiStore.getState().setIsAuthModalOpen(true));
-    await waitFor(() => expect(loaders.auth).toHaveBeenCalledOnce());
-    expect(screen.getByText('loading')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { hidden: true })).not.toBeInTheDocument();
+    expect(document.querySelector('[data-modal-layer]')).not.toBeInTheDocument();
     expect(useUiStore.getState().isAuthModalOpen).toBe(true);
-    await act(async () => {
-      loaders.resolveAuth();
-    });
-    expect(await screen.findByRole('dialog', { name: 'auth' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'close auth' }));
-    expect(screen.queryByRole('dialog', { name: 'auth' })).not.toBeInTheDocument();
-    expect(loaders.authUnmount).not.toHaveBeenCalled();
+    const dialog = await finishImport('welcomeTitle', loaders.auth);
+    expect(within(dialog).getByRole('textbox', { name: 'email' })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(useUiStore.getState().isAuthModalOpen).toBe(false);
+    expect(dialog).toBeInTheDocument();
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
     act(() => useUiStore.getState().setIsAuthModalOpen(true));
-    expect(screen.getByRole('dialog', { name: 'auth' })).toBeInTheDocument();
-    expect(loaders.authMount).toHaveBeenCalledOnce();
+    expect(screen.getByRole('dialog', { name: 'welcomeTitle' })).toBeInTheDocument();
+    expect(loaders.auth).toHaveBeenCalledOnce();
   });
 
   it('opens booking and reviews from the first selection and preserves the course details → enrollment transition', async () => {
@@ -158,18 +185,62 @@ describe('global modal lazy boundaries', () => {
     const course = { id: 'course_01' } as Course;
     render(<ModalHost />);
     act(() => useUiStore.getState().setSelectedInstructor(instructor));
-    expect(await screen.findByRole('dialog', { name: 'booking' })).toBeInTheDocument();
+    expect(await finishImport('booking', loaders.booking)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'close booking' }));
     expect(useUiStore.getState().selectedInstructor).toBeNull();
     act(() => useUiStore.getState().setReviewsInstructor(instructor));
-    expect(await screen.findByRole('dialog', { name: 'reviews' })).toBeInTheDocument();
+    expect(await finishImport('reviews', loaders.reviews)).toBeInTheDocument();
     act(() => useUiStore.getState().setReviewsInstructor(null));
     act(() => useUiStore.getState().setSelectedCourseForDetails(course));
-    expect(await screen.findByRole('dialog', { name: 'course details' })).toBeInTheDocument();
+    const detailsDialog = await finishImport('course details', loaders.details);
     fireEvent.click(screen.getByRole('button', { name: 'enroll' }));
-    expect(await screen.findByRole('dialog', { name: 'course enrollment' })).toBeInTheDocument();
+    expect(
+      await finishImport('course enrollment', loaders.enrollment, [detailsDialog])
+    ).toBeInTheDocument();
     expect(useUiStore.getState().selectedCourseForAuth).toBe(course);
   });
+});
+
+it('opens the lesson chat after its import, and closes and reopens it', async () => {
+  const booking = { id: 'lesson_01' } as Booking;
+  const props: React.ComponentProps<typeof PersonalCabinetModals> = {
+    userProfile: { uid: 'account' } as UserProfile,
+    rawBookings: [],
+    courses: [],
+    instructors: [],
+    usersList: [],
+    reviews: [],
+    lessonDetailsId: null,
+    onCloseLessonDetails: vi.fn(),
+    onWriteReviewFromLesson: vi.fn(),
+    reviewBooking: null,
+    reviewRating: 0,
+    setReviewRating: vi.fn(),
+    reviewComment: '',
+    setReviewComment: vi.fn(),
+    isSubmittingReview: false,
+    onCloseReview: vi.fn(),
+    onSubmitReview: vi.fn(),
+    confirmModal: null,
+    cancelReason: '',
+    setCancelReason: vi.fn(),
+    onCloseConfirm: vi.fn(),
+    onConfirmAction: vi.fn(),
+    selectedChatBooking: null,
+    onCloseChat: vi.fn(),
+    levelUpModal: null,
+    onCloseLevelUp: vi.fn(),
+  };
+  const { rerender } = render(<PersonalCabinetModals {...props} />);
+  expect(loaders.chat).not.toHaveBeenCalled();
+  rerender(<PersonalCabinetModals {...props} selectedChatBooking={booking} />);
+  const chat = await finishImport('lesson chat', loaders.chat);
+  fireEvent.click(within(chat).getByRole('button', { name: 'close chat' }));
+  expect(props.onCloseChat).toHaveBeenCalledOnce();
+  rerender(<PersonalCabinetModals {...props} />);
+  expect(chat).not.toBeInTheDocument();
+  rerender(<PersonalCabinetModals {...props} selectedChatBooking={booking} />);
+  expect(screen.getByRole('dialog', { name: 'lesson chat' })).toBeInTheDocument();
 });
 
 describe('account enrollment card course details', () => {
@@ -188,7 +259,7 @@ describe('account enrollment card course details', () => {
     useCabinetProgressParticipantSelectionStore.setState({ selectedParticipantId: 'a' });
     act(() => useUiStore.getState().setSelectedCourseForDetails(course, enrolledB.enrollmentId));
     render(<ModalHost />);
-    await screen.findByRole('dialog', { name: 'course details' });
+    await finishImport('course details', loaders.details);
     expect(loaders.detailsProps.mock.lastCall?.[0]).toMatchObject({
       isEnrolled: true,
       enrollmentLifecycleStatus: 'confirmed',
@@ -205,7 +276,7 @@ describe('account enrollment card course details', () => {
     useCabinetProgressParticipantSelectionStore.setState({ selectedParticipantId: 'a' });
     act(() => useUiStore.getState().setSelectedCourseForDetails(course));
     render(<ModalHost />);
-    await screen.findByRole('dialog', { name: 'course details' });
+    await finishImport('course details', loaders.details);
     expect(loaders.detailsProps.mock.lastCall?.[0].isEnrolled).toBe(false);
     act(() =>
       useUiStore

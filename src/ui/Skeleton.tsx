@@ -142,37 +142,6 @@ export const FormSkeleton: React.FC<{ fields?: number; className?: string }> = (
   );
 };
 
-export const ModalSkeleton: React.FC<{ title?: string; className?: string }> = ({
-  title,
-  className = '',
-}) => {
-  return (
-    <div
-      className={`p-6 space-y-5 bg-white dark:bg-slate-900 rounded-2xl shadow-xl max-w-md w-full border border-slate-200 dark:border-slate-800 ${className}`}
-    >
-      <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-slate-800">
-        {title ? (
-          <span className="font-medium type-compact text-slate-500 dark:text-slate-400">
-            {title}
-          </span>
-        ) : (
-          <Skeleton className="h-5 w-40" />
-        )}
-        <Skeleton variant="circular" className="w-6 h-6" />
-      </div>
-      <div className="space-y-3 py-2">
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-5/6" />
-        <Skeleton className="h-20 w-full rounded-lg" />
-      </div>
-      <div className="flex justify-end gap-3 pt-2">
-        <Skeleton className="h-9 w-20 rounded-md" />
-        <Skeleton className="h-9 w-28 rounded-md" />
-      </div>
-    </div>
-  );
-};
-
 export const AppInitSkeleton: React.FC<{ label?: string }> = ({ label }) => {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">

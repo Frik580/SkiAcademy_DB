@@ -11,6 +11,7 @@ export interface BalanceOptimisticState {
 }
 
 export interface CanonicalWalletSnapshot {
+  canonicalWalletError?: boolean;
   canonicalWalletAccountId: string | null;
   canonicalWalletTrusted: boolean;
   /** Authoritative spendable balance from `/users/{accountId}/wallet/state` (KZT minor units). */
@@ -19,11 +20,12 @@ export interface CanonicalWalletSnapshot {
   canonicalWalletEventRevision: number | null;
   /** False when the signed-in account has no wallet document yet. */
   canonicalWalletExists: boolean;
-  /** True after the first wallet snapshot for the current auth session (or clear on logout). */
+  /** True after the first server-confirmed wallet snapshot for the current auth session. */
   canonicalWalletLoaded: boolean;
 }
 
 interface WalletState extends BalanceOptimisticState, CanonicalWalletSnapshot {
+  canonicalWalletError: boolean;
   canonicalWalletRefreshNonce: number;
   refreshCanonicalWallet: () => void;
   walletLedgerEntries: WalletLedgerEntry[];
@@ -79,11 +81,13 @@ const EMPTY_CANONICAL_WALLET: CanonicalWalletSnapshot = {
 export const useWalletStore = create<WalletState>()(
   balanceOptimisticMiddleware((set) => ({
     ...EMPTY_CANONICAL_WALLET,
+    canonicalWalletError: false,
     optimisticBalanceGeneration: 0,
     canonicalWalletRefreshNonce: 0,
     refreshCanonicalWallet: () =>
       set((state) => ({
-        ...EMPTY_CANONICAL_WALLET,
+        canonicalWalletTrusted: false,
+        canonicalWalletError: false,
         canonicalWalletRefreshNonce: state.canonicalWalletRefreshNonce + 1,
       })),
     walletLedgerEntries: [],
@@ -99,11 +103,13 @@ export const useWalletStore = create<WalletState>()(
         canonicalBalanceKzt: exists ? (balanceKzt ?? 0) : 0,
         canonicalWalletEventRevision: exists ? (eventRevision ?? null) : null,
         canonicalWalletLoaded: true,
+        canonicalWalletError: false,
         optimisticBalanceDelta: 0,
       })),
     resetCanonicalWallet: () =>
       set((state) => ({
         ...EMPTY_CANONICAL_WALLET,
+        canonicalWalletError: false,
         optimisticBalanceDelta: 0,
         optimisticBalanceGeneration: state.optimisticBalanceGeneration + 1,
       })),

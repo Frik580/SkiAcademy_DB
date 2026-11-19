@@ -41,6 +41,10 @@ import { StudentHomeworkDashboardSection } from './StudentHomeworkDashboardSecti
 import { getStudentHomeworkSources } from './studentHomeworkSources';
 import { useAccountParticipantLessonStatsStore } from '../../../lesson-bookings/accountParticipantLessonStatsStore';
 import { mapLessonBookingReadModelToCabinetItem } from '../../../lesson-bookings/lessonBookingViewModel';
+import { useLessonBookingStore } from '../../../lesson-bookings/lessonBookingStore';
+import { reloadAccountHotLessonBookings } from '../../../lesson-bookings/useLessonBookingReadSync';
+import { useAccountCourseSessionStore } from '../../../course-enrollments/accountCourseSessionStore';
+import { refreshAccountCourseSessions } from '../../../course-enrollments/useAccountCourseSessionSync';
 import {
   StudentCabinetWeatherSection,
   StudentCoachRecommendationsSection,
@@ -63,6 +67,10 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
   const { t, lang } = useStudentCabinetTranslations();
   const [expiredCountdown, setExpiredCountdown] = useState<number | null>(null);
   const layout = useSettingsStore((state) => state.studentDashboardLayout);
+  const lessonsLoaded = useLessonBookingStore((state) => state.loaded);
+  const lessonsError = useLessonBookingStore((state) => Boolean(state.error));
+  const coursesLoaded = useAccountCourseSessionStore((state) => state.loaded);
+  const coursesError = useAccountCourseSessionStore((state) => Boolean(state.error));
   const {
     userProfile,
     selectedParticipantId,
@@ -364,6 +372,14 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
         size={STUDENT_DASHBOARD_TILES.nextSession.defaultSize}
       >
         <NextSessionBlock
+          readState={{
+            initialLoading: !lessonsLoaded || !coursesLoaded,
+            error: lessonsError || coursesError,
+            onRetry: () => {
+              if (lessonsError) void reloadAccountHotLessonBookings();
+              if (coursesError) void refreshAccountCourseSessions().catch(() => undefined);
+            },
+          }}
           nextSessions={nextSessions}
           participantsBySessionKey={participantsBySessionKey}
           miniDays={miniDays}

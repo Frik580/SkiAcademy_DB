@@ -200,7 +200,7 @@ test('wallet history survives reload and participant changes in RU/EN, mobile/de
     expect(starter.occurredAt).toEqual(starter.recordedAt);
     expect(walletReady.eventRevision).toBe(starter.walletEventRevision);
     // Header balance and eventRevision are set together by useWalletSync.
-    await expect(page.getByRole('banner')).toContainText(
+    await expect(page.getByTestId('navbar-balance')).toHaveText(
       `${walletReady.balance.toLocaleString('ru-RU')} ₸`
     );
     await info.attach('wallet-initialization', {
@@ -243,10 +243,7 @@ test('wallet history survives reload and participant changes in RU/EN, mobile/de
       .evaluateAll((nodes) => nodes.map((n) => n.getAttribute('data-operation-id')));
     expect(new Set(originalIds).size).toBe(originalIds.length);
     const previousReads = reads;
-    const switcher = page
-      .getByRole('banner')
-      .getByTestId('navbar-participant-switcher')
-      .filter({ visible: true });
+    const switcher = page.getByTestId('navbar-participant-switcher').filter({ visible: true });
     await switcher.locator(`[data-participant-id="${runtime.studentChildParticipantId}"]`).click();
     await expect(
       switcher.locator(`[data-participant-id="${runtime.studentChildParticipantId}"]`)

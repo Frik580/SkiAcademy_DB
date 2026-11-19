@@ -11,6 +11,8 @@ import type {
   CourseEnrollmentCabinetItem,
 } from '../../course-enrollments';
 import { lookupCourseCatalogOperational } from '../../course-enrollments';
+import { useAuthStore } from '../../auth/authStore';
+import { useCoursesStore } from '../coursesStore';
 
 interface GroupCoursesSectionProps {
   data: {
@@ -40,8 +42,23 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
 }) => {
   const { t } = useLanguage();
   const catalogStatus = useCourseEnrollmentStore((state) => state.catalogStatus);
+  const isSignedIn = useAuthStore((state) => Boolean(state.firebaseUser));
+  const publicCoursesStatus = useCoursesStore((state) => state.publicCoursesStatus);
+  const catalogueScope = useCoursesStore((state) => state.catalogueScope);
+  const retryPublicCourses = useCoursesStore((state) => state.retryPublicCourses);
   const shouldReduceMotion = useReducedMotion();
   const visibleCourses = sortVisibleCourses(courses);
+  const publicError = !isSignedIn && publicCoursesStatus === 'error';
+  const loading =
+    catalogStatus === 'idle' ||
+    catalogStatus === 'loading' ||
+    catalogueScope === 'instructor' ||
+    (!isSignedIn && publicCoursesStatus === 'loading');
+  const error = publicError || catalogStatus === 'error';
+  const retry = () => {
+    if (publicError) retryPublicCourses();
+    if (catalogStatus === 'error') void reloadCourseCatalog();
+  };
 
   return (
     <div id="courses-grid" className="space-y-6 w-full max-w-[1200px] mx-auto">
@@ -53,14 +70,14 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
         <p className="ui-section-eyebrow mt-2">{t('intensiveGroupCoursesSub')}</p>
       </div>
 
-      {visibleCourses.length === 0 && (
+      {(publicError || visibleCourses.length === 0) && (
         <CourseCatalogFeedback
-          loading={catalogStatus === 'idle' || catalogStatus === 'loading'}
-          error={catalogStatus === 'error'}
+          loading={!error && loading}
+          error={error}
           loadingLabel={t('loading')}
           errorLabel={t('courseCatalogLoadError')}
           retryLabel={t('retry')}
-          onRetry={reloadCourseCatalog}
+          onRetry={retry}
         />
       )}
       <div
@@ -106,7 +123,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
         ))}
       </div>
 
-      {visibleCourses.length === 0 && (
+      {visibleCourses.length === 0 && !loading && !error && (
         <div className="ui-empty-state">{t('noIntensiveCoursesAvailable')}</div>
       )}
     </div>

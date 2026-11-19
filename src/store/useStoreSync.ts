@@ -32,6 +32,7 @@ import { useCabinetProgressParticipantSelectionStore } from '../features/student
 export const useStoreSync = () => {
   const location = useLocation();
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
+  const authLoading = useAuthStore((state) => state.authLoading);
   const authGeneration = useAuthStore((state) => state.authGeneration);
   const userProfile = useProfileStore((state) => state.userProfile);
   const canonicalReadyAccountId = useProfileStore((state) => state.canonicalReadyAccountId);
@@ -91,7 +92,7 @@ export const useStoreSync = () => {
     readyAccountId,
     authGeneration
   );
-  useGuestCourseEnrollmentReadSync(!firebaseUser && isPublicCatalogPath);
+  useGuestCourseEnrollmentReadSync(!authLoading && !firebaseUser && isPublicCatalogPath);
   useCourseCatalogReadSync(isPublicCatalogPath);
   useBookingCollaborationReadSync({
     customerEnabled: isCustomerCanonicalLessonHotPath,
@@ -99,7 +100,7 @@ export const useStoreSync = () => {
     accountId: readyAccountId,
     instructorId: userProfile?.instructorId,
   });
-  useCoursesSync();
+  useCoursesSync(isPublicCatalogPath);
   useNotificationsSync();
   useWalletSync();
   useProfileActivitySync();

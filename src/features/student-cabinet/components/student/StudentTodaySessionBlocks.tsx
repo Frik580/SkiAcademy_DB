@@ -285,6 +285,7 @@ export const CurrentSessionsBlock = memo<CurrentSessionsBlockInput>(function Cur
 });
 
 export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSessionBlock({
+  readState,
   nextSessions,
   participantsBySessionKey = {},
   miniDays,
@@ -330,6 +331,12 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
         }
       />
       <StudentDashboardTileBody>
+        {readState?.error && (
+          <div role="alert">
+            <p>{t('scUpcomingSessionsLoadError')}</p>
+            <ScTextButton onClick={readState.onRetry}>{t('retry')}</ScTextButton>
+          </div>
+        )}
         <div className="sc-next-session-layout">
           <div className="sc-next-session-calendar">
             {calendarLabel && <p className="sc-next-session-month">{calendarLabel}</p>}
@@ -353,7 +360,13 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
                     <span
                       className="sc-next-session-dot"
                       data-booked={hasSession || undefined}
-                      title={hasSession ? t('bookedLesson') : t('noLessons')}
+                      title={
+                        hasSession
+                          ? t('bookedLesson')
+                          : readState?.initialLoading || readState?.error
+                            ? undefined
+                            : t('noLessons')
+                      }
                     >
                       {hasSession ? '●' : '○'}
                     </span>
@@ -382,6 +395,10 @@ export const NextSessionBlock = memo<NextSessionBlockInput>(function NextSession
                 />
               ))}
             </div>
+          ) : readState?.error ? null : readState?.initialLoading ? (
+            <p role="status" className="sc-next-session-empty">
+              {t('loading')}
+            </p>
           ) : (
             <p className="sc-next-session-empty">{t('scNoUpcomingSession')}</p>
           )}

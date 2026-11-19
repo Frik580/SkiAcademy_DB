@@ -74,7 +74,7 @@ describe('canonical Header balance', () => {
     expect(selectorsSource).not.toContain('balanceUSD');
     expect(selectorsSource).not.toContain('useProfileStore');
 
-    expect(syncSource).toContain("doc(db, 'users', firebaseUser.uid, 'wallet', 'state')");
+    expect(syncSource).toContain("doc(db, 'users', accountId, 'wallet', 'state')");
     expect(syncSource).toContain('WalletSchema');
     expect(syncSource).toContain('syncCanonicalWalletFromSnapshot');
   });

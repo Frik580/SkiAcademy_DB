@@ -299,7 +299,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                 </div>
               </div>
               {calendarMonth.status === 'loading' && (
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2" role="status">
                   <p className="type-compact text-[var(--ink-dim)]">{t('loading')}</p>
                   {!school.ready && (
                     <ScTextButton onClick={calendarMonth.retry}>{t('retry')}</ScTextButton>
@@ -307,8 +307,8 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                 </div>
               )}
               {calendarMonth.error && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="type-compact text-[var(--ink-dim)]">{calendarMonth.error}</p>
+                <div className="flex flex-wrap items-center gap-2" role="alert">
+                  <p className="type-compact text-[var(--ink-dim)]">{t('sectionLoadError')}</p>
                   <ScTextButton onClick={calendarMonth.retry}>{t('retry')}</ScTextButton>
                 </div>
               )}
@@ -401,7 +401,9 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
             </div>
           )}
 
-          {listSessionItems.length === 0 ? (
+          {displayedListItems.length === 0 &&
+          (calendarMonth.status === 'loading' ||
+            calendarMonth.error) ? null : listSessionItems.length === 0 ? (
             <StateCard
               title={t('noSessionsScheduledYet')}
               description={t('browseInstructorsHint')}

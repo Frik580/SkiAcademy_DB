@@ -149,12 +149,16 @@ export function AdminManagedParticipantPicker({
   );
 
   const onlyUniqueSelf =
-    !eligible.loading && eligible.items.length === 1 && eligible.items[0]?.authority === 'self';
+    !eligible.loading &&
+    !eligible.error &&
+    eligible.items.length === 1 &&
+    eligible.items[0]?.authority === 'self';
 
   const hideParticipantField = Boolean(autoSelectUniqueSelf && accountId && onlyUniqueSelf);
 
   useEffect(() => {
-    if (!autoSelectUniqueSelf || !accountId || selected || eligible.loading) return;
+    if (!autoSelectUniqueSelf || !accountId || selected || eligible.loading || eligible.error)
+      return;
     const self = eligible.items.find((item) => item.authority === 'self');
     if (!self) return;
     onChange(
@@ -169,6 +173,7 @@ export function AdminManagedParticipantPicker({
     accountDisplayName,
     accountId,
     autoSelectUniqueSelf,
+    eligible.error,
     eligible.items,
     eligible.loading,
     onChange,
@@ -177,6 +182,10 @@ export function AdminManagedParticipantPicker({
 
   useEffect(() => {
     if (!onReadyChange) return;
+    if (eligible.error) {
+      onReadyChange(false);
+      return;
+    }
     if (selected) {
       onReadyChange(true);
       return;
@@ -194,6 +203,7 @@ export function AdminManagedParticipantPicker({
   }, [
     accountId,
     autoSelectUniqueSelf,
+    eligible.error,
     eligible.items.length,
     eligible.loading,
     onReadyChange,
@@ -270,13 +280,19 @@ export function AdminManagedParticipantPicker({
                 setDirectoryError(false);
                 void loadAccountDirectoryPage({
                   ...(appliedSearch ? { search: appliedSearch } : {}),
-                }).then((page) => {
-                  if (generation !== listGeneration.current) return;
-                  setAccountOptions(page.items);
-                  setHasMore(page.hasMore);
-                  setCursor(page.nextCursor);
-                  setDirectoryLoading(false);
-                });
+                })
+                  .then((page) => {
+                    if (generation !== listGeneration.current) return;
+                    setAccountOptions(page.items);
+                    setHasMore(page.hasMore);
+                    setCursor(page.nextCursor);
+                    setDirectoryLoading(false);
+                  })
+                  .catch(() => {
+                    if (generation !== listGeneration.current) return;
+                    setDirectoryError(true);
+                    setDirectoryLoading(false);
+                  });
               }}
             >
               {text.retry}
@@ -294,7 +310,7 @@ export function AdminManagedParticipantPicker({
                 ? `mt-1 ${ADMIN_MODAL_CHOICE_CLASS}`
                 : 'mt-1 w-full border border-[var(--border)] bg-[var(--bg)] p-2 type-body'
             }
-            disabled={!accountId || eligible.loading}
+            disabled={!accountId || eligible.loading || Boolean(eligible.error)}
             value={selected?.participantId ?? ''}
             onChange={(event) => {
               const participant = eligible.items.find(
@@ -321,7 +337,14 @@ export function AdminManagedParticipantPicker({
               </option>
             ))}
           </select>
-          {accountId && !eligible.loading && eligible.items.length === 0 ? (
+          {eligible.error ? (
+            <p className="mt-1 text-[var(--ink-dim)]" role="alert">
+              {eligible.error === 'permission-denied' ? text.permissionDenied : text.mutationFailed}{' '}
+              <button type="button" className="underline" onClick={() => void eligible.refresh()}>
+                {text.retry}
+              </button>
+            </p>
+          ) : accountId && !eligible.loading && eligible.items.length === 0 ? (
             <p className="mt-1 text-[var(--ink-dim)]">{text.noEligible}</p>
           ) : null}
         </label>

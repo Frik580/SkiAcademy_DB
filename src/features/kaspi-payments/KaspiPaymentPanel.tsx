@@ -50,6 +50,7 @@ export function KaspiPaymentPanel({
   const historyGeneration = useRef(0);
   const actionLifetime = useRef(0);
   const [historyScope, setHistoryScope] = useState('');
+  const [historyErrorScope, setHistoryErrorScope] = useState<string>();
   useEffect(() => {
     const deadlines = page.items
       .map(
@@ -66,20 +67,26 @@ export function KaspiPaymentPanel({
   const refresh = useCallback(
     async (cursor?: string) => {
       const current = ++historyGeneration.current;
-      const result = await loadKaspiRequests(
-        guestType && subjectId ? { type: guestType, subjectId } : undefined,
-        cursor
-      );
-      if (current !== historyGeneration.current) return;
-      if (
-        !cursor &&
-        !guestType &&
-        focusedRequest.current &&
-        !result.items.some((item) => item.requestId === focusedRequest.current)
-      ) {
-        const focused = await loadKaspiRequest(focusedRequest.current);
+      let result: KaspiPage<KaspiPublicRequest>;
+      try {
+        result = await loadKaspiRequests(
+          guestType && subjectId ? { type: guestType, subjectId } : undefined,
+          cursor
+        );
         if (current !== historyGeneration.current) return;
-        result.items = [...focused.items, ...result.items];
+        if (
+          !cursor &&
+          !guestType &&
+          focusedRequest.current &&
+          !result.items.some((item) => item.requestId === focusedRequest.current)
+        ) {
+          const focused = await loadKaspiRequest(focusedRequest.current);
+          if (current !== historyGeneration.current) return;
+          result.items = [...focused.items, ...result.items];
+        }
+      } catch {
+        if (current === historyGeneration.current) setHistoryErrorScope(scope);
+        return;
       }
       setNow(Date.now());
       if (attempt.current && result.items.some((item) => item.requestId === attempt.current)) {
@@ -88,6 +95,7 @@ export function KaspiPaymentPanel({
         setAmount('');
       }
       setHistoryScope(scope);
+      setHistoryErrorScope(undefined);
       setPage((previous) =>
         cursor
           ? {
@@ -104,7 +112,6 @@ export function KaspiPaymentPanel({
     [guestType, subjectId, scope]
   );
   useEffect(() => {
-    let active = true;
     const requests = historyGeneration;
     const actions = actionLifetime;
     setPage({ items: [], hasMore: false });
@@ -114,11 +121,8 @@ export function KaspiPaymentPanel({
     setAmount('');
     attempt.current = undefined;
     focusedRequest.current = undefined;
-    void refresh().catch(() => {
-      if (active) setError(true);
-    });
+    void refresh();
     return () => {
-      active = false;
       ++requests.current;
       ++actions.current;
     };
@@ -126,11 +130,11 @@ export function KaspiPaymentPanel({
   useEffect(() => {
     if (previousWalletRevision.current === walletRevision) return;
     previousWalletRevision.current = walletRevision;
-    if (walletRevision !== null) void refresh().catch(() => setError(true));
+    if (walletRevision !== null) void refresh();
   }, [walletRevision, refresh]);
   useEffect(() => {
     const reload = () => {
-      void refresh().catch(() => setError(true));
+      void refresh();
     };
     window.addEventListener('focus', reload);
     window.addEventListener('kaspi-configuration-changed', reload);
@@ -170,8 +174,10 @@ export function KaspiPaymentPanel({
   );
   const validAmount = Number.isSafeInteger(Number(amount)) && Number(amount) > 0;
   const hasHistory = historyScope === scope && page.items.length > 0;
-  const showPayment = availability.status === 'enabled' && historyScope === scope;
-  if (!showPayment && !hasHistory) return null;
+  const historyError = historyErrorScope === scope;
+  const loadError = historyError || availability.status === 'error';
+  const showPayment = availability.status === 'enabled' && historyScope === scope && !historyError;
+  if (!showPayment && !hasHistory && !loadError) return null;
   const title = t(showPayment ? 'kaspiTitle' : 'kaspiHistoryTitle');
   return (
     <section
@@ -179,7 +185,11 @@ export function KaspiPaymentPanel({
       aria-label={title}
     >
       <h3 className="type-card-title">{title}</h3>
-      {error && <p role="alert">{t('kaspiError')}</p>}
+      {loadError && busy ? (
+        <p role="status">{t('loading')}</p>
+      ) : (
+        (error || loadError) && <p role="alert">{t('kaspiError')}</p>
+      )}
       {showPayment && configuration && (
         <>
           <p className="type-compact">{t('kaspiManualNotice')}</p>
@@ -306,7 +316,7 @@ export function KaspiPaymentPanel({
       <div className="flex gap-2">
         <button
           type="button"
-          disabled={busy}
+          aria-disabled={busy}
           className="btn-secondary px-3 py-2"
           onClick={() => void run(async () => {})}
         >

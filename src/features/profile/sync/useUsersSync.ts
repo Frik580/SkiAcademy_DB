@@ -17,24 +17,32 @@ import { isLiveCompatibleIdentity } from '../../../lib/canonical/liveCompatibleC
 /** Lazy users directory for the admin workspace. */
 export const useUsersSync = () => {
   const { shouldSyncUsersList } = useDataSyncScope();
-  const firebaseUser = useAuthStore((s) => s.firebaseUser);
+  const accountId = useAuthStore((s) => s.firebaseUser?.uid);
+  const authGeneration = useAuthStore((s) => s.authGeneration);
   const userProfile = useProfileStore((s) => s.userProfile);
   const usersPageSize = useProfileStore((s) => s.usersPageSize);
   const isAdmin = userProfile?.role === 'admin';
 
   useEffect(() => {
     useProfileStore.getState().resetUsersPagination();
-  }, [firebaseUser?.uid, shouldSyncUsersList, userProfile?.role]);
+  }, [accountId, shouldSyncUsersList, userProfile?.role]);
 
   useEffect(() => {
-    if (!firebaseUser || !shouldSyncUsersList || !isAdmin) {
+    if (!accountId || !shouldSyncUsersList || !isAdmin) {
       useProfileStore.getState().setUsersList([]);
       return;
     }
 
-    return onSnapshot(
+    let active = true;
+    const isCurrent = () =>
+      active &&
+      useAuthStore.getState().firebaseUser?.uid === accountId &&
+      useAuthStore.getState().authGeneration === authGeneration &&
+      useProfileStore.getState().userProfile?.role === 'admin';
+    const unsubscribe = onSnapshot(
       query(collection(db, 'users'), limit(usersPageSize + 1)),
       (snapshot) => {
+        if (!isCurrent()) return;
         const users = snapshot.docs
           .slice(0, usersPageSize)
           .filter((userDoc) => userDoc.id !== 'school_global_stats')
@@ -47,7 +55,13 @@ export const useUsersSync = () => {
         useProfileStore.getState().setUsersList(users);
         useProfileStore.getState().setUsersHasMore(snapshot.docs.length > usersPageSize);
       },
-      (error) => handleFirestoreError(error, OperationType.LIST, 'users')
+      (error) => {
+        if (isCurrent()) handleFirestoreError(error, OperationType.LIST, 'users');
+      }
     );
-  }, [firebaseUser, isAdmin, shouldSyncUsersList, usersPageSize]);
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [accountId, authGeneration, isAdmin, shouldSyncUsersList, usersPageSize]);
 };

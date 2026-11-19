@@ -125,7 +125,7 @@ export const InstructorCourseSection: React.FC<InstructorCourseSectionProps> = (
     [courseDays, selectedCourseDayId]
   );
 
-  if (discoveryLoading && !loaded) {
+  if (!loaded && !error && assignedCourses.length === 0) {
     return (
       <div className="space-y-4">
         <SectionHeader t={t} />
@@ -137,33 +137,38 @@ export const InstructorCourseSection: React.FC<InstructorCourseSectionProps> = (
     );
   }
 
-  if (error) {
+  const errorPanel = error ? (
+    <div role="alert">
+      <StatePanel
+        icon={<BookOpen className="w-6 h-6 text-[var(--ink-dim)]" />}
+        message={
+          errorCode === 'permission-denied'
+            ? t('instructorCourseReadPermissionDenied')
+            : t('instructorCourseReadFailed')
+        }
+        action={
+          <button
+            type="button"
+            onClick={() => void reload()}
+            className="inline-flex items-center gap-2 px-3 py-1.5 type-button uppercase border border-slate-200 dark:border-slate-700 rounded-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            {t('retry')}
+          </button>
+        }
+      />
+    </div>
+  ) : null;
+  if (error && (assignedCourses.length === 0 || errorCode === 'permission-denied')) {
     return (
       <div className="space-y-4">
         <SectionHeader t={t} />
-        <StatePanel
-          icon={<BookOpen className="w-6 h-6 text-[var(--ink-dim)]" />}
-          message={
-            errorCode === 'permission-denied'
-              ? t('instructorCourseReadPermissionDenied')
-              : t('instructorCourseReadFailed')
-          }
-          action={
-            <button
-              type="button"
-              onClick={() => void reload()}
-              className="inline-flex items-center gap-2 px-3 py-1.5 type-button uppercase border border-slate-200 dark:border-slate-700 rounded-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              {t('retry')}
-            </button>
-          }
-        />
+        {errorPanel}
       </div>
     );
   }
 
-  if (loaded && assignedCourses.length === 0 && !discoveryHasMore) {
+  if (!discoveryLoading && !error && loaded && assignedCourses.length === 0 && !discoveryHasMore) {
     return (
       <div className="space-y-4">
         <SectionHeader t={t} />
@@ -178,6 +183,7 @@ export const InstructorCourseSection: React.FC<InstructorCourseSectionProps> = (
   return (
     <div className="space-y-4">
       <SectionHeader t={t} count={assignedCourses.length} />
+      {errorPanel}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         {assignedCourses.map((assignment) => {
@@ -242,11 +248,13 @@ export const InstructorCourseSection: React.FC<InstructorCourseSectionProps> = (
             </span>
           </div>
 
-          {rosterLoading || !selectedCourseViewModel ? (
-            <StatePanel
-              icon={<Loader2 className="w-5 h-5 animate-spin text-[var(--ink-dim)]" />}
-              message={t('instructorCourseRosterLoading')}
-            />
+          {!selectedCourseViewModel ? (
+            error ? null : (
+              <StatePanel
+                icon={<Loader2 className="w-5 h-5 animate-spin text-[var(--ink-dim)]" />}
+                message={t('instructorCourseRosterLoading')}
+              />
+            )
           ) : (
             <>
               <div
@@ -264,15 +272,20 @@ export const InstructorCourseSection: React.FC<InstructorCourseSectionProps> = (
                 ))}
               </div>
               {selectedCourseDay ? (
-                <CourseDayDetail
-                  courseId={selectedAssignment.courseId}
-                  courseDay={selectedCourseDay}
-                  getMutationState={attendanceMutation.getState}
-                  onRecord={attendanceMutation.record}
-                  onRetry={attendanceMutation.retry}
-                  onRetryRefresh={attendanceMutation.retryRefresh}
-                  t={t}
-                />
+                <fieldset
+                  disabled={discoveryLoading || rosterLoading || Boolean(error)}
+                  className="min-w-0"
+                >
+                  <CourseDayDetail
+                    courseId={selectedAssignment.courseId}
+                    courseDay={selectedCourseDay}
+                    getMutationState={attendanceMutation.getState}
+                    onRecord={attendanceMutation.record}
+                    onRetry={attendanceMutation.retry}
+                    onRetryRefresh={attendanceMutation.retryRefresh}
+                    t={t}
+                  />
+                </fieldset>
               ) : (
                 <StatePanel
                   icon={<Calendar className="w-5 h-5 text-[var(--ink-dim)]" />}

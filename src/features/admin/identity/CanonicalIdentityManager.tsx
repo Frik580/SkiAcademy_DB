@@ -146,8 +146,12 @@ export function CanonicalIdentityManager({ adminAccountId }: CanonicalIdentityMa
       ) : null}
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="border border-[var(--border)] p-3">
-          {list.loading ? <p className="type-caption">{text.loading}</p> : null}
-          {!list.loading && list.items.length === 0 ? (
+          {list.loading && list.items.length === 0 ? (
+            <p role="status" className="type-caption">
+              {text.loading}
+            </p>
+          ) : null}
+          {!list.loading && !list.error && list.items.length === 0 ? (
             <p className="type-caption">{text.empty}</p>
           ) : null}
           <ul className="space-y-1">
@@ -193,13 +197,25 @@ export function CanonicalIdentityManager({ adminAccountId }: CanonicalIdentityMa
               : null}
           </ul>
           {list.hasMore ? (
-            <button type="button" className="mt-2 type-button underline" onClick={reads.loadMore}>
+            <button
+              type="button"
+              disabled={list.loading || list.loadingMore}
+              className="mt-2 type-button underline"
+              onClick={reads.loadMore}
+            >
               {text.loadMore}
             </button>
           ) : null}
         </section>
         <section className="space-y-3 border border-[var(--border)] p-3">
           {reads.detailLoading ? <p className="type-caption">{text.loading}</p> : null}
+          {reads.detailError ? (
+            <p role="alert" className="type-caption text-red-600">
+              {reads.detailError === 'permission-denied'
+                ? text.permissionDenied
+                : text.mutationFailed}
+            </p>
+          ) : null}
           {directory === 'accounts' && reads.accountDetail ? (
             <AccountDetail
               detail={reads.accountDetail}

@@ -27,6 +27,7 @@ const loadCabinet = () => {
 export const CabinetRoute: React.FC<AppRoutesProps> = (props) => {
   const authLoading = useAuthStore((state) => state.authLoading);
   const profileLoading = useProfileStore((state) => state.profileLoading);
+  const profileLoadError = useProfileStore((state) => state.profileLoadError);
   const userProfile = useProfileStore((state) => state.userProfile);
   const [module, setModule] = useState(cabinetModule);
   const [failure, setFailure] = useState<{ error: unknown }>();
@@ -46,11 +47,11 @@ export const CabinetRoute: React.FC<AppRoutesProps> = (props) => {
     };
   }, []);
 
-  if (authLoading || profileLoading || (userProfile && !module && !failure)) {
+  if (authLoading || profileLoading || (!profileLoadError && userProfile && !module && !failure)) {
     return <RouteContentLoading />;
   }
   // A resolved guest redirects without waiting for (or failing on) protected code.
-  if (userProfile && failure) throw failure.error;
+  if (!profileLoadError && userProfile && failure) throw failure.error;
   const Component = module?.CabinetRouteContainer;
   return <AuthRoute userProfile={userProfile}>{Component && <Component {...props} />}</AuthRoute>;
 };

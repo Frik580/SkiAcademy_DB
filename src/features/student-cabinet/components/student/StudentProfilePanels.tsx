@@ -33,6 +33,7 @@ import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 import { STUDENT_CABINET_CONTENT_CLASS } from './studentCabinetPresentation';
 import { usePresentedParticipantLessonFeedback } from '../../usePresentedParticipantLessonFeedback';
 import { useSelectedParticipantLessonStats } from '../../useSelectedParticipantLessonStats';
+import { useLessonBookingStore } from '../../../lesson-bookings/lessonBookingStore';
 import { accountReviewEvidenceFromCanonicalPresentation } from '../../../participant-achievements';
 import { usePresentedParticipantAchievements } from '../../../participant-achievements/usePresentedParticipantAchievements';
 import { ParticipantManagementPanel } from '../../../participants/components/ParticipantManagementPanel';
@@ -220,6 +221,9 @@ export const StudentProfileJourneyPanel: React.FC<ProfileSubPanelProps> = ({
 }) => {
   const { language, t } = useStudentCabinetTranslations();
   const lang = language === 'ru' ? 'ru' : 'en';
+  const lessonHistoryInitialized = useLessonBookingStore((state) => state.historyInitialized);
+  const lessonHistoryError = useLessonBookingStore((state) => Boolean(state.historyError));
+  const requestLessonHistoryPage = useLessonBookingStore((state) => state.requestHistoryPage);
   const feedback = usePresentedParticipantLessonFeedback(bookings);
   const pendingByLessonId = useMemo(() => {
     const map = new Map<string, number>();
@@ -260,6 +264,11 @@ export const StudentProfileJourneyPanel: React.FC<ProfileSubPanelProps> = ({
   return (
     <ProfilePanelShell titleKey="scProfileJourney" onGoToTab={onGoToTab}>
       <StudentHistoryList
+        lessonHistoryRead={{
+          initialLoading: !lessonHistoryInitialized,
+          error: lessonHistoryError,
+          onRetry: requestLessonHistoryPage,
+        }}
         events={history}
         bookings={bookings}
         courses={courses}

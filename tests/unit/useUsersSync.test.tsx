@@ -157,4 +157,46 @@ describe('users sync scope and teardown', () => {
     expect(firestoreMocks.doc).toHaveBeenCalledWith(db, 'users', adminInstructorProfile.uid);
     expect(firestoreMocks.collection).not.toHaveBeenCalled();
   });
+
+  it('ignores the old profile listener after switching accounts and retries a failed read once', () => {
+    useAuthStore.getState().setFirebaseUser({ uid: adminInstructorProfile.uid } as never);
+    const unsubscribe = vi.fn();
+    firestoreMocks.onSnapshot.mockReturnValue(unsubscribe);
+    renderHook(() => useCurrentUserProfileSync());
+    const oldListener = firestoreMocks.onSnapshot.mock.calls[0]!;
+    const nextAccount = 'account_next_profile_sync';
+    act(() => useAuthStore.getState().setFirebaseUser({ uid: nextAccount } as never));
+    const nextListener = firestoreMocks.onSnapshot.mock.calls[1]!;
+    act(() => {
+      oldListener[2]({
+        exists: () => true,
+        id: adminInstructorProfile.uid,
+        data: () => adminInstructorProfile,
+        metadata: { fromCache: false, hasPendingWrites: false },
+      });
+      nextListener[2]({ exists: () => false, metadata: { fromCache: true } });
+    });
+    expect(useProfileStore.getState()).toMatchObject({ userProfile: null, profileLoading: true });
+    act(() => nextListener[3](new Error('Profile unavailable')));
+    expect(useProfileStore.getState()).toMatchObject({
+      profileLoadError: true,
+      profileLoading: false,
+    });
+    act(() => useProfileStore.getState().retryProfileLoad());
+    expect(firestoreMocks.onSnapshot).toHaveBeenCalledTimes(3);
+    expect(unsubscribe).toHaveBeenCalledTimes(2);
+    act(() =>
+      firestoreMocks.onSnapshot.mock.calls[2]![2]({
+        exists: () => true,
+        id: nextAccount,
+        data: () => ({ ...adminInstructorProfile, uid: nextAccount, role: 'user' }),
+        metadata: { fromCache: false, hasPendingWrites: false },
+      })
+    );
+    expect(useProfileStore.getState()).toMatchObject({
+      userProfile: { uid: nextAccount },
+      profileLoadError: false,
+      profileLoading: false,
+    });
+  });
 });

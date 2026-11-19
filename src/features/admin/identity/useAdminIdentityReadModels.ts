@@ -19,6 +19,7 @@ import { useAdminPeopleRevisionRefresh } from './useAdminPeopleRevisionRefresh';
 export type AdminIdentityReadError = 'permission-denied' | 'read-failed';
 
 interface ListState<Item> {
+  readonly filterKey?: string;
   readonly items: readonly Item[];
   readonly loading: boolean;
   readonly loadingMore: boolean;
@@ -33,12 +34,12 @@ function classify(error: unknown): AdminIdentityReadError {
     : 'read-failed';
 }
 
-const EMPTY_LIST = {
+const EMPTY_LIST: ListState<never> = {
   items: [],
   loading: true,
   loadingMore: false,
   hasMore: false,
-} as const;
+};
 
 export function useAdminIdentityReadModels(input: {
   readonly enabled: boolean;
@@ -65,6 +66,16 @@ export function useAdminIdentityReadModels(input: {
   >();
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<AdminIdentityReadError | undefined>();
+  const [requestedDetailKey, setRequestedDetailKey] = useState<string>();
+  const search = input.search.trim();
+  const filterKey = JSON.stringify([search, input.pageSize, input.role]);
+  const selectedId =
+    input.directory === 'accounts'
+      ? input.selectedAccountId
+      : input.directory === 'participants'
+        ? input.selectedParticipantId
+        : input.selectedInstructorId;
+  const detailKey = selectedId ? JSON.stringify([input.directory, selectedId]) : undefined;
 
   const loadList = useCallback(
     async (cursor?: string, append = false) => {
@@ -72,21 +83,24 @@ export function useAdminIdentityReadModels(input: {
       const generation = ++listGeneration.current;
       if (input.directory === 'accounts') {
         setAccounts((previous) => ({
-          ...previous,
+          ...(previous.filterKey === filterKey ? previous : EMPTY_LIST),
+          filterKey,
           loading: !append,
           loadingMore: append,
           error: undefined,
         }));
       } else if (input.directory === 'participants') {
         setParticipants((previous) => ({
-          ...previous,
+          ...(previous.filterKey === filterKey ? previous : EMPTY_LIST),
+          filterKey,
           loading: !append,
           loadingMore: append,
           error: undefined,
         }));
       } else {
         setInstructors((previous) => ({
-          ...previous,
+          ...(previous.filterKey === filterKey ? previous : EMPTY_LIST),
+          filterKey,
           loading: !append,
           loadingMore: append,
           error: undefined,
@@ -101,15 +115,16 @@ export function useAdminIdentityReadModels(input: {
               : 'admin_instructor_list';
         const result = await queryAdminIdentityReadModels({
           scope,
-          ...(input.search.trim() ? { search: input.search.trim() } : {}),
+          ...(search ? { search } : {}),
           ...(input.pageSize ? { pageSize: input.pageSize } : {}),
           ...(cursor ? { cursor } : {}),
           ...(scope === 'admin_account_list' && input.role ? { role: input.role } : {}),
         });
         if (generation !== listGeneration.current) return;
-        if (result.scope !== scope) return;
+        if (result.scope !== scope) throw new Error('Unexpected identity directory response.');
         if (result.scope === 'admin_account_list') {
           setAccounts((previous) => ({
+            filterKey,
             items: append ? [...previous.items, ...result.items] : result.items,
             loading: false,
             loadingMore: false,
@@ -118,6 +133,7 @@ export function useAdminIdentityReadModels(input: {
           }));
         } else if (result.scope === 'admin_participant_list') {
           setParticipants((previous) => ({
+            filterKey,
             items: append ? [...previous.items, ...result.items] : result.items,
             loading: false,
             loadingMore: false,
@@ -126,6 +142,7 @@ export function useAdminIdentityReadModels(input: {
           }));
         } else if (result.scope === 'admin_instructor_list') {
           setInstructors((previous) => ({
+            filterKey,
             items: append ? [...previous.items, ...result.items] : result.items,
             loading: false,
             loadingMore: false,
@@ -136,23 +153,27 @@ export function useAdminIdentityReadModels(input: {
       } catch (error) {
         if (generation !== listGeneration.current) return;
         const errorCode = classify(error);
+        const denied = errorCode === 'permission-denied';
         if (input.directory === 'accounts') {
           setAccounts((previous) => ({
-            ...previous,
+            ...(denied ? EMPTY_LIST : previous),
+            filterKey,
             loading: false,
             loadingMore: false,
             error: errorCode,
           }));
         } else if (input.directory === 'participants') {
           setParticipants((previous) => ({
-            ...previous,
+            ...(denied ? EMPTY_LIST : previous),
+            filterKey,
             loading: false,
             loadingMore: false,
             error: errorCode,
           }));
         } else {
           setInstructors((previous) => ({
-            ...previous,
+            ...(denied ? EMPTY_LIST : previous),
+            filterKey,
             loading: false,
             loadingMore: false,
             error: errorCode,
@@ -160,12 +181,13 @@ export function useAdminIdentityReadModels(input: {
         }
       }
     },
-    [input.directory, input.enabled, input.pageSize, input.role, input.search]
+    [filterKey, input.directory, input.enabled, input.pageSize, input.role, search]
   );
 
   const loadDetail = useCallback(async () => {
     if (!input.enabled) return;
     const generation = ++detailGeneration.current;
+    setRequestedDetailKey(detailKey);
     setDetailLoading(true);
     setDetailError(undefined);
     try {
@@ -197,11 +219,18 @@ export function useAdminIdentityReadModels(input: {
       }
     } catch (error) {
       if (generation !== detailGeneration.current) return;
-      setDetailError(classify(error));
+      const errorCode = classify(error);
+      setDetailError(errorCode);
+      if (errorCode === 'permission-denied') {
+        setAccountDetail(undefined);
+        setParticipantDetail(undefined);
+        setInstructorDetail(undefined);
+      }
     } finally {
       if (generation === detailGeneration.current) setDetailLoading(false);
     }
   }, [
+    detailKey,
     input.directory,
     input.enabled,
     input.selectedAccountId,
@@ -211,10 +240,16 @@ export function useAdminIdentityReadModels(input: {
 
   useEffect(() => {
     void loadList();
+    return () => {
+      listGeneration.current += 1;
+    };
   }, [loadList]);
 
   useEffect(() => {
     void loadDetail();
+    return () => {
+      detailGeneration.current += 1;
+    };
   }, [loadDetail]);
 
   useAdminPeopleRevisionRefresh(
@@ -231,18 +266,36 @@ export function useAdminIdentityReadModels(input: {
         : input.directory === 'participants'
           ? participants
           : instructors;
-    if (current.hasMore && current.cursor) void loadList(current.cursor, true);
-  }, [accounts, input.directory, instructors, loadList, participants]);
+    if (
+      current.filterKey === filterKey &&
+      !current.loading &&
+      !current.loadingMore &&
+      current.hasMore &&
+      current.cursor
+    )
+      void loadList(current.cursor, true);
+  }, [accounts, filterKey, input.directory, instructors, loadList, participants]);
 
   return {
-    accounts,
-    participants,
-    instructors,
-    accountDetail,
-    participantDetail,
-    instructorDetail,
-    detailLoading,
-    detailError,
+    accounts: input.enabled && accounts.filterKey === filterKey ? accounts : EMPTY_LIST,
+    participants: input.enabled && participants.filterKey === filterKey ? participants : EMPTY_LIST,
+    instructors: input.enabled && instructors.filterKey === filterKey ? instructors : EMPTY_LIST,
+    accountDetail:
+      input.enabled && input.selectedAccountId === accountDetail?.accountId
+        ? accountDetail
+        : undefined,
+    participantDetail:
+      input.enabled && input.selectedParticipantId === participantDetail?.participantId
+        ? participantDetail
+        : undefined,
+    instructorDetail:
+      input.enabled && input.selectedInstructorId === instructorDetail?.instructorId
+        ? instructorDetail
+        : undefined,
+    detailLoading: Boolean(
+      input.enabled && detailKey && (requestedDetailKey !== detailKey || detailLoading)
+    ),
+    detailError: requestedDetailKey === detailKey ? detailError : undefined,
     loadMore,
     refresh: async () => {
       await Promise.all([loadList(), loadDetail()]);
@@ -258,6 +311,7 @@ export function useAdminParticipantDetail(
   const [item, setItem] = useState<AdminParticipantDetailReadModel | undefined>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<AdminIdentityReadError | undefined>();
+  const [requestedId, setRequestedId] = useState<ParticipantId>();
 
   const load = useCallback(async () => {
     if (!participantId) {
@@ -267,6 +321,7 @@ export function useAdminParticipantDetail(
       return;
     }
     const current = ++generation.current;
+    setRequestedId(participantId);
     setLoading(true);
     setError(undefined);
     try {
@@ -278,8 +333,9 @@ export function useAdminParticipantDetail(
       setItem(result.scope === 'admin_participant_detail' ? result.item : undefined);
     } catch (caught) {
       if (current !== generation.current) return;
-      setError(classify(caught));
-      setItem(undefined);
+      const error = classify(caught);
+      setError(error);
+      if (error === 'permission-denied') setItem(undefined);
     } finally {
       if (current === generation.current) setLoading(false);
     }
@@ -287,6 +343,9 @@ export function useAdminParticipantDetail(
 
   useEffect(() => {
     void load();
+    return () => {
+      generation.current += 1;
+    };
   }, [load]);
 
   useAdminPeopleRevisionRefresh(
@@ -296,38 +355,63 @@ export function useAdminParticipantDetail(
     Boolean(participantId) && options?.realtime === true
   );
 
-  return { item, loading, error, refresh: load };
+  return {
+    item: item?.participantId === participantId ? item : undefined,
+    loading: Boolean(participantId && (participantId !== requestedId || loading)),
+    error: participantId === requestedId ? error : undefined,
+    refresh: load,
+  };
 }
 
 export function useAdminEligibleParticipants(accountId: AccountId | undefined) {
-  const [items, setItems] = useState<readonly AdminEligibleParticipantItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<AdminIdentityReadError | undefined>();
+  const generation = useRef(0);
+  const [state, setState] = useState<{
+    accountId?: AccountId;
+    items: readonly AdminEligibleParticipantItem[];
+    loading: boolean;
+    error?: AdminIdentityReadError;
+  }>({ items: [], loading: false });
 
   const load = useCallback(async () => {
-    if (!accountId) {
-      setItems([]);
-      return;
-    }
-    setLoading(true);
-    setError(undefined);
+    if (!accountId) return;
+    const current = ++generation.current;
+    setState((previous) => ({
+      accountId,
+      items: previous.accountId === accountId ? previous.items : [],
+      loading: true,
+    }));
     try {
       const result = await queryAdminIdentityReadModels({
         scope: 'admin_eligible_participants',
         accountId,
       });
-      setItems(result.scope === 'admin_eligible_participants' ? result.items : []);
+      if (current !== generation.current) return;
+      if (result.scope !== 'admin_eligible_participants') {
+        throw new Error('Unexpected eligible participant response.');
+      }
+      setState({ accountId, items: result.items, loading: false });
     } catch (caught) {
-      setError(classify(caught));
-      setItems([]);
-    } finally {
-      setLoading(false);
+      if (current !== generation.current) return;
+      const error = classify(caught);
+      setState((previous) => ({
+        ...previous,
+        items: error === 'permission-denied' ? [] : previous.items,
+        error,
+        loading: false,
+      }));
     }
   }, [accountId]);
 
   useEffect(() => {
     void load();
+    return () => {
+      generation.current += 1;
+    };
   }, [load]);
 
-  return { items, loading, error, refresh: load };
+  const visible =
+    accountId && state.accountId === accountId
+      ? state
+      : { items: [], loading: Boolean(accountId), error: undefined };
+  return { ...visible, refresh: load };
 }

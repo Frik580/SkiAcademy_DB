@@ -45,6 +45,7 @@ export const AdminRouteContainer: React.FC = () => {
     <AdminRoute userProfile={userProfile}>
       <LazyLoad fallback={<AdminLoadingFallback label={t('loading')} />}>
         <AdminPanel
+          key={userProfile?.uid}
           instructors={translatedInstructors}
           usersList={usersList}
           currentUserProfile={userProfile!}

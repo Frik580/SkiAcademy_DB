@@ -5,6 +5,7 @@ interface AccountCourseSessionState {
   readonly accountId?: string;
   readonly generation: number;
   readonly items: readonly CourseEnrollmentCabinetItem[];
+  readonly loaded: boolean;
   readonly error?: string;
   reset: (accountId?: string) => void;
 }
@@ -13,6 +14,13 @@ interface AccountCourseSessionState {
 export const useAccountCourseSessionStore = create<AccountCourseSessionState>((set) => ({
   generation: 0,
   items: [],
+  loaded: false,
   reset: (accountId) =>
-    set((state) => ({ accountId, generation: state.generation + 1, items: [], error: undefined })),
+    set((state) => ({
+      accountId,
+      generation: state.generation + 1,
+      items: [],
+      loaded: false,
+      error: undefined,
+    })),
 }));

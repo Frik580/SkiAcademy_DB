@@ -91,9 +91,7 @@ test('Next Session keeps account courses and family lesson actions, calendar, li
       [r.studentParticipantId, r.studentDisplayName],
       [r.studentChildParticipantId, r.studentChildDisplayName],
     ]) {
-      const picker = page
-        .getByRole('banner')
-        .locator('[data-testid="navbar-participant-switcher"]:visible');
+      const picker = page.getByTestId('navbar-participant-switcher').filter({ visible: true });
       await picker.locator(`[data-participant-id="${id}"]`).click();
       await expect(listing.getByRole('button', { name: 'Enroll', exact: true })).toBeVisible();
       await listing.getByRole('button', { name: 'Enroll', exact: true }).click();
@@ -241,9 +239,7 @@ test('Next Session keeps account courses and family lesson actions, calendar, li
     page.on('framenavigated', (frame) => {
       if (frame === page.mainFrame()) pendingReads.clear();
     });
-    const header = page
-      .getByRole('banner')
-      .locator('[data-testid="navbar-participant-switcher"]:visible');
+    const header = page.getByTestId('navbar-participant-switcher').filter({ visible: true });
     for (const id of [r.studentChildParticipantId, r.studentParticipantId]) {
       await header.locator(`[data-participant-id="${id}"]`).click();
       await expect(header.locator(`[data-participant-id="${id}"]`)).toHaveAttribute(

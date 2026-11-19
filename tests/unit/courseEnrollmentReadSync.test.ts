@@ -431,8 +431,8 @@ describe('participant-scoped CourseEnrollment hot sync pagination', () => {
       await result.current.reloadHot(participantId, generation);
     });
     await act(async () => {
-      finishOlder(page([enrollment(1, 2)], true));
-      await older;
+      finishOlder(page([enrollment(1, 2)]));
+      expect(await older).toBe(false);
     });
     expect(useCourseEnrollmentStore.getState().items.size).toBe(40);
     expect(useCourseEnrollmentStore.getState().items.get('enrollment_01')?.revision).toBe(5);
@@ -456,6 +456,26 @@ describe('participant-scoped CourseEnrollment hot sync pagination', () => {
       finish(page([enrollment(1)], true));
     });
     expect(useCourseEnrollmentStore.getState().scopedParticipantId).toBe('participant_sync_02');
+    expect(useCourseEnrollmentStore.getState().items.size).toBe(0);
+  });
+
+  it('rejects results from the first visit after switching A → B → A', async () => {
+    let finishFirst!: (value: QueryCourseEnrollmentReadModelsResult) => void;
+    queryMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishFirst = resolve;
+        })
+    );
+    const { rerender } = renderHook(
+      ({ participant }) => useCourseEnrollmentReadSync(true, 'account_sync_01', participant),
+      { initialProps: { participant: participantId } }
+    );
+    rerender({ participant: 'participant_sync_02' });
+    rerender({ participant: participantId });
+    await waitFor(() => expect(useCourseEnrollmentStore.getState().loaded).toBe(true));
+    await act(async () => finishFirst(page([enrollment(1)])));
+    expect(useCourseEnrollmentStore.getState().scopedParticipantId).toBe(participantId);
     expect(useCourseEnrollmentStore.getState().items.size).toBe(0);
   });
 

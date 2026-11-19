@@ -750,6 +750,31 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     expect(mocks.createGuestEnrollment).not.toHaveBeenCalled();
   });
 
+  it('does not commit a saved reservation lookup after the dialog closes', async () => {
+    persistGuestCourseEnrollmentCredential(guestCredential as never);
+    localStorage.setItem('ski_academy_guest_reservation:course:course_01', 'attempt_01');
+    let finishLookup!: (value: unknown) => void;
+    mocks.loadGuestSingleCourseEnrollment
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishLookup = resolve;
+          })
+      )
+      .mockResolvedValueOnce({ ...pendingGuestReservation, lifecycle: { status: 'confirmed' } });
+    const props = { course, onClose: vi.fn(), onEnroll: vi.fn() };
+    const { rerender } = render(<CourseEnrollmentModal {...props} isOpen />);
+    expect(mocks.loadGuestSingleCourseEnrollment).toHaveBeenCalledOnce();
+    rerender(<CourseEnrollmentModal {...props} isOpen={false} />);
+    await act(async () => finishLookup(pendingGuestReservation));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    rerender(<CourseEnrollmentModal {...props} isOpen />);
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent('guestCourseConfirmedTitle')
+    );
+    expect(mocks.loadGuestSingleCourseEnrollment).toHaveBeenCalledTimes(2);
+  });
+
   it.each([
     ['ru', undefined, 'Новичок (Групповой курс)'],
     ['en', undefined, 'Новичок (Групповой курс)'],

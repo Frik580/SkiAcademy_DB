@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   INSTRUCTOR_COURSE_ASSIGNMENT_READ_MODEL_PAGE_SIZE_DEFAULT,
   CourseIdSchema,
@@ -127,6 +127,7 @@ export async function refetchInstructorCourseReadModels(
   shouldCommit: () => boolean = () => true,
   options?: { readonly supersedePending?: boolean }
 ): Promise<void> {
+  const { syncGeneration } = useInstructorCourseStore.getState();
   await Promise.all(
     targets.map((assignment) =>
       enqueueCourseRefetch(
@@ -140,7 +141,11 @@ export async function refetchInstructorCourseReadModels(
               courseId: parsedCourseId,
             }),
           ]);
-          if (!shouldCommit() || !isAuthoritative()) {
+          if (
+            !shouldCommit() ||
+            !isAuthoritative() ||
+            useInstructorCourseStore.getState().syncGeneration !== syncGeneration
+          ) {
             return;
           }
           const viewModel = buildInstructorCourseViewModel({
@@ -207,15 +212,24 @@ export function useInstructorCourseReadSync(input: InstructorCourseReadSyncInput
   const discoveryGeneration = useRef(0);
   const rosterGeneration = useRef(0);
   const assignedCourses = useInstructorCourseStore((state) => state.assignedCourses);
+  useLayoutEffect(() => {
+    if (enabled && accountId && instructorId) {
+      useInstructorCourseStore.getState().setScope(JSON.stringify([accountId, instructorId]));
+    }
+  }, [accountId, enabled, instructorId]);
 
   const loadDiscovery = useCallback(async () => {
     const generation = ++discoveryGeneration.current;
-    const isCurrent = () => discoveryGeneration.current === generation;
+    const { syncGeneration } = useInstructorCourseStore.getState();
+    const isCurrent = () =>
+      discoveryGeneration.current === generation &&
+      useInstructorCourseStore.getState().syncGeneration === syncGeneration;
     if (!enabled || !accountId || !instructorId) {
       return;
     }
 
     useInstructorCourseStore.getState().setDiscoveryLoading(true);
+    useInstructorCourseStore.getState().setDiscoveryLoadingMore(false);
     useInstructorCourseStore.getState().setError(undefined, undefined);
     try {
       let cursor: string | undefined;
@@ -243,9 +257,7 @@ export function useInstructorCourseReadSync(input: InstructorCourseReadSyncInput
         hasMore,
         nextCursor: cursor,
       });
-      if (assigned.length === 0) {
-        useInstructorCourseStore.getState().setLoaded(true);
-      }
+      useInstructorCourseStore.getState().setLoaded(true);
     } catch (error) {
       if (!isCurrent()) {
         return;
@@ -266,7 +278,10 @@ export function useInstructorCourseReadSync(input: InstructorCourseReadSyncInput
 
   const loadSelectedRoster = useCallback(async () => {
     const generation = ++rosterGeneration.current;
-    const isCurrent = () => rosterGeneration.current === generation;
+    const { syncGeneration } = useInstructorCourseStore.getState();
+    const isCurrent = () =>
+      rosterGeneration.current === generation &&
+      useInstructorCourseStore.getState().syncGeneration === syncGeneration;
     if (!enabled || !accountId || !instructorId || !selectedCourseId) {
       return;
     }
@@ -314,13 +329,16 @@ export function useInstructorCourseReadSync(input: InstructorCourseReadSyncInput
       !accountId ||
       !instructorId ||
       !state.discoveryHasMore ||
+      state.discoveryLoading ||
       state.discoveryLoadingMore ||
       !state.discoveryNextCursor
     ) {
       return;
     }
     const generation = discoveryGeneration.current;
-    const isCurrent = () => discoveryGeneration.current === generation;
+    const isCurrent = () =>
+      discoveryGeneration.current === generation &&
+      useInstructorCourseStore.getState().syncGeneration === state.syncGeneration;
     useInstructorCourseStore.getState().setDiscoveryLoadingMore(true);
     try {
       const page = await loadInstructorAssignedCoursesPage({
@@ -352,11 +370,6 @@ export function useInstructorCourseReadSync(input: InstructorCourseReadSyncInput
     }
   }, [accountId, enabled, instructorId]);
 
-  const load = useCallback(async () => {
-    await loadDiscovery();
-    await loadSelectedRoster();
-  }, [loadDiscovery, loadSelectedRoster]);
-
   useEffect(() => {
     if (!enabled || !accountId || !instructorId) {
       useInstructorCourseStore.getState().reset();
@@ -381,5 +394,5 @@ export function useInstructorCourseReadSync(input: InstructorCourseReadSyncInput
     };
   }, [accountId, assignedCourses, enabled, instructorId, loadSelectedRoster, selectedCourseId]);
 
-  return { reload: load, loadMoreDiscovery };
+  return { reload: loadDiscovery, loadMoreDiscovery };
 }

@@ -468,6 +468,29 @@ describe('Student Cabinet admin cancellation sync (T32.9A.9A)', () => {
     expect(useLessonBookingStore.getState().items.get(bookingId)?.revision).toBe(5);
   });
 
+  it('keeps newer hot bookings when an older hot/history request completes afterward', async () => {
+    let finishOlder!: (value: unknown) => void;
+    const bookingId = 'booking-fresh-hot';
+    queryLessonBookingReadModelsMock
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishOlder = resolve;
+          })
+      )
+      .mockResolvedValueOnce({ scope: 'account_history', items: [], hasMore: false })
+      .mockResolvedValueOnce({
+        scope: 'account_hot',
+        items: [buildReadModel({ bookingId, revision: 5, status: 'confirmed' })],
+        hasMore: false,
+      });
+    const older = syncAccountLessonBookingsFromServer();
+    await syncAccountHotLessonBookingsFromServer();
+    finishOlder({ scope: 'account_hot', items: [], hasMore: false });
+    await older;
+    expect(useLessonBookingStore.getState().items.get(bookingId)?.revision).toBe(5);
+  });
+
   it('keeps background sync failures from mutating the store or setting error state', async () => {
     const bookingId = 'booking_sync_failure';
     useLessonBookingStore

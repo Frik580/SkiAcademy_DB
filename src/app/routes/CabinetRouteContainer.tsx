@@ -260,7 +260,7 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
   return (
     <ErrorBoundary>
       <div className="w-full min-w-0">
-        {userProfile && accountCourseSessionError && (
+        {userProfile && tab && tab !== 'home' && accountCourseSessionError && (
           <div role="alert" className="mb-4 flex items-center gap-3">
             <span>{t('requestFailed')}</span>
             <button

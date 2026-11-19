@@ -7,6 +7,8 @@ import type {
 import { buildInstructorCourseViewModelsList } from './instructorCourseStoreSelectors';
 
 interface InstructorCourseStoreState {
+  readonly scope?: string;
+  readonly syncGeneration: number;
   readonly assignedCourses: readonly InstructorAssignedCourseRef[];
   readonly coursesById: ReadonlyMap<string, InstructorCourseViewModel>;
   readonly coursesList: readonly InstructorCourseViewModel[];
@@ -18,6 +20,7 @@ interface InstructorCourseStoreState {
   readonly loaded: boolean;
   readonly error?: string;
   readonly errorCode?: InstructorCourseReadErrorCode;
+  setScope: (scope: string) => void;
   setAssignedCourses: (courses: readonly InstructorAssignedCourseRef[]) => void;
   appendAssignedCourses: (courses: readonly InstructorAssignedCourseRef[]) => void;
   setDiscoveryPagination: (input: Readonly<{ hasMore: boolean; nextCursor?: string }>) => void;
@@ -33,6 +36,7 @@ interface InstructorCourseStoreState {
 const EMPTY_COURSES_LIST: readonly InstructorCourseViewModel[] = [];
 
 const initialState = {
+  scope: undefined,
   assignedCourses: [] as InstructorAssignedCourseRef[],
   coursesById: new Map<string, InstructorCourseViewModel>(),
   coursesList: EMPTY_COURSES_LIST,
@@ -48,6 +52,17 @@ const initialState = {
 
 export const useInstructorCourseStore = create<InstructorCourseStoreState>((set) => ({
   ...initialState,
+  syncGeneration: 0,
+  setScope: (scope) =>
+    set((state) =>
+      state.scope === scope
+        ? state
+        : {
+            ...initialState,
+            scope,
+            syncGeneration: state.syncGeneration + 1,
+          }
+    ),
   setAssignedCourses: (assignedCourses) =>
     set({ assignedCourses, discoveryHasMore: false, discoveryNextCursor: undefined }),
   appendAssignedCourses: (incoming) =>
@@ -119,13 +134,25 @@ export const useInstructorCourseStore = create<InstructorCourseStoreState>((set)
   setDiscoveryLoadingMore: (discoveryLoadingMore) => set({ discoveryLoadingMore }),
   setRosterLoading: (rosterLoading) => set({ rosterLoading }),
   setLoaded: (loaded) => set({ loaded }),
-  setError: (error, errorCode) => set({ error, errorCode }),
+  setError: (error, errorCode) =>
+    set((state) => ({
+      ...(errorCode === 'permission-denied'
+        ? {
+            ...initialState,
+            scope: state.scope,
+            syncGeneration: state.syncGeneration + 1,
+          }
+        : {}),
+      error,
+      errorCode,
+    })),
   reset: () =>
-    set({
+    set((state) => ({
       ...initialState,
+      syncGeneration: state.syncGeneration + 1,
       coursesById: new Map(),
       coursesList: EMPTY_COURSES_LIST,
-    }),
+    })),
 }));
 
 export function selectInstructorCourseViewModel(

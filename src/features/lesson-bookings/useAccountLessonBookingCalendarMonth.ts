@@ -21,9 +21,8 @@ export function useAccountLessonBookingCalendarMonth(input: {
   const accountId = useAuthStore((state) => state.firebaseUser?.uid);
   const monthKey = accountCalendarMonthKey(input.year, input.monthIndex, school.timeZone);
   const status = useLessonBookingStore((state) => selectCalendarMonthStatus(state, monthKey));
-  const error = useLessonBookingStore((state) =>
-    state.calendarMonthError?.monthKey === monthKey ? state.calendarMonthError.message : undefined
-  );
+  const error = useLessonBookingStore((state) => state.calendarMonthErrors.get(monthKey));
+  const readError = school.error?.message ?? error;
 
   const load = useCallback(async () => {
     if (!input.enabled || !accountId || !school.ready || school.error) {
@@ -68,8 +67,11 @@ export function useAccountLessonBookingCalendarMonth(input: {
 
   return {
     monthKey,
-    status: !school.ready && !school.error ? 'loading' : status,
-    error: school.error?.message ?? error,
+    status:
+      !readError && (!school.ready || (input.enabled && accountId && status === 'not_loaded'))
+        ? ('loading' as const)
+        : status,
+    error: readError,
     retry: () => {
       if (!school.ready || school.error) {
         retrySchoolTimeZone();

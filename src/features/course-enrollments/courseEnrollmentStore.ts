@@ -160,6 +160,7 @@ export const useCourseEnrollmentStore = create<CourseEnrollmentStoreState>((set,
       scopedParticipantId: participantId,
       loadGeneration: generation,
       hotLoading: true,
+      historyLoading: false,
       error: undefined,
       ...(switched
         ? {
@@ -167,7 +168,6 @@ export const useCourseEnrollmentStore = create<CourseEnrollmentStoreState>((set,
             itemsList: EMPTY_ENROLLMENT_LIST,
             historyCursor: undefined,
             historyHasMore: true,
-            historyLoading: false,
             loaded: false,
             historyRequestNonce: 0,
           }

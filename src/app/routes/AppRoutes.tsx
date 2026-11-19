@@ -34,7 +34,14 @@ const T31bCoursePilotPage = import.meta.env.DEV
 export const AppRoutes: React.FC<AppRoutesProps> = (props) => (
   <React.Suspense fallback={<RouteContentLoading />}>
     <Routes>
-      <Route path="/admin" element={<AdminRouteContainer />} />
+      <Route
+        path="/admin"
+        element={
+          <ErrorBoundary>
+            <AdminRouteContainer />
+          </ErrorBoundary>
+        }
+      />
       <Route
         path="/cabinet"
         element={
@@ -51,7 +58,14 @@ export const AppRoutes: React.FC<AppRoutesProps> = (props) => (
           </ErrorBoundary>
         }
       />
-      <Route path="/instructor" element={<InstructorRouteContainer />} />
+      <Route
+        path="/instructor"
+        element={
+          <ErrorBoundary>
+            <InstructorRouteContainer />
+          </ErrorBoundary>
+        }
+      />
       {import.meta.env.DEV && T31bCoursePilotPage ? (
         <Route path="/__dev/t31b-course-pilot" element={<T31bCoursePilotPage />} />
       ) : null}

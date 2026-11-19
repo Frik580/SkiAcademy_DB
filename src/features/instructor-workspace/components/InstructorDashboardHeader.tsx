@@ -10,15 +10,18 @@ interface InstructorDashboardHeaderProps {
 export const InstructorDashboardHeader: React.FC<InstructorDashboardHeaderProps> = ({
   workspace,
 }) => {
-  const { t, language, linkedInstructor, stats, revenue, userProfile } = workspace;
+  const { t, language, linkedInstructor, stats, revenue, retryRevenue, userProfile } = workspace;
+  const revenueLabels = {
+    loading: 'instructorRevenueLoading',
+    checking: 'instructorRevenueChecking',
+    error: 'instructorRevenueError',
+    unavailable: 'instructorRevenueUnavailable',
+    denied: 'instructorRevenueDenied',
+  } as const;
   const revenueValue =
     revenue.status === 'loaded'
       ? `${revenue.retainedAmount.toLocaleString('ru-RU')}\u00a0₸`
-      : revenue.status === 'loading'
-        ? t('instructorRevenueLoading')
-        : revenue.status === 'error'
-          ? t('instructorRevenueError')
-          : t('instructorRevenueUnavailable');
+      : t(revenueLabels[revenue.status]);
 
   return (
     <div className="space-y-8">
@@ -125,11 +128,20 @@ export const InstructorDashboardHeader: React.FC<InstructorDashboardHeaderProps>
           <span
             role="status"
             aria-live="polite"
-            aria-busy={revenue.status === 'loading'}
+            aria-busy={revenue.status === 'loading' || revenue.status === 'checking'}
             className={`break-words text-[var(--ink)] block ${revenue.status === 'loaded' ? 'type-metric max-[359px]:text-lg lg:type-metric-lg' : 'type-compact'}`}
           >
             {revenueValue}
           </span>
+          {revenue.status === 'error' && (
+            <button
+              type="button"
+              onClick={retryRevenue}
+              className="type-caption text-accent underline"
+            >
+              {t('retry')}
+            </button>
+          )}
           <span className="type-caption text-[var(--ink-dim)] uppercase block">
             {t('instructorRevenueSchoolGross')}
           </span>

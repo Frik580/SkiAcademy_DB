@@ -92,9 +92,9 @@ test('instructor lifetime revenue updates after refund, reload and sign-in with 
   });
   const status = page
     .getByRole('status')
-    .filter({ hasText: /Unavailable|125.000|75.000|Недоступно/ });
+    .filter({ hasText: /No data|125.000|75.000|Нет данных/ });
   // The Functions emulator starts a separate cold worker for this new callable.
-  await expect(status).toHaveText('Unavailable', { timeout: 60000 });
+  await expect(status).toHaveText('No data', { timeout: 60000 });
   await reconcileInstructorLessonRevenue(db);
   await expect(page.getByRole('status').filter({ hasText: '125' })).toHaveText(/125\s000\s₸/);
 

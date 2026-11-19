@@ -18,8 +18,6 @@ import {
 import { useCabinetProgressParticipantSelectionStore } from '../student-cabinet/cabinetProgressParticipantSelectionStore';
 import { NotificationsPanel } from '../notifications/NotificationsPanel';
 import { LazyLoad } from '../../ui/LazyLoad';
-import { ModalSkeleton } from '../../ui/Skeleton';
-import { ModalLayer } from '../../ui/ModalLayer';
 import { loadMoreCanonicalInstructorReviews } from '../reviews';
 import { logger } from '../../shared';
 
@@ -45,16 +43,6 @@ const InstructorReviewsModal = React.lazy(() =>
   import('../profile/components/InstructorReviewsModal').then(({ InstructorReviewsModal }) => ({
     default: InstructorReviewsModal,
   }))
-);
-
-const ModalLoadingFallback: React.FC<{ label: string }> = ({ label }) => (
-  <ModalLayer onClose={() => {}} closeDisabled>
-    <div className="ui-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div role="dialog" aria-modal="true" aria-label={label} aria-busy="true">
-        <ModalSkeleton title={label} />
-      </div>
-    </div>
-  </ModalLayer>
 );
 
 export const ModalHost: React.FC = () => {
@@ -129,7 +117,7 @@ export const ModalHost: React.FC = () => {
   return (
     <>
       {selectedInstructor && (
-        <LazyLoad fallback={<ModalLoadingFallback label={t('loading')} />}>
+        <LazyLoad fallback={null}>
           <BookingModal
             isOpen
             onClose={() => setSelectedInstructor(null)}
@@ -141,7 +129,7 @@ export const ModalHost: React.FC = () => {
       )}
 
       {selectedCourseForAuth && (
-        <LazyLoad fallback={<ModalLoadingFallback label={t('loading')} />}>
+        <LazyLoad fallback={null}>
           <CourseEnrollmentModal
             isOpen
             onClose={() => setSelectedCourseForAuth(null)}
@@ -154,7 +142,7 @@ export const ModalHost: React.FC = () => {
       )}
 
       {selectedCourseForDetails && (
-        <LazyLoad fallback={<ModalLoadingFallback label={t('loading')} />}>
+        <LazyLoad fallback={null}>
           <CourseDetailsModal
             isOpen
             onClose={() => setSelectedCourseForDetails(null)}
@@ -177,7 +165,7 @@ export const ModalHost: React.FC = () => {
       )}
 
       {reviewsInstructor && (
-        <LazyLoad fallback={<ModalLoadingFallback label={t('loading')} />}>
+        <LazyLoad fallback={null}>
           <InstructorReviewsModal
             isOpen
             onClose={() => setReviewsInstructor(null)}
@@ -199,7 +187,7 @@ export const ModalHost: React.FC = () => {
 
       {/* Keep the loaded modal mounted so its existing exit animation can finish. */}
       {(isAuthModalOpen || hasOpenedAuthModal) && (
-        <LazyLoad fallback={isAuthModalOpen ? <ModalLoadingFallback label={t('loading')} /> : null}>
+        <LazyLoad fallback={null}>
           <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
         </LazyLoad>
       )}

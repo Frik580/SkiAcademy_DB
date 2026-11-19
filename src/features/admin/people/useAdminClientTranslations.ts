@@ -1,10 +1,11 @@
 import { useLanguage } from '../../../app/providers/LanguageContext';
 
 export function useAdminClientTranslations() {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const ru = language === 'ru';
   return {
     language,
+    t,
     locale: ru ? 'ru-RU' : 'en-US',
     text: {
       search: ru ? 'Поиск клиентов' : 'Search clients',

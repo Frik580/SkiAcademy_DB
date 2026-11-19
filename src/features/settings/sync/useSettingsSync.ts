@@ -9,8 +9,69 @@ import { DEFAULT_NOTIFICATION_RETENTION_DAYS } from '../../../domain/notificatio
 import { DEFAULT_SKILL_CONFIG } from '../../../domain/achievements';
 import { DEFAULT_STARTER_CREDIT_KZT, resolveStarterCreditAmountKzt } from '../../../domain/wallet';
 import { logger } from '../../../shared';
-import { useSettingsStore } from '../settingsStore';
-import { STUDENT_DASHBOARD_LAYOUT_SETTING_ID } from '../studentDashboardLayout';
+import { useSettingsStore, type SecondarySetting } from '../settingsStore';
+import {
+  normalizeStudentDashboardLayout,
+  STUDENT_DASHBOARD_LAYOUT_SETTING_ID,
+} from '../studentDashboardLayout';
+import type { DocumentData } from 'firebase/firestore';
+
+const secondarySettingIds: Record<SecondarySetting, string> = {
+  studentDashboardLayout: STUDENT_DASHBOARD_LAYOUT_SETTING_ID,
+  notificationRetentionDays: 'notification_retention',
+  starterCreditKzt: 'starter_credit',
+  skillConfig: 'skill_config',
+  achievementsConfig: 'achievements_config',
+};
+
+const receiveSecondarySetting: Record<SecondarySetting, (data?: DocumentData) => void> = {
+  studentDashboardLayout: (data) =>
+    useSettingsStore
+      .getState()
+      .receiveSecondarySetting(
+        'studentDashboardLayout',
+        normalizeStudentDashboardLayout(data),
+        data !== undefined
+      ),
+  notificationRetentionDays: (data) =>
+    useSettingsStore
+      .getState()
+      .receiveSecondarySetting(
+        'notificationRetentionDays',
+        data?.days ?? DEFAULT_NOTIFICATION_RETENTION_DAYS,
+        data !== undefined
+      ),
+  starterCreditKzt: (data) =>
+    useSettingsStore
+      .getState()
+      .receiveSecondarySetting(
+        'starterCreditKzt',
+        data ? resolveStarterCreditAmountKzt(data) : DEFAULT_STARTER_CREDIT_KZT,
+        data !== undefined
+      ),
+  skillConfig: (data) =>
+    useSettingsStore.getState().receiveSecondarySetting(
+      'skillConfig',
+      data
+        ? {
+            passPercentage: data.passPercentage ?? 80,
+            items:
+              Array.isArray(data.items) && data.items.length > 0
+                ? data.items
+                : DEFAULT_SKILL_CONFIG.items,
+          }
+        : DEFAULT_SKILL_CONFIG,
+      data !== undefined
+    ),
+  achievementsConfig: (data) =>
+    useSettingsStore
+      .getState()
+      .receiveSecondarySetting(
+        'achievementsConfig',
+        data ? normalizeAchievementsConfig(data) : DEFAULT_ACHIEVEMENTS_CONFIG,
+        data !== undefined
+      ),
+};
 
 const scheduleIdle = (fn: () => void): (() => void) => {
   if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
@@ -45,90 +106,54 @@ export const useSettingsSync = () => {
           .setFiltersEnabled(snapshot.exists() ? (snapshot.data().enabled ?? true) : true),
       (error) => logger.error('Instructor filters settings sync error:', error)
     );
-    // Secondary settings — defer until idle to shorten critical-path Listen spam.
-    let unsubscribeRetention: (() => void) | undefined;
-    let unsubscribeStarterCredit: (() => void) | undefined;
-    let unsubscribeSkills: (() => void) | undefined;
-    let unsubscribeAchievements: (() => void) | undefined;
-    let unsubscribeDashboardLayout: (() => void) | undefined;
-
-    const cancelIdle = scheduleIdle(() => {
-      unsubscribeDashboardLayout = onSnapshot(
-        doc(db, 'settings', STUDENT_DASHBOARD_LAYOUT_SETTING_ID),
+    // Each public setting keeps its own listener and retry lifecycle.
+    const subscriptions = new Map<SecondarySetting, () => void>();
+    const subscribe = (setting: SecondarySetting) => {
+      subscriptions.get(setting)?.();
+      const store = useSettingsStore.getState();
+      const id = secondarySettingIds[setting];
+      store.setSecondaryRead(
+        setting,
+        store.secondaryReads[setting].confirmed ? 'refreshing' : 'loading'
+      );
+      let active = true;
+      const unsubscribe = onSnapshot(
+        doc(db, 'settings', id),
         { includeMetadataChanges: true },
         (snapshot) => {
-          // A pending local write may still fail; only acknowledged data is saved state.
-          if (!snapshot.metadata.hasPendingWrites) {
-            useSettingsStore
-              .getState()
-              .setStudentDashboardLayout(snapshot.exists() ? snapshot.data() : undefined);
-          }
+          if (!active || snapshot.metadata.hasPendingWrites || snapshot.metadata.fromCache) return;
+          receiveSecondarySetting[setting](snapshot.exists() ? snapshot.data() : undefined);
         },
-        (error) => logger.error('Student dashboard layout settings sync error:', error)
+        (error) => {
+          if (!active) return;
+          active = false;
+          useSettingsStore.getState().setSecondaryRead(setting, 'error');
+          logger.error(`Setting sync error (${id}):`, error);
+        }
       );
-      unsubscribeRetention = onSnapshot(
-        doc(db, 'settings', 'notification_retention'),
-        (snapshot) =>
-          useSettingsStore
-            .getState()
-            .setNotificationRetentionDays(
-              snapshot.exists()
-                ? (snapshot.data().days ?? DEFAULT_NOTIFICATION_RETENTION_DAYS)
-                : DEFAULT_NOTIFICATION_RETENTION_DAYS
-            ),
-        (error) => logger.error('Notification retention settings sync error:', error)
-      );
-      unsubscribeStarterCredit = onSnapshot(
-        doc(db, 'settings', 'starter_credit'),
-        (snapshot) =>
-          useSettingsStore
-            .getState()
-            .setStarterCreditKzt(
-              snapshot.exists()
-                ? resolveStarterCreditAmountKzt(snapshot.data())
-                : DEFAULT_STARTER_CREDIT_KZT
-            ),
-        (error) => logger.error('Starter credit settings sync error:', error)
-      );
-      unsubscribeSkills = onSnapshot(
-        doc(db, 'settings', 'skill_config'),
-        (snapshot) =>
-          useSettingsStore.getState().setSkillConfig(
-            snapshot.exists()
-              ? {
-                  passPercentage: snapshot.data().passPercentage ?? 80,
-                  items:
-                    Array.isArray(snapshot.data().items) && snapshot.data().items.length > 0
-                      ? snapshot.data().items
-                      : DEFAULT_SKILL_CONFIG.items,
-                }
-              : DEFAULT_SKILL_CONFIG
-          ),
-        (error) => logger.error('Skill config settings sync error:', error)
-      );
-      unsubscribeAchievements = onSnapshot(
-        doc(db, 'settings', 'achievements_config'),
-        (snapshot) =>
-          useSettingsStore
-            .getState()
-            .setAchievementsConfig(
-              snapshot.exists()
-                ? normalizeAchievementsConfig(snapshot.data())
-                : DEFAULT_ACHIEVEMENTS_CONFIG
-            ),
-        (error) => logger.error('Achievements settings sync error:', error)
-      );
+      subscriptions.set(setting, () => {
+        active = false;
+        unsubscribe();
+      });
+    };
+    const retrySecondarySetting = (setting: SecondarySetting) => {
+      if (useSettingsStore.getState().secondaryReads[setting].status === 'error') {
+        subscribe(setting);
+      }
+    };
+    const cancelIdle = scheduleIdle(() => {
+      useSettingsStore.setState({ retrySecondarySetting });
+      (Object.keys(secondarySettingIds) as SecondarySetting[]).forEach(subscribe);
     });
 
     return () => {
       cancelIdle();
       unsubscribeLessonLevels();
       unsubscribeFilters();
-      unsubscribeRetention?.();
-      unsubscribeStarterCredit?.();
-      unsubscribeSkills?.();
-      unsubscribeAchievements?.();
-      unsubscribeDashboardLayout?.();
+      subscriptions.forEach((unsubscribe) => unsubscribe());
+      if (useSettingsStore.getState().retrySecondarySetting === retrySecondarySetting) {
+        useSettingsStore.setState({ retrySecondarySetting: undefined });
+      }
     };
   }, []);
 };

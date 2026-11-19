@@ -8,6 +8,7 @@ import type { ActivityLog, Booking, Instructor, UserProfile } from '../../src/ty
 import { ClientSkillProgressView } from '../../src/features/profile/components/ClientSkillProgressView';
 import { StudentSkillEvaluationModal } from '../../src/features/profile/components/StudentSkillEvaluationModal';
 import { StudentDevelopmentPanel } from '../../src/features/student-cabinet/components/student/StudentDevelopmentPanel';
+import { useSettingsStore } from '../../src/features/settings/settingsStore';
 import { SkillRadarChart } from '../../src/features/student-cabinet/components/student/SkillRadarChart';
 import { StudentCoachPanel } from '../../src/features/student-cabinet/components/student/StudentCoachPanel';
 
@@ -227,7 +228,8 @@ describe.each<Language>(['ru', 'en'])('individual skill display (%s)', (language
           render(<ClientSkillProgressView userProfile={profile} skillConfig={config} />);
         if (surface === 'radar')
           render(<SkillRadarChart userProfile={profile} skillConfig={config} />);
-        if (surface === 'priority')
+        if (surface === 'priority') {
+          useSettingsStore.getState().setSkillConfig(config);
           render(
             <StudentDevelopmentPanel
               userProfile={profile}
@@ -235,6 +237,7 @@ describe.each<Language>(['ru', 'en'])('individual skill display (%s)', (language
               onGoToTab={vi.fn()}
             />
           );
+        }
         if (surface === 'assessment')
           render(
             <StudentSkillEvaluationModal

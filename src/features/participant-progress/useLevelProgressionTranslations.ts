@@ -1,10 +1,11 @@
 import { useLanguage } from '../../app/providers/LanguageContext';
 
 export function useLevelProgressionTranslations() {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const ru = language === 'ru';
   return {
     language,
+    t,
     text: {
       title: ru ? 'Официальный уровень мастерства' : 'Official mastery level',
       stage: ru ? 'XP текущего этапа' : 'Current stage XP',

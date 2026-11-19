@@ -72,6 +72,7 @@ import {
   useSelectedParticipantAchievementsRecorder,
 } from '../../../participant-achievements';
 import { usePresentedParticipantAchievements } from '../../../participant-achievements/usePresentedParticipantAchievements';
+import { useSettingsStore } from '../../../settings/settingsStore';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 import type { StudentBooking } from './studentCabinetContracts';
 
@@ -237,11 +238,16 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
     achievementsConfig: props.achievementsConfig,
     skillConfig: props.skillConfig,
   });
+  const achievementSettingsConfirmed = useSettingsStore(
+    (state) =>
+      state.secondaryReads.achievementsConfig.confirmed &&
+      state.secondaryReads.skillConfig.confirmed
+  );
   useSelectedParticipantAchievementsRecorder({
     accountId: props.userProfile.uid,
     selectedParticipantId: selectedProgressParticipantId,
     participants,
-    evaluation: selectedAchievementEvaluation,
+    evaluation: achievementSettingsConfirmed ? selectedAchievementEvaluation : undefined,
     achievementsConfig: props.achievementsConfig,
   });
   const handleToggleFeedbackItem = useCallback(
@@ -688,7 +694,13 @@ export const StudentCabinetShell: React.FC<StudentCabinetShellProps> = (props) =
           <StudentProfileCertificatesPanel {...legacyPanelProps} />
         )}
         {activeTab === 'profile_achievements' && (
-          <StudentProfileAchievementsPanel {...legacyPanelProps} />
+          <StudentProfileAchievementsPanel
+            onGoToTab={goToTab}
+            reviews={legacyPanelProps.reviews}
+            selectedParticipantId={selectedProgressParticipantId}
+            skillConfig={props.skillConfig}
+            achievementsConfig={props.achievementsConfig}
+          />
         )}
         {activeTab === 'profile_season' && <StudentProfileSeasonPanel {...legacyPanelProps} />}
         {activeTab === 'profile_videos' && <StudentProfileVideosPanel {...legacyPanelProps} />}

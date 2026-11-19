@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, GripVertical, LayoutDashboard } from 'lucide-react';
 import { useProfileStore } from '../../../profile/profileStore';
+import { SecondarySettingFeedback } from '../../../settings/SecondarySettingFeedback';
 import { useSettingsStore } from '../../../settings/settingsStore';
 import {
   STUDENT_DASHBOARD_COLUMNS,
@@ -20,6 +21,9 @@ export function AdminStudentDashboardSettings() {
   const labels = useStudentDashboardSettingsTranslations();
   const profile = useProfileStore((state) => state.userProfile);
   const saved = useSettingsStore((state) => state.studentDashboardLayout);
+  const confirmed = useSettingsStore(
+    (state) => state.secondaryReads.studentDashboardLayout.confirmed
+  );
   const saveLayout = useSettingsStore((state) => state.handleUpdateStudentDashboardLayout);
   const [draftOverride, setDraftOverride] = useState<StudentDashboardLayout | null>(null);
   const [saving, setSaving] = useState(false);
@@ -40,7 +44,7 @@ export function AdminStudentDashboardSettings() {
     updateDraft(moveDashboardTile(draft, key, target));
   };
   const save = async () => {
-    if (saving || !dirty) return;
+    if (!confirmed || saving || !dirty) return;
     setSaving(true);
     setMessage(null);
     try {
@@ -63,7 +67,8 @@ export function AdminStudentDashboardSettings() {
       subtitle={labels.description}
       icon={LayoutDashboard}
     >
-      <fieldset disabled={saving} className="min-w-0 space-y-5">
+      <SecondarySettingFeedback setting="studentDashboardLayout" t={labels.t} />
+      <fieldset hidden={!confirmed} disabled={!confirmed || saving} className="min-w-0 space-y-5">
         <legend className="sr-only">{labels.title}</legend>
         {STUDENT_DASHBOARD_COLUMNS.map((column) => {
           const columnTiles = tiles.filter((tile) => tile.desktopColumn === column);

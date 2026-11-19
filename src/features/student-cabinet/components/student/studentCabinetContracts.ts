@@ -145,6 +145,11 @@ export type StudentProfilePanelInput = Pick<
   selectedParticipantId?: string;
 };
 
+export type StudentProfileAchievementsInput = Pick<
+  StudentProfilePanelInput,
+  'onGoToTab' | 'reviews' | 'selectedParticipantId' | 'skillConfig' | 'achievementsConfig'
+>;
+
 export type StudentCabinetPanelInput = {
   userProfile: StudentProfile;
   bookings: readonly StudentBooking[];

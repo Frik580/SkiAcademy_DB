@@ -17,6 +17,7 @@ export function ParticipantLevelManager({
   participantId,
   role,
   config = DEFAULT_SKILL_CONFIG,
+  showStage,
   initial,
   onChanged,
   readOnly = false,
@@ -25,6 +26,7 @@ export function ParticipantLevelManager({
   participantId: string;
   role: 'instructor' | 'admin';
   config?: SkillConfig;
+  showStage?: boolean;
   initial?: ParticipantProgressView;
   onChanged?: () => void;
   readOnly?: boolean;
@@ -93,6 +95,7 @@ export function ParticipantLevelManager({
         <ParticipantLevelPanel
           progress={progress}
           config={config}
+          showStage={showStage}
           role={readOnly ? undefined : role}
           canCancelRequest={progress.levelState?.request?.accountId === accountId}
           busy={busy}

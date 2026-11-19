@@ -15,6 +15,7 @@ import { useLanguage } from '../../../app/providers/LanguageContext';
 import { Save, Award, CheckCircle2, AlertCircle } from 'lucide-react';
 import { AdminModal } from '../../admin/components/AdminModal';
 import { ActionButton } from '../../../ui/ActionButton';
+import { SecondarySettingFeedback } from '../../settings/SecondarySettingFeedback';
 
 const EMPTY_SCORES: Record<string, number> = {};
 const EMPTY_COMMENTS: Record<string, string> = {};
@@ -29,6 +30,7 @@ interface StudentSkillEvaluationModalProps {
   existingScores?: Record<string, number>;
   existingComments?: Record<string, string>;
   skillConfig?: SkillConfig;
+  skillConfigConfirmed?: boolean;
   onReload?: () => Promise<void>;
   onSaveScores: (
     participantId: string,
@@ -49,6 +51,7 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
   existingScores = EMPTY_SCORES,
   existingComments = EMPTY_COMMENTS,
   skillConfig = DEFAULT_SKILL_CONFIG,
+  skillConfigConfirmed = true,
   onSaveScores,
   onReload,
 }) => {
@@ -108,6 +111,20 @@ export const StudentSkillEvaluationModal: React.FC<StudentSkillEvaluationModalPr
   const correcting = Object.entries(existingScores).some(([id, score]) => scores[id] !== score);
 
   if (!isOpen) return null;
+  if (!skillConfigConfirmed) {
+    return (
+      <AdminModal
+        width="2xl"
+        onClose={onClose}
+        closeLabel={t('cancel')}
+        title={t('studentSkillEvaluation')}
+      >
+        <div className="p-4">
+          <SecondarySettingFeedback setting="skillConfig" t={t} />
+        </div>
+      </AdminModal>
+    );
+  }
 
   const handleScoreChange = (itemId: string, val: number, maxPoints: number) => {
     const safeVal = Math.max(0, Math.min(maxPoints, val));

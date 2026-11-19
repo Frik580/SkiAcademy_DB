@@ -20,6 +20,8 @@ import { AchievementsManager } from './AchievementsManager';
 import { AdminCollapsibleSection } from './AdminCollapsibleSection';
 import { ToggleSwitch } from '../../../../ui/ToggleSwitch';
 import { AdminStudentDashboardSettings } from './AdminStudentDashboardSettings';
+import { SecondarySettingFeedback } from '../../../settings/SecondarySettingFeedback';
+import { useSettingsStore } from '../../../settings/settingsStore';
 
 export interface AdminSystemSettingsProps {
   filtersEnabled?: boolean;
@@ -48,6 +50,7 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
   onUpdateAchievementsConfig,
 }) => {
   const { t } = useLanguage();
+  const reads = useSettingsStore((state) => state.secondaryReads);
   const [retentionInput, setRetentionInput] = useState(String(notificationRetentionDays));
   const [isSavingRetention, setIsSavingRetention] = useState(false);
   const [starterCreditInput, setStarterCreditInput] = useState(String(starterCreditKzt));
@@ -62,7 +65,12 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
   }, [starterCreditKzt]);
 
   const handleSaveRetention = async () => {
-    if (!onSetNotificationRetentionDays || isSavingRetention) return;
+    if (
+      !reads.notificationRetentionDays.confirmed ||
+      !onSetNotificationRetentionDays ||
+      isSavingRetention
+    )
+      return;
 
     const parsed = Number(retentionInput);
     if (
@@ -83,7 +91,8 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
   };
 
   const handleSaveStarterCredit = async () => {
-    if (!onSetStarterCreditKzt || isSavingStarterCredit) return;
+    if (!reads.starterCreditKzt.confirmed || !onSetStarterCreditKzt || isSavingStarterCredit)
+      return;
 
     const parsed = Number(starterCreditInput);
     if (
@@ -133,7 +142,8 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
         icon={Bell}
         defaultOpen
       >
-        <div className="space-y-3 max-w-md">
+        <SecondarySettingFeedback setting="notificationRetentionDays" t={t} />
+        <div hidden={!reads.notificationRetentionDays.confirmed} className="space-y-3 max-w-md">
           <div className="space-y-1.5 border border-[var(--border)] p-3 bg-black/5 dark:bg-white/5">
             <label
               htmlFor="notification-retention-days"
@@ -167,6 +177,7 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
             type="button"
             pending={isSavingRetention}
             pendingLabel={t('saving')}
+            disabled={!onSetNotificationRetentionDays}
             className="btn-primary px-4 py-2 type-button"
             onClick={() => void handleSaveRetention()}
           >
@@ -182,7 +193,8 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
         icon={Gift}
         defaultOpen={false}
       >
-        <div className="space-y-3 max-w-md">
+        <SecondarySettingFeedback setting="starterCreditKzt" t={t} />
+        <div hidden={!reads.starterCreditKzt.confirmed} className="space-y-3 max-w-md">
           <div className="space-y-1.5 border border-[var(--border)] p-3 bg-black/5 dark:bg-white/5">
             <label
               htmlFor="starter-credit-kzt"
@@ -239,12 +251,15 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
         icon={Award}
         defaultOpen={false}
       >
-        <SkillConfigManager
-          config={skillConfig}
-          onSaveConfig={async (cfg) => {
-            if (onUpdateSkillConfig) await onUpdateSkillConfig(cfg);
-          }}
-        />
+        <SecondarySettingFeedback setting="skillConfig" t={t} />
+        {reads.skillConfig.confirmed && (
+          <SkillConfigManager
+            config={skillConfig}
+            onSaveConfig={async (cfg) => {
+              if (onUpdateSkillConfig) await onUpdateSkillConfig(cfg);
+            }}
+          />
+        )}
       </AdminCollapsibleSection>
 
       <AdminCollapsibleSection
@@ -254,13 +269,21 @@ export const AdminSystemSettings: React.FC<AdminSystemSettingsProps> = ({
         icon={Trophy}
         defaultOpen={false}
       >
-        <AchievementsManager
-          config={achievementsConfig}
-          skillConfig={skillConfig}
-          onSaveConfig={async (cfg) => {
-            if (onUpdateAchievementsConfig) await onUpdateAchievementsConfig(cfg);
-          }}
+        <SecondarySettingFeedback setting="achievementsConfig" t={t} />
+        <SecondarySettingFeedback
+          setting="skillConfig"
+          t={t}
+          showLoading={reads.achievementsConfig.confirmed}
         />
+        {reads.achievementsConfig.confirmed && reads.skillConfig.confirmed && (
+          <AchievementsManager
+            config={achievementsConfig}
+            skillConfig={skillConfig}
+            onSaveConfig={async (cfg) => {
+              if (onUpdateAchievementsConfig) await onUpdateAchievementsConfig(cfg);
+            }}
+          />
+        )}
       </AdminCollapsibleSection>
 
       <AdminCollapsibleSection

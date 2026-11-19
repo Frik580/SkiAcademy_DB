@@ -62,6 +62,9 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
   const courses = useCoursesStore((state) => state.courses);
   const walletLedgerEntries = useWalletStore((state) => state.walletLedgerEntries);
   const skillConfig = useSettingsStore((state) => state.skillConfig);
+  const skillConfigConfirmed = useSettingsStore(
+    (state) => state.secondaryReads.skillConfig.confirmed
+  );
   const achievementsConfig = useSettingsStore((state) => state.achievementsConfig);
   const handleDismissReview = useProfileStore((state) => state.handleDismissReview);
   const handleToggleSkillToday = useProfileStore((state) => state.handleToggleSkillToday);
@@ -287,9 +290,11 @@ export const CabinetRouteContainer: React.FC<AppRoutesProps> = ({
             onCourseWithdraw={handleCourseWithdraw}
             onCourseRequestCancellation={handleCourseCancellationRequest}
             onAddReview={handleAddReview}
-            onToggleSkillToday={handleToggleSkillToday}
-            onPinSkillsToday={(skillItemIds) =>
-              handlePinSkillsToday(skillItemIds, skillConfig.items)
+            onToggleSkillToday={skillConfigConfirmed ? handleToggleSkillToday : undefined}
+            onPinSkillsToday={
+              skillConfigConfirmed
+                ? (skillItemIds) => handlePinSkillsToday(skillItemIds, skillConfig.items)
+                : undefined
             }
             onToggleTodayTaskComplete={handleToggleTodayTaskComplete}
             onAddCustomTodayTask={handleAddCustomTodayTask}

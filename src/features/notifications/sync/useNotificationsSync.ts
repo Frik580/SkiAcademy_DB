@@ -28,6 +28,9 @@ import { useNotificationsStore } from '../notificationsStore';
 export const useNotificationsSync = () => {
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
   const notificationRetentionDays = useSettingsStore((s) => s.notificationRetentionDays);
+  const retentionConfirmed = useSettingsStore(
+    (s) => s.secondaryReads.notificationRetentionDays.confirmed
+  );
   const notificationsPageSize = useNotificationsStore((s) => s.notificationsPageSize);
 
   useEffect(() => {
@@ -36,12 +39,12 @@ export const useNotificationsSync = () => {
 
   // Cleanup expired notifications periodically
   useEffect(() => {
-    if (!firebaseUser) return;
+    if (!firebaseUser || !retentionConfirmed) return;
 
     void purgeExpiredNotificationsForUser(db, firebaseUser.uid, notificationRetentionDays).catch(
       (error) => logger.error('Notification retention cleanup error:', error)
     );
-  }, [firebaseUser, notificationRetentionDays]);
+  }, [firebaseUser, notificationRetentionDays, retentionConfirmed]);
 
   // Subscribe to notifications collection
   useEffect(() => {

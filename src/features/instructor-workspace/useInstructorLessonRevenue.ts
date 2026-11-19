@@ -1,30 +1,105 @@
-import { useEffect, useState } from 'react';
-import type { InstructorLessonRevenueState } from '@ski-academy/shared-domain';
-import { subscribeInstructorLessonRevenue } from './instructorLessonRevenue';
+import { useEffect, useRef, useState } from 'react';
+import { isInstructorWorkspaceUser } from '../../lib/workspaceRoutes';
+import { useAuthStore } from '../auth/authStore';
+import { useProfileStore } from '../profile/profileStore';
+import {
+  observeInstructorLessonRevenue,
+  type InstructorRevenueRead,
+} from './instructorLessonRevenue';
 
 export function useInstructorLessonRevenue(accountId: string, instructorId: string | undefined) {
-  const key = `${accountId}:${instructorId ?? ''}`;
-  const [read, setRead] = useState<{ key: string; state: InstructorLessonRevenueState }>({
-    key,
-    state: { status: 'loading' },
-  });
+  const authGeneration = useAuthStore((state) => state.authGeneration);
+  const authenticated = useAuthStore((state) => state.firebaseUser?.uid === accountId);
+  const awaitingAccount = useProfileStore((state) => state.profileLoading);
+  const dataScope = useProfileStore((state) => revenueAccountScope(state, accountId, instructorId));
+  const testSessionId = useProfileStore(profileTestSessionId);
+  const key = JSON.stringify([
+    authGeneration,
+    accountId,
+    instructorId,
+    dataScope,
+    testSessionId,
+    'all-time',
+  ]);
+  const [read, setRead] = useState<{ key: string; state: InstructorRevenueRead }>();
+  const refresh = useRef<{ key: string; run: () => void }>(undefined);
+
   useEffect(() => {
-    if (!instructorId) {
-      setRead({ key, state: { status: 'unavailable' } });
+    if (!authenticated || !instructorId || !dataScope) {
+      setRead(undefined);
       return;
     }
-    let unsubscribe: (() => void) | undefined;
-    const start = () => {
-      unsubscribe?.();
-      unsubscribe = subscribeInstructorLessonRevenue((state) => setRead({ key, state }));
-    };
-    start();
-    // Re-authorize account/session assignments when returning to the cabinet.
-    window.addEventListener('focus', start);
+    const observer = observeInstructorLessonRevenue({
+      key,
+      instructorId,
+      dataScope,
+      testSessionId,
+      isCurrent: () => {
+        const auth = useAuthStore.getState();
+        const profile = useProfileStore.getState();
+        return (
+          auth.authGeneration === authGeneration &&
+          auth.firebaseUser?.uid === accountId &&
+          revenueAccountScope(profile, accountId, instructorId) === dataScope &&
+          profileTestSessionId(profile) === testSessionId
+        );
+      },
+      onState: (state) => setRead({ key, state }),
+    });
+    refresh.current = { key, run: observer.refresh };
+    void observer.refresh();
+    window.addEventListener('focus', observer.refresh);
     return () => {
-      window.removeEventListener('focus', start);
-      unsubscribe?.();
+      refresh.current = undefined;
+      window.removeEventListener('focus', observer.refresh);
+      observer.stop();
     };
-  }, [key, instructorId]);
-  return read.key === key ? read.state : { status: 'loading' as const };
+  }, [key, authenticated, authGeneration, accountId, instructorId, dataScope, testSessionId]);
+
+  const revenue: InstructorRevenueRead =
+    !authenticated || !instructorId || (!dataScope && !awaitingAccount)
+      ? { status: 'denied' }
+      : dataScope && read?.key === key
+        ? read.state
+        : { status: 'loading' };
+  return {
+    revenue,
+    retryRevenue: () => {
+      if (refresh.current?.key === key) refresh.current.run();
+    },
+  };
+}
+
+function profileTestSessionId({ userProfile }: ReturnType<typeof useProfileStore.getState>) {
+  if (
+    userProfile &&
+    'testSessionId' in userProfile &&
+    typeof userProfile.testSessionId === 'string'
+  ) {
+    return userProfile.testSessionId;
+  }
+  return undefined;
+}
+
+function revenueAccountScope(
+  {
+    canonicalReadyAccountId,
+    userProfile,
+    profileLoading,
+    profileLoadError,
+  }: ReturnType<typeof useProfileStore.getState>,
+  accountId: string,
+  instructorId: string | undefined
+) {
+  if (
+    profileLoading ||
+    profileLoadError ||
+    canonicalReadyAccountId !== accountId ||
+    userProfile?.uid !== accountId ||
+    userProfile.instructorId !== instructorId ||
+    !isInstructorWorkspaceUser(userProfile)
+  ) {
+    return undefined;
+  }
+  return userProfile.dataScope;
 }

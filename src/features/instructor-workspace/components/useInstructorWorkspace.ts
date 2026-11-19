@@ -175,7 +175,10 @@ export const useInstructorWorkspace = ({
     existingComments: {} as Record<string, string>,
   });
   const progressById = useParticipantProgressStore((state) => state.byId);
-  const revenue = useInstructorLessonRevenue(userProfile.uid, userProfile.instructorId);
+  const { revenue, retryRevenue } = useInstructorLessonRevenue(
+    userProfile.uid,
+    userProfile.instructorId
+  );
   const nowMs = useLessonStartClock(lessonBookings);
 
   const linkedInstructor = useMemo(() => {
@@ -437,6 +440,7 @@ export const useInstructorWorkspace = ({
     linkedInstructor,
     stats,
     revenue,
+    retryRevenue,
     displayedBookings,
     missingInWindowBookings,
     overdueBookings,

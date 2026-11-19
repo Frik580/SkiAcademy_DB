@@ -131,7 +131,7 @@ export const QUERY_TEST_SESSION_READ_MODELS_CALLABLE = 'queryTestSessionReadMode
 
 type CanonicalReadQueryInput<T> = T & CanonicalReadSessionRequest;
 
-export function resolveInstructorLessonRevenue(): Promise<{
+export function resolveInstructorLessonRevenue(scopeKey: string): Promise<{
   readonly summaryPath: string;
   readonly statePath: string;
 }> {
@@ -139,7 +139,7 @@ export function resolveInstructorLessonRevenue(): Promise<{
     'resolveInstructorLessonRevenue',
     {},
     {
-      idempotencyKey: 'read:instructor_lesson_revenue',
+      idempotencyKey: `read:instructor_lesson_revenue:${canonicalDeterministicHash([scopeKey])}`,
       maxAttempts: 1,
     }
   );

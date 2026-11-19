@@ -28,7 +28,11 @@ import {
 import { buildStudentHistory, StudentCabinetTab } from './studentCabinetUtils';
 import { StudentHistoryList } from './StudentHistoryList';
 import { WalletPanel } from '../../../../features/profile';
-import type { StudentProfileHubInput, StudentProfilePanelProps } from './studentCabinetContracts';
+import type {
+  StudentProfileAchievementsInput,
+  StudentProfileHubInput,
+  StudentProfilePanelProps,
+} from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 import { STUDENT_CABINET_CONTENT_CLASS } from './studentCabinetPresentation';
 import { usePresentedParticipantLessonFeedback } from '../../usePresentedParticipantLessonFeedback';
@@ -36,6 +40,10 @@ import { useSelectedParticipantLessonStats } from '../../useSelectedParticipantL
 import { useLessonBookingStore } from '../../../lesson-bookings/lessonBookingStore';
 import { accountReviewEvidenceFromCanonicalPresentation } from '../../../participant-achievements';
 import { usePresentedParticipantAchievements } from '../../../participant-achievements/usePresentedParticipantAchievements';
+import { useParticipantAchievementsReadStatus } from '../../../participant-achievements/participantAchievementsStore';
+import { useSettingsStore } from '../../../settings/settingsStore';
+import { SecondarySettingFeedback } from '../../../settings/SecondarySettingFeedback';
+import { StudentAchievementsReadFeedback } from './StudentAchievementsReadFeedback';
 import { ParticipantManagementPanel } from '../../../participants/components/ParticipantManagementPanel';
 
 type ProfileHubTab = Extract<
@@ -297,15 +305,21 @@ export const StudentProfileSkillsPanel: React.FC<ProfileSubPanelProps> = ({
   onToggleSkillToday,
 }) => {
   const { t } = useStudentCabinetTranslations();
+  const skillConfigConfirmed = useSettingsStore(
+    (state) => state.secondaryReads.skillConfig.confirmed
+  );
 
   return (
     <ProfilePanelShell titleKey="scProfileSkills" onGoToTab={onGoToTab}>
-      <LazySkillRadarChart
-        userProfile={userProfile}
-        skillConfig={skillConfig}
-        onToggleSkillToday={onToggleSkillToday}
-        compact={false}
-      />
+      <SecondarySettingFeedback setting="skillConfig" t={t} />
+      {skillConfigConfirmed && (
+        <LazySkillRadarChart
+          userProfile={userProfile}
+          skillConfig={skillConfig}
+          onToggleSkillToday={onToggleSkillToday}
+          compact={false}
+        />
+      )}
       <StudentDevelopmentLink
         label={t('studentDevelopmentLink')}
         onNavigate={() => onGoToTab('development')}
@@ -324,7 +338,7 @@ export const StudentProfileCertificatesPanel: React.FC<ProfileSubPanelProps> = (
   );
 };
 
-export const StudentProfileAchievementsPanel: React.FC<ProfileSubPanelProps> = ({
+export const StudentProfileAchievementsPanel: React.FC<StudentProfileAchievementsInput> = ({
   onGoToTab,
   reviews,
   selectedParticipantId,
@@ -347,13 +361,27 @@ export const StudentProfileAchievementsPanel: React.FC<ProfileSubPanelProps> = (
     achievementsConfig,
     skillConfig,
   });
+  const readStatus = useParticipantAchievementsReadStatus(selectedParticipantId);
+  const configConfirmed = useSettingsStore(
+    (state) =>
+      state.secondaryReads.achievementsConfig.confirmed &&
+      state.secondaryReads.skillConfig.confirmed
+  );
+  const showEmpty =
+    configConfirmed &&
+    (readStatus === 'empty' || readStatus === 'ready' || readStatus === 'refreshing');
 
   return (
     <ProfilePanelShell titleKey="scProfileAchievements" onGoToTab={onGoToTab}>
-      {achievements.length === 0 ? (
+      <StudentAchievementsReadFeedback
+        participantId={selectedParticipantId}
+        showLoading={!achievements.length}
+      />
+      {achievements.length === 0 && showEmpty && (
         <p className="type-compact text-[var(--ink-dim)]">{t('scProfileAchievementsEmpty')}</p>
-      ) : (
-        <div className="flex flex-wrap gap-2">
+      )}
+      {achievements.length > 0 && (
+        <div className="flex flex-wrap gap-2" aria-busy={readStatus === 'refreshing' || undefined}>
           {achievements.map((item) => (
             <span
               key={item.id}

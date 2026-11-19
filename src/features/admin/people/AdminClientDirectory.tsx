@@ -1,4 +1,5 @@
 import { ParticipantLevelManager } from '../../participant-progress/ParticipantLevelManager';
+import { SecondarySettingFeedback } from '../../settings/SecondarySettingFeedback';
 import { useSettingsStore } from '../../settings/settingsStore';
 import { useAdminDialog } from '../components/useAdminDialog';
 import {
@@ -75,7 +76,10 @@ function profileDraftFromDetail(
 
 export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryProps) {
   const progressionSkillConfig = useSettingsStore((state) => state.skillConfig);
-  const { text, locale } = useAdminClientTranslations();
+  const skillConfigConfirmed = useSettingsStore(
+    (state) => state.secondaryReads.skillConfig.confirmed
+  );
+  const { text, locale, t } = useAdminClientTranslations();
   const { confirm: confirmAdminDialog, dialog: adminDialog } = useAdminDialog();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
@@ -398,12 +402,14 @@ export function AdminClientDirectory({ adminAccountId }: AdminClientDirectoryPro
             selectedParticipantId &&
             participantRead.item ? (
               <>
+                <SecondarySettingFeedback setting="skillConfig" t={t} />
                 <ParticipantLevelManager
                   key={selectedParticipantId}
                   accountId={adminAccountId}
                   participantId={selectedParticipantId}
                   role="admin"
                   config={progressionSkillConfig}
+                  showStage={skillConfigConfirmed}
                 />
                 <AdminClientParticipantDetail
                   detail={participantRead.item}

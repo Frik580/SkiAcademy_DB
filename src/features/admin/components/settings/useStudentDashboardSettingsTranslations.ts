@@ -1,11 +1,12 @@
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 
 export function useStudentDashboardSettingsTranslations() {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const lang: 'ru' | 'en' = language === 'ru' ? 'ru' : 'en';
   const ru = lang === 'ru';
   return {
     lang,
+    t,
     title: ru ? 'Кабинет ученика → Главная' : 'Student cabinet → Home',
     description: ru
       ? 'Порядок карточек внутри фиксированных колонок.'

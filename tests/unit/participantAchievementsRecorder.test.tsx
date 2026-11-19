@@ -1,5 +1,6 @@
 import { StrictMode, type ReactNode } from 'react';
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
+import type { User } from 'firebase/auth';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   BookingIdSchema,
@@ -12,6 +13,7 @@ import {
 } from '@ski-academy/shared-domain';
 import {
   DEFAULT_ACHIEVEMENTS_CONFIG,
+  DEFAULT_SKILL_CONFIG,
   type AchievementEvaluationContext,
 } from '../../src/domain/achievements';
 import { useSelectedParticipantAchievementsRecorder } from '../../src/features/participant-achievements/useSelectedParticipantAchievementsRecorder';
@@ -20,6 +22,14 @@ import { CanonicalCommandClientError } from '../../src/lib/canonical/mapCanonica
 import { executeAuthenticatedCanonicalCommand } from '../../src/lib/canonical/canonicalCommandClient';
 import { queryManagedParticipantAchievementsReadModels } from '../../src/lib/canonical/canonicalReadModelClient';
 import { logger } from '../../src/shared';
+import { LanguageProvider } from '../../src/app/providers/LanguageContext';
+import { useAuthStore } from '../../src/features/auth/authStore';
+import { useProfileStore } from '../../src/features/profile/profileStore';
+import { useSettingsStore } from '../../src/features/settings/settingsStore';
+import { StudentProfileAchievementsPanel } from '../../src/features/student-cabinet/components/student/StudentProfilePanels';
+import { useParticipantAchievementsSync } from '../../src/features/participant-achievements/useParticipantAchievementsSync';
+import { refreshManagedParticipantAchievements } from '../../src/features/participant-achievements/participantAchievementsService';
+import type { UserProfile } from '../../src/types';
 
 vi.mock('../../src/lib/canonical/canonicalCommandClient', () => ({
   executeAuthenticatedCanonicalCommand: vi.fn(),
@@ -27,7 +37,13 @@ vi.mock('../../src/lib/canonical/canonicalCommandClient', () => ({
 vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryManagedParticipantAchievementsReadModels: vi.fn(),
 }));
-vi.mock('../../src/shared', () => ({ logger: { warn: vi.fn() } }));
+vi.mock('../../src/shared', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/shared')>();
+  return { ...actual, logger: { ...actual.logger, warn: vi.fn() } };
+});
+vi.mock('../../src/features/settings/schoolTimeZone', () => ({
+  useSchoolTimeZone: () => ({ timeZone: 'Asia/Almaty', ready: true }),
+}));
 
 const self = ParticipantIdSchema.parse('participant_recorder_self');
 const child = ParticipantIdSchema.parse('participant_recorder_child');
@@ -104,6 +120,143 @@ beforeEach(() => {
     .setItems([self, child].map((participantId) => ({ participantId, earned: {}, revision: 0 })));
   submit.mockResolvedValue(success());
   read.mockResolvedValue({ scope: 'managed', items: [stored()] });
+});
+
+function signIn(uid: string) {
+  useAuthStore.getState().setFirebaseUser({ uid } as User);
+  useProfileStore.setState({
+    userProfile: { uid, role: 'user' } as UserProfile,
+    canonicalReadyAccountId: uid,
+  });
+}
+
+function pendingAchievementsRead() {
+  let resolve!: (
+    result: Awaited<ReturnType<typeof queryManagedParticipantAchievementsReadModels>>
+  ) => void;
+  let reject!: (error: Error) => void;
+  const response = new Promise<
+    Awaited<ReturnType<typeof queryManagedParticipantAchievementsReadModels>>
+  >((yes, no) => {
+    resolve = yes;
+    reject = no;
+  });
+  read.mockReturnValueOnce(response);
+  return { resolve, reject };
+}
+
+describe('participant achievements read lifecycle in the cabinet', () => {
+  it('distinguishes loading, failure and confirmed empty while keeping the same scoped cards through refresh', async () => {
+    localStorage.setItem('alpine_glide_lang', 'en');
+    signIn('account_achievement_lifecycle');
+    useSettingsStore.getState().setAchievementsConfig(DEFAULT_ACHIEVEMENTS_CONFIG);
+    useSettingsStore.getState().setSkillConfig(DEFAULT_SKILL_CONFIG);
+    const initial = pendingAchievementsRead();
+    const onGoToTab = vi.fn();
+    function Cabinet({ participantId }: { participantId: string }) {
+      useParticipantAchievementsSync();
+      return (
+        <LanguageProvider>
+          <StudentProfileAchievementsPanel
+            onGoToTab={onGoToTab}
+            reviews={[]}
+            selectedParticipantId={participantId}
+          />
+        </LanguageProvider>
+      );
+    }
+    const view = render(
+      <StrictMode>
+        <Cabinet participantId={self} />
+      </StrictMode>
+    );
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('status')).toHaveTextContent('Loading');
+    expect(screen.queryByText(/No achievements yet/)).toBeNull();
+    await act(() => initial.reject(new Error('offline')));
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not load achievements.');
+    expect(screen.queryByText(/No achievements yet/)).toBeNull();
+
+    const retry = pendingAchievementsRead();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(read).toHaveBeenLastCalledWith([self]);
+    expect(screen.getByRole('status')).toHaveTextContent('Loading');
+    await act(() => retry.resolve({ scope: 'managed', items: [stored()] }));
+    const badge = screen.getByText(config.items[0].labelEn);
+    expect(screen.queryByRole('alert')).toBeNull();
+
+    const background = pendingAchievementsRead();
+    let request!: ReturnType<typeof refreshManagedParticipantAchievements>;
+    act(() => {
+      request = refreshManagedParticipantAchievements([self]);
+    });
+    expect(screen.getByText(config.items[0].labelEn)).toBe(badge);
+    expect(badge.closest('[aria-busy]')).toHaveAttribute('aria-busy', 'true');
+    view.rerender(
+      <StrictMode>
+        <Cabinet participantId={child} />
+      </StrictMode>
+    );
+    expect(screen.queryByText(config.items[0].labelEn)).toBeNull();
+    expect(screen.queryByText(/No achievements yet/)).toBeNull();
+
+    const childRetry = pendingAchievementsRead();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(read).toHaveBeenLastCalledWith([child]);
+    await act(() =>
+      childRetry.resolve({
+        scope: 'managed',
+        items: [{ ...stored(child), earned: {}, revision: 0 }],
+      })
+    );
+    expect(screen.getByText(/No achievements yet/)).toBeInTheDocument();
+    await act(async () => {
+      background.reject(new Error('offline again'));
+      await expect(request).rejects.toThrow('offline again');
+    });
+    expect(screen.getByText(/No achievements yet/)).toBeInTheDocument();
+    view.rerender(
+      <StrictMode>
+        <Cabinet participantId={self} />
+      </StrictMode>
+    );
+    expect(screen.getByText(config.items[0].labelEn)).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not load achievements.');
+    expect(read).toHaveBeenCalledTimes(4);
+    view.unmount();
+    useAuthStore.getState().setFirebaseUser(null);
+  });
+
+  it('drops old-account and signed-out responses even when the participant ID is reused', async () => {
+    signIn('account_achievement_old');
+    const oldResponse = pendingAchievementsRead();
+    const hook = renderHook(useParticipantAchievementsSync);
+    const currentResponse = pendingAchievementsRead();
+    act(() => signIn('account_achievement_new'));
+    expect(read).toHaveBeenCalledTimes(2);
+    await act(() =>
+      oldResponse.resolve({ scope: 'managed', items: [{ ...stored(child), revision: 2 }] })
+    );
+    expect(useParticipantAchievementsStore.getState().byId).toEqual({});
+    expect(useParticipantAchievementsStore.getState().managedRead?.status).toBe('loading');
+
+    await act(() => currentResponse.resolve({ scope: 'managed', items: [stored(child)] }));
+    expect(Object.keys(useParticipantAchievementsStore.getState().byId)).toEqual([child]);
+    expect(useParticipantAchievementsStore.getState().byId[child].revision).toBe(1);
+    const afterSignOut = pendingAchievementsRead();
+    let request!: ReturnType<typeof refreshManagedParticipantAchievements>;
+    act(() => {
+      request = refreshManagedParticipantAchievements([child]);
+      useAuthStore.getState().setFirebaseUser(null);
+    });
+    await act(async () => {
+      afterSignOut.resolve({ scope: 'managed', items: [stored(child)] });
+      await request;
+    });
+    expect(useParticipantAchievementsStore.getState().byId).toEqual({});
+    expect(useParticipantAchievementsStore.getState().readsById).toEqual({});
+    hook.unmount();
+  });
 });
 
 describe('automatic Participant achievement recording', () => {

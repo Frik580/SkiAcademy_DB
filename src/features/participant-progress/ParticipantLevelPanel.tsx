@@ -9,6 +9,7 @@ import { useLevelProgressionTranslations } from './useLevelProgressionTranslatio
 export function ParticipantLevelPanel({
   progress,
   config,
+  showStage = true,
   role,
   busy,
   onOperation,
@@ -16,6 +17,7 @@ export function ParticipantLevelPanel({
 }: {
   progress: LevelProgressInput;
   config: SkillConfig;
+  showStage?: boolean;
   role?: 'instructor' | 'admin';
   busy?: boolean;
   canCancelRequest?: boolean;
@@ -40,9 +42,8 @@ export function ParticipantLevelPanel({
       <h4 className="type-card-title">
         {text.title}: {MASTERY_LEVELS.find((l) => l.id === progress.level)?.name}
       </h4>
-      {stage.isMax ? (
-        <p>{text.max}</p>
-      ) : (
+      {stage.isMax && <p>{text.max}</p>}
+      {!stage.isMax && showStage && (
         <>
           <p>
             {text.stage}: {stage.earned} / {stage.maximum} · {text.required}: {stage.required}
@@ -96,7 +97,7 @@ export function ParticipantLevelPanel({
       )}
       {role && onOperation && (
         <fieldset disabled={busy} className="space-y-3 min-w-0">
-          {role === 'instructor' && stage.ready && !review && (
+          {role === 'instructor' && showStage && stage.ready && !review && (
             <button className={buttonClass} onClick={() => onOperation({ action: 'confirm' })}>
               {text.confirm}
             </button>

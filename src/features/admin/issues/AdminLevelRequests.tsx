@@ -5,10 +5,12 @@ import { ParticipantLevelManager } from '../../participant-progress/ParticipantL
 import { useLevelProgressionTranslations } from '../../participant-progress/useLevelProgressionTranslations';
 import type { ParticipantProgressReadModel } from '../../participant-progress/levelProgressionContracts';
 import { useSettingsStore } from '../../settings/settingsStore';
+import { SecondarySettingFeedback } from '../../settings/SecondarySettingFeedback';
 
 export function AdminLevelRequests({ accountId }: { accountId: string }) {
-  const { text } = useLevelProgressionTranslations();
+  const { text, t } = useLevelProgressionTranslations();
   const config = useSettingsStore((state) => state.skillConfig);
+  const configConfirmed = useSettingsStore((state) => state.secondaryReads.skillConfig.confirmed);
   const [items, setItems] = useState<readonly ParticipantProgressReadModel[]>([]);
   const [cursor, setCursor] = useState<string>();
   const [next, setNext] = useState<string>();
@@ -42,6 +44,7 @@ export function AdminLevelRequests({ accountId }: { accountId: string }) {
         </button>
       </div>
       {error && <p role="alert">{error}</p>}
+      {items.length > 0 && <SecondarySettingFeedback setting="skillConfig" t={t} />}
       {busy ? (
         <p>{text.loading}</p>
       ) : items.length === 0 ? (
@@ -65,6 +68,7 @@ export function AdminLevelRequests({ accountId }: { accountId: string }) {
               participantId={item.participantId}
               role="admin"
               config={config}
+              showStage={configConfirmed}
               initial={item}
               onChanged={() => void load()}
             />

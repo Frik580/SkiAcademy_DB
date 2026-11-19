@@ -16,6 +16,8 @@ import { useNotifications } from '../notifications';
 import { useLanguage } from '../../app/providers/LanguageContext';
 import { CreateProposalModal, useInstructorBookingCollaboration } from '../booking-collaboration';
 import type { InstructorLessonBookingItem } from '../booking-collaboration';
+import { SecondarySettingFeedback } from '../settings/SecondarySettingFeedback';
+import { useSettingsStore } from '../settings/settingsStore';
 
 export interface InstructorWorkspaceProps {
   userProfile: UserProfile;
@@ -34,6 +36,9 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = (props) =
   const workspace = useInstructorWorkspace(props);
   const { addNotification } = useNotifications();
   const { t: shellT } = useLanguage();
+  const skillConfigConfirmed = useSettingsStore(
+    (state) => state.secondaryReads.skillConfig.confirmed
+  );
   const collaboration = useInstructorBookingCollaboration({
     accountId: props.userProfile.uid,
     instructorId: props.userProfile.instructorId,
@@ -94,6 +99,7 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = (props) =
         existingScores={evalModalState.existingScores}
         existingComments={evalModalState.existingComments}
         skillConfig={skillConfig}
+        skillConfigConfirmed={skillConfigConfirmed}
         onSaveScores={handleSaveStudentScores}
         onReload={workspace.reloadEvalProgress}
       />
@@ -105,12 +111,14 @@ export const InstructorWorkspace: React.FC<InstructorWorkspaceProps> = (props) =
           onClose={() => workspace.setLevelModal(null)}
           width="lg"
         >
+          <SecondarySettingFeedback setting="skillConfig" t={shellT} />
           <ParticipantLevelManager
             accountId={userProfile.uid}
             participantId={workspace.levelModal.participantId}
             role="instructor"
             readOnly={!workspace.canAssessParticipant(workspace.levelModal.participantId)}
             config={skillConfig}
+            showStage={skillConfigConfirmed}
             initial={workspace.progressById[workspace.levelModal.participantId]}
           />
         </AdminModal>

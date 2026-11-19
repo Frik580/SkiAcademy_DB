@@ -13,7 +13,11 @@ import {
   loadManagedParticipantAchievementsOnce,
   recordManagedParticipantAchievementsOnce,
 } from './participantAchievementsService';
-import { useParticipantAchievementsStore } from './participantAchievementsStore';
+import {
+  getParticipantAchievementsReadStatus,
+  useParticipantAchievementsStore,
+} from './participantAchievementsStore';
+import { useProfileStore } from '../profile/profileStore';
 
 export function useSelectedParticipantAchievementsRecorder(input: {
   readonly accountId: string;
@@ -28,6 +32,11 @@ export function useSelectedParticipantAchievementsRecorder(input: {
   const recording = useParticipantAchievementsStore((state) =>
     input.selectedParticipantId ? Boolean(state.recordingKeys[input.selectedParticipantId]) : false
   );
+  const readStatus = useParticipantAchievementsStore((state) =>
+    input.selectedParticipantId
+      ? getParticipantAchievementsReadStatus(state, input.selectedParticipantId)
+      : 'idle'
+  );
   const blocked = useParticipantAchievementsStore((state) =>
     input.selectedParticipantId ? state.blockedAchievements[input.selectedParticipantId] : undefined
   );
@@ -35,16 +44,25 @@ export function useSelectedParticipantAchievementsRecorder(input: {
   useEffect(() => {
     const participantId = input.selectedParticipantId;
     const evaluation = input.evaluation;
-    if (!participantId || !evaluation || evaluation.participantId !== participantId) return;
+    if (!participantId) return;
     const authority = input.participants.find(
       (item) => item.participantId === participantId
     )?.authority;
     const capability = resolveLessonFeedbackCompletionCapability(authority);
     if (!capability) return;
     if (!persisted) {
-      void loadManagedParticipantAchievementsOnce(participantId);
+      const { userProfile, canonicalReadyAccountId } = useProfileStore.getState();
+      const bootstrapOwnsInitialLoad =
+        !useParticipantAchievementsStore.getState().managedRead &&
+        userProfile?.role === 'user' &&
+        userProfile.uid === input.accountId &&
+        canonicalReadyAccountId === input.accountId;
+      if (!bootstrapOwnsInitialLoad && readStatus === 'idle') {
+        void loadManagedParticipantAchievementsOnce(participantId);
+      }
       return;
     }
+    if (!evaluation || evaluation.participantId !== participantId) return;
 
     const config = normalizeAchievementsConfig(input.achievementsConfig);
     const evaluated = evaluateEarnedAchievements(evaluation, config);
@@ -83,6 +101,7 @@ export function useSelectedParticipantAchievementsRecorder(input: {
     input.achievementsConfig,
     persisted,
     recording,
+    readStatus,
     blocked,
   ]);
 }

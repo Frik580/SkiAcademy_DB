@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AdminStudentDashboardSettings } from '../../src/features/admin/components/settings/AdminStudentDashboardSettings';
 import { useSettingsStore } from '../../src/features/settings/settingsStore';
 import { useProfileStore } from '../../src/features/profile/profileStore';
-import { DEFAULT_STUDENT_DASHBOARD_LAYOUT } from '../../src/features/settings/studentDashboardLayout';
 import type { UserProfile } from '../../src/types';
 
 vi.mock('../../src/app/providers/LanguageContext', () => ({
@@ -22,15 +21,36 @@ beforeEach(() => {
   save.mockReset().mockImplementation(async (config) => {
     useSettingsStore.getState().setStudentDashboardLayout(config);
   });
-  useSettingsStore.setState({
-    studentDashboardLayout: DEFAULT_STUDENT_DASHBOARD_LAYOUT,
-    handleUpdateStudentDashboardLayout: save,
-  });
+  useSettingsStore.setState(useSettingsStore.getInitialState());
+  useSettingsStore.getState().setStudentDashboardLayout(undefined);
+  useSettingsStore.setState({ handleUpdateStudentDashboardLayout: save });
   useProfileStore.setState({ userProfile: { uid: 'admin', role: 'admin' } as UserProfile });
 });
 afterEach(cleanup);
 
 describe('admin student dashboard settings', () => {
+  it('waits for confirmed layout and keeps the draft available when retrying a failed read', () => {
+    const retry = vi.fn(() =>
+      useSettingsStore.getState().setSecondaryRead('studentDashboardLayout', 'refreshing')
+    );
+    useSettingsStore.setState({
+      secondaryReads: useSettingsStore.getInitialState().secondaryReads,
+      retrySecondarySetting: retry,
+    });
+    render(<AdminStudentDashboardSettings />);
+    expect(screen.getByRole('status')).toHaveTextContent('loading');
+    expect(screen.queryByRole('button', { name: 'Сохранить' })).toBeNull();
+    act(() => useSettingsStore.getState().setStudentDashboardLayout(undefined));
+    fireEvent.click(screen.getByRole('button', { name: 'Переместить «Погода» выше' }));
+    act(() => useSettingsStore.getState().setSecondaryRead('studentDashboardLayout', 'error'));
+    expect(screen.getByRole('alert')).toHaveTextContent('dashboardLayoutLoadError');
+    fireEvent.click(screen.getByRole('button', { name: 'retry' }));
+    expect(retry).toHaveBeenCalledWith('studentDashboardLayout');
+    expect(screen.getByRole('button', { name: 'Сохранить' })).toBeEnabled();
+    act(() => useSettingsStore.getState().setStudentDashboardLayout(undefined));
+    expect(screen.getByRole('button', { name: 'Сохранить' })).toBeEnabled();
+  });
+
   it('exposes two fixed groups and preview without size or grow controls', () => {
     const { container } = render(<AdminStudentDashboardSettings />);
     expect(screen.getAllByRole('list')).toHaveLength(2);

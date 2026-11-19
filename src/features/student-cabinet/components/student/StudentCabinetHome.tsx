@@ -31,6 +31,8 @@ import { StudentDashboardTile } from './StudentDashboardTile';
 import { StudentDashboardColumns } from './StudentDashboardColumns';
 import './studentCabinetFoundation.css';
 import { useSettingsStore } from '../../../settings/settingsStore';
+import { SecondarySettingFeedback } from '../../../settings/SecondarySettingFeedback';
+import { StudentAchievementsReadFeedback } from './StudentAchievementsReadFeedback';
 import {
   STUDENT_DASHBOARD_TILES,
   type StudentDashboardTileKey,
@@ -545,6 +547,8 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
             {t('scTodaySection')}
           </p>
         </header>
+        <SecondarySettingFeedback setting="studentDashboardLayout" t={t} showLoading={false} />
+        <StudentAchievementsReadFeedback participantId={selectedParticipantId} />
         <StudentDashboardColumns tiles={tiles} order={layout.order} />
       </div>
     </div>

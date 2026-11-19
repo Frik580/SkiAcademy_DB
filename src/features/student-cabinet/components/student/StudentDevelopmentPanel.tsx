@@ -12,6 +12,8 @@ import { getSkillItemTitle } from '../../../../domain/achievements';
 import type { StudentDevelopmentPanelInput } from './studentCabinetContracts';
 import { useStudentCabinetTranslations } from './useStudentCabinetTranslations';
 import { STUDENT_CABINET_CONTENT_CLASS } from './studentCabinetPresentation';
+import { SecondarySettingFeedback } from '../../../settings/SecondarySettingFeedback';
+import { useSettingsStore } from '../../../settings/settingsStore';
 
 export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelInput> = ({
   userProfile,
@@ -22,6 +24,9 @@ export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelInput> = (
   onGoToTab,
 }) => {
   const { language, t, lang } = useStudentCabinetTranslations();
+  const skillConfigConfirmed = useSettingsStore(
+    (state) => state.secondaryReads.skillConfig.confirmed
+  );
   const level = userProfile.level || 1;
   const hideProgress = Boolean(userProfile.hideProgressTracking);
 
@@ -50,7 +55,8 @@ export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelInput> = (
           subtitle={`LEVEL ${level} · ${getLevelLabel(level, lang)}`}
         />
         <div className="space-y-2">
-          {!hideProgress && (
+          <SecondarySettingFeedback setting="skillConfig" t={t} />
+          {!hideProgress && skillConfigConfirmed && (
             <>
               <ScProgressBar percent={percent} variant="apple" showLabel />
               <p className="type-compact text-[var(--ink-dim)]">
@@ -64,7 +70,7 @@ export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelInput> = (
         </div>
       </section>
 
-      {!hideProgress && (
+      {!hideProgress && skillConfigConfirmed && (
         <>
           <ScDivider />
           <section className="py-6 space-y-4">
@@ -101,7 +107,7 @@ export const StudentDevelopmentPanel: React.FC<StudentDevelopmentPanelInput> = (
         </>
       )}
 
-      {priorityItems.length > 0 && (
+      {skillConfigConfirmed && priorityItems.length > 0 && (
         <>
           <ScDivider />
           <section className="py-6 space-y-3">

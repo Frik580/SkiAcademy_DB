@@ -16,7 +16,11 @@ vi.mock('../../src/features/participant-progress/participantProgressService', ()
 }));
 vi.mock('../../src/features/settings/settingsStore', () => ({
   useSettingsStore: (selector: (state: unknown) => unknown) =>
-    selector({ skillConfig: DEFAULT_SKILL_CONFIG }),
+    selector({
+      skillConfig: DEFAULT_SKILL_CONFIG,
+      secondaryReads: { skillConfig: { confirmed: true, status: 'ready' } },
+    }),
+  retrySecondarySetting: vi.fn(),
 }));
 
 const accountId = 'account_admin_level_requests';

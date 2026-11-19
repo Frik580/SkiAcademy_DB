@@ -19,19 +19,49 @@ import {
 import { queryManagedParticipantAchievementsReadModels } from '../../lib/canonical/canonicalReadModelClient';
 import type { ClientCallableCapability } from '../../lib/canonical/canonicalCommandClient';
 import { logger } from '../../shared';
-import { useParticipantAchievementsStore } from './participantAchievementsStore';
+import {
+  getParticipantAchievementsReadStatus,
+  useParticipantAchievementsStore,
+} from './participantAchievementsStore';
+
+let nextReadRequestId = 0;
 
 export async function refreshManagedParticipantAchievements(participantIds?: readonly string[]) {
-  const syncGeneration = useParticipantAchievementsStore.getState().syncGeneration;
-  const parsedIds = participantIds?.map((participantId) =>
-    ParticipantIdSchema.parse(participantId)
-  );
-  const result = await queryManagedParticipantAchievementsReadModels(parsedIds);
-  if (useParticipantAchievementsStore.getState().syncGeneration !== syncGeneration) {
+  const store = useParticipantAchievementsStore.getState();
+  const syncGeneration = store.syncGeneration;
+  const parsedIds = participantIds?.length
+    ? participantIds.map((id) => ParticipantIdSchema.parse(id))
+    : undefined;
+  const requestId = ++nextReadRequestId;
+  store.setRead({ requestId, status: 'loading' }, parsedIds);
+
+  const settle = (
+    status: 'ready' | 'error',
+    items?: Awaited<ReturnType<typeof queryManagedParticipantAchievementsReadModels>>['items']
+  ) => {
+    const current = useParticipantAchievementsStore.getState();
+    if (current.syncGeneration !== syncGeneration) return;
+    const currentIds = parsedIds?.filter((id) => current.readsById[id]?.requestId === requestId);
+    if (currentIds ? !currentIds.length : current.managedRead?.requestId !== requestId) return;
+    if (items) {
+      current.setItems(
+        currentIds ? items.filter((item) => currentIds.includes(item.participantId)) : items
+      );
+    }
+    current.setRead({ requestId, status }, currentIds);
+  };
+
+  try {
+    const result = await queryManagedParticipantAchievementsReadModels(parsedIds);
+    if (parsedIds?.some((id) => !result.items.some((item) => item.participantId === id))) {
+      throw new Error('Participant achievements read did not include the requested participant.');
+    }
+    settle('ready', result.items);
     return result.items;
+  } catch (error) {
+    settle('error');
+    throw error;
   }
-  useParticipantAchievementsStore.getState().setItems(result.items);
-  return result.items;
 }
 
 export function deriveRecordParticipantAchievementsClientKey(
@@ -118,19 +148,25 @@ export async function recordManagedParticipantAchievements(input: {
 
 export type { ParticipantId };
 
-export async function loadManagedParticipantAchievementsOnce(participantId: string) {
-  const store = useParticipantAchievementsStore.getState();
-  const generation = store.syncGeneration;
-  if (!store.beginRecording(participantId, `load:${participantId}`)) return;
+async function loadSelectedParticipantAchievements(participantId: string, retry: boolean) {
+  const status = getParticipantAchievementsReadStatus(
+    useParticipantAchievementsStore.getState(),
+    participantId
+  );
+  if (status !== (retry ? 'error' : 'idle')) return;
   try {
     await refreshManagedParticipantAchievements([participantId]);
   } catch (error) {
     logger.warn('Failed to load selected participant achievements', error);
-  } finally {
-    if (useParticipantAchievementsStore.getState().syncGeneration === generation) {
-      useParticipantAchievementsStore.getState().setRecording(participantId, false);
-    }
   }
+}
+
+export function loadManagedParticipantAchievementsOnce(participantId: string) {
+  return loadSelectedParticipantAchievements(participantId, false);
+}
+
+export function retryParticipantAchievements(participantId: string) {
+  return loadSelectedParticipantAchievements(participantId, true);
 }
 
 /** One automatic operation per Participant across component instances.

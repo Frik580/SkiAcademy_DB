@@ -18,10 +18,10 @@ export function useParticipantAchievementsSync() {
       role !== 'user' ||
       canonicalReadyAccountId !== accountId ||
       profileId !== accountId
-    ) {
-      useParticipantAchievementsStore.getState().clear();
+    )
       return;
-    }
+    // Auth already clears the store synchronously on principal changes.
+    if (useParticipantAchievementsStore.getState().managedRead?.status === 'loading') return;
     void refreshManagedParticipantAchievements().catch((error) => {
       logger.warn('Failed to load managed participant achievements', error);
     });

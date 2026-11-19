@@ -82,7 +82,8 @@ vi.mock('../../src/features/settings', async (importOriginal) => ({
     select({ filtersEnabled: false }),
 }));
 vi.mock('../../src/features/settings/settingsStore', () => ({
-  useSettingsStore: (select: (value: Record<string, unknown>) => unknown) => select({}),
+  useSettingsStore: (select: (value: Record<string, unknown>) => unknown) =>
+    select({ secondaryReads: { skillConfig: { confirmed: false } } }),
 }));
 vi.mock('../../src/features/bookings/bookingsStore', () => ({
   useBookingsStore: (select: (value: Record<string, unknown>) => unknown) =>

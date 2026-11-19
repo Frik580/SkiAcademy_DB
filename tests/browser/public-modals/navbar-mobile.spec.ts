@@ -128,9 +128,14 @@ test('icon highlights are centered and the dropdown keeps the header language pi
   await trigger.click();
   const panel = page.getByRole('region', { name: 'Navigation menu' });
   const theme = panel.getByRole('button', { name: 'Switch to Dark' });
-  await assertCenteredHalo(theme);
+  const headerTheme = page.locator('header button[title="Switch to Dark"]');
+  expect(await theme.getAttribute('class')).toBe(await headerTheme.getAttribute('class'));
+  expect((await theme.boundingBox())?.width).toBe(44);
+  expect((await theme.boundingBox())?.height).toBe(44);
+  await theme.hover();
+  await expect(theme).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
 
-  expect((await panel.boundingBox())!.width).toBeLessThanOrEqual(320);
+  expect((await panel.boundingBox())?.width).toBe(390 - 2 * 8);
   expect(await panel.evaluate((el) => getComputedStyle(el).rowGap)).toBe('8px');
   const headerLanguage = page.locator('header [role="group"][aria-label="Switch language"]');
   const menuLanguage = panel.getByRole('group', { name: 'Switch language' });
@@ -230,6 +235,25 @@ test('long profile presentation scrolls at short height and selects a workspace'
   const trigger = page.getByRole('button', { name: 'Navigation menu' });
   await trigger.click();
   const panel = page.getByRole('region');
+  const wallet = panel.getByRole('button', { name: 'Balance' });
+  const notifications = panel.getByRole('button', { name: /notifications/i });
+  const theme = panel.getByRole('button', { name: 'Switch to Dark' });
+  await wallet.scrollIntoViewIfNeeded();
+  const [walletBox, notificationsBox, themeBox, panelCenter] = await Promise.all([
+    wallet.boundingBox(),
+    notifications.boundingBox(),
+    theme.boundingBox(),
+    panel.evaluate((el) => el.getBoundingClientRect().x + el.clientLeft + el.clientWidth / 2),
+  ]);
+  expect(walletBox!.y).toBe(notificationsBox!.y);
+  expect(notificationsBox!.y).toBe(themeBox!.y);
+  expect(walletBox!.x).toBeLessThan(notificationsBox!.x);
+  expect(notificationsBox!.x).toBeLessThan(themeBox!.x);
+  expect((walletBox!.x + themeBox!.x + themeBox!.width) / 2).toBeCloseTo(panelCenter, 0);
+  const balance = panel.getByTestId('navbar-balance-mobile');
+  await expect(balance).toBeHidden();
+  await wallet.click();
+  await expect(balance).toBeVisible();
   const logout = panel.getByRole('button', { name: /sign out/i });
   await logout.scrollIntoViewIfNeeded();
   await expect(logout).toBeInViewport();

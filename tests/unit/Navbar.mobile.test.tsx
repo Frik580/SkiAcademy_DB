@@ -5,6 +5,7 @@ import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { Navbar } from '../../src/app/components/Navbar';
 import { LanguageProvider } from '../../src/app/providers/LanguageContext';
+import { useWalletStore } from '../../src/features/wallet';
 import { ModalLayer } from '../../src/ui/ModalLayer';
 import type { UserProfile } from '../../src/types';
 
@@ -44,10 +45,17 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  useWalletStore.setState(useWalletStore.getInitialState());
   vi.unstubAllGlobals();
 });
 
-function Harness({ profile = null }: { profile?: UserProfile | null }) {
+function Harness({
+  profile = null,
+  unreadNotificationCount = 0,
+}: {
+  profile?: UserProfile | null;
+  unreadNotificationCount?: number;
+}) {
   const navigate = useNavigate();
   const [modal, setModal] = useState('');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -60,6 +68,7 @@ function Harness({ profile = null }: { profile?: UserProfile | null }) {
         theme={theme}
         onToggleTheme={() => setTheme(theme === 'light' ? 'dark' : 'light')}
         onSignInClick={() => setModal('Auth')}
+        unreadNotificationCount={unreadNotificationCount}
       />
       <main>
         <button onClick={() => navigate('/?next=1#section')}>Navigate</button>
@@ -75,11 +84,11 @@ function Harness({ profile = null }: { profile?: UserProfile | null }) {
     </>
   );
 }
-const mount = (profile?: UserProfile) =>
+const mount = (profile?: UserProfile, unreadNotificationCount?: number) =>
   render(
     <LanguageProvider>
       <MemoryRouter>
-        <Harness profile={profile} />
+        <Harness profile={profile} unreadNotificationCount={unreadNotificationCount} />
       </MemoryRouter>
     </LanguageProvider>
   );
@@ -182,7 +191,7 @@ it('preserves the open panel and focused language/theme controls across updates'
   expect(trigger()).toHaveAttribute('aria-expanded', 'true');
 });
 
-it('keeps icon hover surfaces centered and the mobile language switch identical to the header', async () => {
+it('keeps the opener centered and shares header theme and language controls with the mobile menu', async () => {
   const { container } = mount();
   const user = userEvent.setup();
   const opener = trigger();
@@ -196,12 +205,17 @@ it('keeps icon hover surfaces centered and the mobile language switch identical 
   await user.click(opener);
   const region = panel();
   const theme = within(region).getByRole('button', { name: 'Switch to Dark' });
-  expect(theme).toHaveClass('items-center', 'justify-center', 'h-11', 'w-11');
-  expect(theme.querySelector('span')).toHaveClass(
-    'h-8',
-    'w-8',
-    'group-hover:bg-[var(--accent-muted)]'
+  expect(theme).toHaveClass(
+    'ui-icon-btn',
+    'items-center',
+    'justify-center',
+    'min-h-11',
+    'min-w-11'
   );
+  expect(theme.className).toBe(
+    container.querySelector('header button[title="Switch to Dark"]')?.className
+  );
+  expect(within(region).queryByText('Light Theme')).toBeNull();
   expect(region).not.toHaveClass('[&_button]:min-h-11', '[&_button]:min-w-11');
   expect(region).toHaveClass('gap-2', 'p-3', 'rounded-2xl');
 
@@ -214,6 +228,43 @@ it('keeps icon hover surfaces centered and the mobile language switch identical 
   expect(Array.from(mobileButtons, (button) => button.className)).toEqual(
     Array.from(headerButtons, (button) => button.className)
   );
+});
+
+it('centers wallet, notifications and theme icons and reveals the balance on demand', async () => {
+  useWalletStore.setState({ canonicalWalletAccountId: 'fixture', canonicalWalletLoaded: true });
+  const { container } = mount(
+    { uid: 'fixture', role: 'admin', displayName: 'Admin' } as UserProfile,
+    12
+  );
+  const user = userEvent.setup();
+  await user.click(trigger());
+  const region = within(panel());
+  const wallet = region.getByRole('button', { name: 'Balance' });
+  const notifications = region.getByRole('button', { name: 'New Notifications (12)' });
+  const theme = region.getByRole('button', { name: 'Switch to Dark' });
+
+  expect(wallet.parentElement).toHaveClass('flex', 'items-center', 'justify-center');
+  expect(Array.from(wallet.parentElement!.children)).toEqual([wallet, notifications, theme]);
+  expect(wallet.textContent).toBe('');
+  expect(theme.textContent).toBe('');
+  expect(notifications.textContent).toBe('9+');
+  expect(notifications.className).toBe(
+    container.querySelector('header button[aria-label="New Notifications (12)"]')?.className
+  );
+
+  const amount = region.getByTestId('navbar-balance-mobile');
+  expect(amount).toHaveAttribute('hidden');
+  await user.click(wallet);
+  expect(wallet).toHaveAttribute('aria-expanded', 'true');
+  expect(amount).not.toHaveAttribute('hidden');
+  expect(amount).toHaveTextContent('0 ₸');
+  await user.click(trigger());
+  await user.click(trigger());
+  expect(within(panel()).getByRole('button', { name: 'Balance' })).toHaveAttribute(
+    'aria-expanded',
+    'false'
+  );
+  expect(within(panel()).getByTestId('navbar-balance-mobile')).toHaveAttribute('hidden');
 });
 
 it('retains authorized workspace links and closes on selection', async () => {

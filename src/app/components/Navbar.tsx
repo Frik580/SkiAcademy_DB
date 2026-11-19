@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { UserProfile } from '../../types';
-import { LogOut, Bell, Sun, Moon, Menu, X, Settings, ChevronDown } from 'lucide-react';
+import { LogOut, Bell, Sun, Moon, Menu, X, Settings, ChevronDown, Wallet } from 'lucide-react';
 import { m, AnimatePresence } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../app/providers/LanguageContext';
@@ -23,6 +23,9 @@ interface NavbarProps {
   onSignInClick?: () => void;
   unreadNotificationCount?: number;
 }
+
+const iconButtonClass =
+  'ui-icon-btn inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center focus-visible:outline-2 focus-visible:outline-[var(--accent)] lg:min-h-0 lg:min-w-0';
 
 export const Navbar: React.FC<NavbarProps> = ({
   userProfile,
@@ -58,6 +61,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const showInstructorNav = !!userProfile && isInstructorWorkspaceUser(userProfile);
   const showClientNav = showInstructorNav || userProfile?.role === 'admin';
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMobileBalanceOpen, setIsMobileBalanceOpen] = useState(false);
   const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(false);
   const hasUnreadNotifications = unreadNotificationCount > 0;
   const badgeLabel = unreadNotificationCount > 9 ? '9+' : unreadNotificationCount.toString();
@@ -100,6 +104,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const mobilePanelRef = useRef<HTMLDivElement>(null);
   const logoRef = useRef<HTMLAnchorElement>(null);
   const mobilePanelId = useId();
+  const mobileBalanceId = useId();
   const mobileMenuLabel = t('navigationMenu');
   const closeMobileMenu = useCallback(() => {
     const desktop = window.matchMedia?.('(min-width: 1024px)').matches;
@@ -201,6 +206,47 @@ export const Navbar: React.FC<NavbarProps> = ({
     };
   }, [isMenuOpen]);
 
+  const themeButtonLabel = t(theme === 'light' ? 'switchToDark' : 'switchToLight');
+  const themeButton = (
+    <button
+      type="button"
+      onClick={onToggleTheme}
+      className={iconButtonClass}
+      title={themeButtonLabel}
+      aria-label={themeButtonLabel}
+    >
+      {theme === 'light' ? (
+        <Moon className="w-4 h-4 text-[var(--ink)]" />
+      ) : (
+        <Sun className="w-4 h-4 text-amber-400" />
+      )}
+    </button>
+  );
+
+  const renderNotificationsButton = (onClick: () => void) => (
+    <button
+      type="button"
+      onClick={onClick}
+      title={notificationButtonTitle}
+      aria-label={notificationButtonTitle}
+      className={`${iconButtonClass} relative ${
+        hasUnreadNotifications
+          ? 'text-[var(--accent)] bg-[var(--accent)]/10 bg-[var(--accent-muted)]'
+          : ''
+      }`}
+    >
+      <Bell className={`w-4 h-4 ${hasUnreadNotifications ? 'animate-pulse' : ''}`} />
+      {hasUnreadNotifications && (
+        <>
+          <span className="absolute -top-0.5 -right-0.5 min-w-5 h-5 px-0.5 bg-rose-500 text-white type-caption-sm rounded-full ring-1 ring-[var(--bg)] flex items-center justify-center">
+            {badgeLabel}
+          </span>
+          <span className="absolute -top-0.5 -right-0.5 min-w-[0.95rem] h-[0.95rem] bg-rose-500 rounded-full animate-ping opacity-60" />
+        </>
+      )}
+    </button>
+  );
+
   return (
     <>
       {isHomeView && <div ref={homeTopRef} className="home-header-sentinel" aria-hidden="true" />}
@@ -254,17 +300,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="hidden lg:flex items-center gap-1.5 xl:gap-3 type-caption">
               {!userProfile && (
                 <>
-                  <button
-                    onClick={onToggleTheme}
-                    className="ui-icon-btn shrink-0"
-                    title={t(theme === 'light' ? 'switchToDark' : 'switchToLight')}
-                  >
-                    {theme === 'light' ? (
-                      <Moon className="w-4 h-4 text-[var(--ink)]" />
-                    ) : (
-                      <Sun className="w-4 h-4 text-amber-400" />
-                    )}
-                  </button>
+                  {themeButton}
 
                   <LanguageSwitch
                     language={language}
@@ -326,40 +362,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                       showName
                     />
 
-                    <button
-                      onClick={onOpenNotifications}
-                      title={notificationButtonTitle}
-                      aria-label={notificationButtonTitle}
-                      className={`ui-icon-btn relative shrink-0 ${
-                        hasUnreadNotifications
-                          ? 'text-[var(--accent)] bg-[var(--accent)]/10 bg-[var(--accent-muted)]'
-                          : ''
-                      }`}
-                    >
-                      <Bell
-                        className={`w-4 h-4 ${hasUnreadNotifications ? 'animate-pulse' : ''}`}
-                      />
-                      {hasUnreadNotifications && (
-                        <>
-                          <span className="absolute -top-0.5 -right-0.5 min-w-5 h-5 px-0.5 bg-rose-500 text-white type-caption-sm rounded-full ring-1 ring-[var(--bg)] flex items-center justify-center">
-                            {badgeLabel}
-                          </span>
-                          <span className="absolute -top-0.5 -right-0.5 min-w-[0.95rem] h-[0.95rem] bg-rose-500 rounded-full animate-ping opacity-60" />
-                        </>
-                      )}
-                    </button>
-
-                    <button
-                      onClick={onToggleTheme}
-                      className="ui-icon-btn shrink-0"
-                      title={t(theme === 'light' ? 'switchToDark' : 'switchToLight')}
-                    >
-                      {theme === 'light' ? (
-                        <Moon className="w-4 h-4 text-[var(--ink)]" />
-                      ) : (
-                        <Sun className="w-4 h-4 text-amber-400" />
-                      )}
-                    </button>
+                    {renderNotificationsButton(onOpenNotifications)}
+                    {themeButton}
 
                     <LanguageSwitch
                       language={language}
@@ -411,7 +415,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 aria-label={mobileMenuLabel}
                 aria-expanded={isMenuOpen}
                 aria-controls={mobilePanelId}
-                onClick={() => setIsMenuOpen((open) => !open)}
+                onClick={() => {
+                  setIsMobileBalanceOpen(false);
+                  setIsMenuOpen((open) => !open);
+                }}
                 className="group flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
               >
                 <span className="flex h-8 w-8 items-center justify-center rounded-full transition-colors group-hover:bg-[var(--accent-muted)] group-focus-visible:bg-[var(--accent-muted)]">
@@ -512,56 +519,41 @@ export const Navbar: React.FC<NavbarProps> = ({
                       {isAdminView ? t('browseSlopes') : t('manageResort')}
                     </button>
                   )}
-
-                  <div className="flex items-center justify-between gap-2 type-compact text-[var(--ink)]">
-                    <span className="text-[var(--ink-dim)]">{t('balance')}:</span>
-                    <span
-                      className="font-bold"
-                      data-testid="navbar-balance-mobile"
-                      title={balanceStatus}
-                    >
-                      {formattedBalance}
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      closeMobileMenu();
-                      onOpenNotifications();
-                    }}
-                    className="w-full min-h-11 flex justify-between items-center type-nav text-[var(--ink)] cursor-pointer"
-                  >
-                    <span className="flex items-center gap-2">
-                      {t('notifications')}
-                      {hasUnreadNotifications && (
-                        <span className="min-w-5 h-5 px-1 bg-rose-500 text-white type-caption-sm rounded-full flex items-center justify-center">
-                          {badgeLabel}
-                        </span>
-                      )}
-                    </span>
-                    <Bell
-                      className={`w-4 h-4 ${hasUnreadNotifications ? 'text-[var(--accent)]' : ''}`}
-                    />
-                  </button>
                 </>
               )}
 
-              <div className="flex min-h-11 items-center justify-between type-compact text-[var(--ink)]">
-                <span>{t(theme === 'light' ? 'lightTheme' : 'darkTheme')}</span>
-                <button
-                  onClick={onToggleTheme}
-                  className="group flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
-                  aria-label={t(theme === 'light' ? 'switchToDark' : 'switchToLight')}
-                >
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full transition-colors group-hover:bg-[var(--accent-muted)] group-focus-visible:bg-[var(--accent-muted)]">
-                    {theme === 'light' ? (
-                      <Moon className="w-4 h-4" />
-                    ) : (
-                      <Sun className="w-4 h-4 text-amber-400" />
-                    )}
-                  </span>
-                </button>
+              <div className="flex items-center justify-center gap-2">
+                {userProfile && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setIsMobileBalanceOpen((open) => !open)}
+                      className={iconButtonClass}
+                      title={t('balance')}
+                      aria-label={t('balance')}
+                      aria-expanded={isMobileBalanceOpen}
+                      aria-controls={mobileBalanceId}
+                    >
+                      <Wallet className="w-4 h-4" />
+                    </button>
+                    {renderNotificationsButton(() => {
+                      closeMobileMenu();
+                      onOpenNotifications();
+                    })}
+                  </>
+                )}
+                {themeButton}
               </div>
+              {userProfile && (
+                <div
+                  id={mobileBalanceId}
+                  hidden={!isMobileBalanceOpen}
+                  className="text-center type-caption font-bold text-[var(--ink)]"
+                  data-testid="navbar-balance-mobile"
+                >
+                  {balanceStatus ?? formattedBalance}
+                </div>
+              )}
               <div className="flex items-center justify-center py-1">
                 <LanguageSwitch
                   language={language}

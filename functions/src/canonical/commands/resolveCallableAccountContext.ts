@@ -8,6 +8,7 @@ import {
   type InstructorId,
 } from '@ski-academy/shared-domain';
 import { resolveActiveAccountInstructorId } from '../participantAccess/instructorIdentity';
+import { findCommandAccessMode, getCommandPolicy } from './commandPolicies';
 
 export const CLIENT_CALLABLE_CAPABILITIES = [
   'account_owner',
@@ -16,79 +17,6 @@ export const CLIENT_CALLABLE_CAPABILITIES = [
 ] as const;
 
 export type ClientCallableCapability = (typeof CLIENT_CALLABLE_CAPABILITIES)[number];
-
-export const ADMINISTRATOR_COMMAND_KINDS: ReadonlySet<CommandKind> = new Set([
-  'confirm_guest_booking',
-  'confirm_guest_course_enrollment',
-  'link_guest_booking_to_account_as_administrator',
-  'link_guest_course_enrollment_to_account_as_administrator',
-  'resolve_booking_cancellation',
-  'resolve_booking_change_request',
-  'resolve_course_enrollment_cancellation',
-  'transfer_course_enrollment',
-  'record_financial_correction',
-  'record_manual_wallet_funding',
-  'review_kaspi_payment',
-  'set_kaspi_payment_enabled',
-  'save_kaspi_configuration',
-  'record_provider_payment_event',
-  'pay_service_from_wallet_as_administrator',
-  'record_audit_correction',
-  'enforce_payment_start_gate',
-  'create_course_day',
-  'reassign_course_day_instructor',
-  'provision_canonical_course',
-  'apply_canonical_course_provisioning_manifest',
-  'change_course_title',
-  'change_course_price',
-  'change_course_capacity',
-  'archive_course',
-  'reactivate_course',
-  'add_course_roster_instructor',
-  'remove_course_roster_instructor',
-  'reschedule_course_day',
-  'remove_course_day',
-  'update_course_catalog_content',
-  'create_administrative_availability_block',
-  'reschedule_administrative_availability_block',
-  'release_administrative_availability_block',
-  'reconcile_course_enrollment',
-  'disable_account',
-  'enable_account',
-  'archive_participant',
-  'reactivate_participant',
-  'assign_participant_management_as_administrator',
-  'create_managed_dependent_participant',
-  'provision_self_participant_for_account',
-  'change_account_role',
-  'update_lesson_pricing_settings',
-  'update_lesson_levels',
-  'set_email_delivery_enabled',
-  'update_account_contact_as_administrator',
-  'create_instructor_catalog_entry',
-  'update_instructor_catalog_profile',
-  'deactivate_instructor_catalog',
-  'reactivate_instructor_catalog',
-  'link_account_instructor_catalog',
-  'unlink_account_instructor_catalog',
-  'delete_instructor_catalog_entry',
-  'repair_participant_management_owner_guard',
-]);
-
-export const ADMINISTRATOR_CONTEXT_COMMAND_KINDS: ReadonlySet<CommandKind> = new Set([
-  'manage_participant_level',
-  'create_confirmed_booking',
-  'create_course_enrollments',
-  'reschedule_booking',
-  'change_booking_instructor',
-  'change_booking_duration',
-  'record_booking_attendance',
-  'finalize_booking_attendance',
-  'record_course_day_attendance',
-  'resolve_attendance_outcome',
-  'update_participant_profile',
-  'revoke_participant_management',
-]);
 
 export interface CallableAccountProfile {
   readonly role?: string;
@@ -140,9 +68,13 @@ export function resolveCallableAccountContext(
     throw new Error('forbidden_capability');
   }
 
+  const policy = getCommandPolicy(input.commandKind);
+  if (!policy) throw new Error('forbidden');
+  const adminMode = findCommandAccessMode(policy, 'admin_callable', 'administrator');
+  const adminRoute = adminMode?.source === 'admin_callable' ? adminMode.callable : undefined;
   const isAdmin = isAdministratorProfile(profile);
 
-  if (ADMINISTRATOR_COMMAND_KINDS.has(input.commandKind)) {
+  if (adminRoute === 'required') {
     if (!isAdmin) {
       throw new Error('forbidden');
     }
@@ -153,11 +85,7 @@ export function resolveCallableAccountContext(
     };
   }
 
-  if (
-    isAdmin &&
-    input.administratorContext === true &&
-    ADMINISTRATOR_CONTEXT_COMMAND_KINDS.has(input.commandKind)
-  ) {
+  if (isAdmin && input.administratorContext === true && adminRoute === 'opt_in') {
     return {
       accountId,
       capability: 'administrator',

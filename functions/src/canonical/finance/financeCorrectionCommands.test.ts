@@ -4,6 +4,7 @@ import {
   AggregateRevisionSchema,
   CorrelationIdSchema,
   PaymentSchema,
+  TestSessionIdSchema,
   WalletSchema,
   accountCommandActor,
   monetaryEventIdFromCommandEffect,
@@ -15,7 +16,10 @@ import {
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
 import { createInMemoryCanonicalTransactionExecutor, type CanonicalTransactionExecutor } from '../transactions';
-import { createSnapshotMonetaryEventLoader } from './financeCorrectionCommands';
+import {
+  createSnapshotMonetaryEventLoader,
+  reconcileGuestConfirmationLifecycleMismatchAfterCommand,
+} from './financeCorrectionCommands';
 
 const correlationId = CorrelationIdSchema.parse('correlation_fin_correction_01');
 const accountId = 'account_fin_correction_01';
@@ -83,6 +87,22 @@ async function runCommand<Kind extends CommandEnvelope['kind']>(
 }
 
 describe('finance correction commands', () => {
+  it('does not probe LIVE guest confirmation after a TEST command', async () => {
+    const executor: CanonicalTransactionExecutor = {
+      ...createInMemoryCanonicalTransactionExecutor({}),
+      runAtomic: async () => { throw new Error('Test must not read LIVE payments'); },
+    };
+    await expect(reconcileGuestConfirmationLifecycleMismatchAfterCommand({
+      correlationId,
+      paymentId: seedPayment().paymentId,
+      environment: {
+        ...environment(),
+        scope: { dataScope: 'test', testSessionId: TestSessionIdSchema.parse('test_fin_correction') },
+      },
+      executor,
+    })).resolves.toBe('aligned');
+  });
+
   it('rejects non-admin financial correction', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor({
       [`payments/${paymentId}`]: seedPayment(),

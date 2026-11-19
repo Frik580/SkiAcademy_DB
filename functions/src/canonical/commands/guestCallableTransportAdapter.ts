@@ -1,5 +1,6 @@
 import {
   BookingIdSchema,
+  CommandKindSchema,
   CourseEnrollmentIdSchema,
   guestCommandActor,
   GUEST_ACTION_NONCE_TRANSPORT_KEY,
@@ -200,11 +201,18 @@ export function parseAuthenticatedCallableCommandTransportInput<Kind extends Com
 } {
   const data = request.data;
   if (!data || typeof data !== 'object') {
-    throw new Error('Callable payload is required.');
+    throw new HttpsError('invalid-argument', 'Callable payload is required.');
   }
   const record = data as unknown as Record<string, unknown>;
   if ('dataScope' in record || 'testSessionId' in record) {
     throw new HttpsError('invalid-argument', 'Authoritative scope fields are not accepted.');
+  }
+  if (!CommandKindSchema.safeParse(record.kind).success) {
+    throw new HttpsError('invalid-argument', 'The request is invalid.', {
+      code: 'validation',
+      retryable: false,
+      details: { reason: 'malformed_transport' },
+    });
   }
   return data as CallableCommandTransportInput<Kind> & {
     readonly exercisedCapability?: unknown;

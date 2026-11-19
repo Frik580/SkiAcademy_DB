@@ -7,7 +7,6 @@ import {
   CommandKindSchema,
   CorrelationIdSchema,
   type CorrelationId,
-  evaluateCommandContextAuthorization,
   parseCommandEnvelope,
   type CommandEnvelope,
   type CommandExecutionEnvironment,
@@ -15,10 +14,8 @@ import {
   type CommandResult,
   commandErrorResult,
   withCanonicalExecutionScope,
-  isTestSessionCommandSupported,
-  isTestSessionExistingIdentityBootstrap,
-  isTestSessionStarterCreditBootstrapNoOp,
 } from '@ski-academy/shared-domain';
+import { getCommandPolicyError, type CommandInvocation } from './commandPolicies';
 
 const MALFORMED_ENVELOPE_CORRELATION_ID = CorrelationIdSchema.parse(
   'correlation_malformed_envelope'
@@ -75,7 +72,10 @@ export type CommandHandlerMap = {
 };
 
 export interface CanonicalCommands {
-  execute<Kind extends CommandKind>(envelope: CommandEnvelope<Kind>): Promise<CommandResult<Kind>>;
+  execute<Kind extends CommandKind>(
+    envelope: CommandEnvelope<Kind>,
+    invocation?: CommandInvocation
+  ): Promise<CommandResult<Kind>>;
 }
 
 function readEnvelopeCorrelationId(envelope: CommandEnvelope<CommandKind>): CorrelationId {
@@ -93,7 +93,7 @@ function readEnvelopeCorrelationId(envelope: CommandEnvelope<CommandKind>): Corr
 }
 
 function readEnvelopeKind(envelope: CommandEnvelope<CommandKind>): CommandKind {
-  const parsed = CommandKindSchema.safeParse((envelope as { kind?: unknown }).kind);
+  const parsed = CommandKindSchema.safeParse(envelope?.kind);
   return parsed.success ? parsed.data : 'complete_booking';
 }
 
@@ -108,18 +108,6 @@ function validationErrorResult<Kind extends CommandKind>(
     new CanonicalCommandError('validation', {
       correlationId,
       details: { reason: 'malformed' },
-    }).toTransport()
-  );
-}
-
-function forbiddenErrorResult<Kind extends CommandKind>(
-  envelope: CommandEnvelope<Kind>
-): CommandResult<Kind> {
-  return commandErrorResult(
-    envelope.kind,
-    envelope.context.correlationId,
-    new CanonicalCommandError('forbidden', {
-      correlationId: envelope.context.correlationId,
     }).toTransport()
   );
 }
@@ -144,7 +132,8 @@ export function createCanonicalCommands(
   const scopedEnvironment = withCanonicalExecutionScope(environment, environment.scope);
   return {
     async execute<Kind extends CommandKind>(
-      envelope: CommandEnvelope<Kind>
+      envelope: CommandEnvelope<Kind>,
+      invocation: CommandInvocation = 'server'
     ): Promise<CommandResult<Kind>> {
       const parsed = parseCommandEnvelope(envelope);
       if (!parsed.success) {
@@ -152,30 +141,18 @@ export function createCanonicalCommands(
       }
 
       const normalized = parsed.data as CommandEnvelope<Kind>;
-      const authorization = evaluateCommandContextAuthorization(normalized.context);
-      if (authorization === 'forbidden') {
-        return forbiddenErrorResult(normalized);
+      const policyError = getCommandPolicyError(normalized, scopedEnvironment.scope, invocation);
+      if (policyError) {
+        return commandErrorResult(
+          normalized.kind,
+          normalized.context.correlationId,
+          policyError.toTransport()
+        );
       }
 
       const handler = handlers[normalized.kind] as CommandHandler<Kind> | undefined;
       if (!handler) {
         return unavailableErrorResult(normalized);
-      }
-
-      if (
-        scopedEnvironment.scope?.dataScope === 'test' &&
-        !isTestSessionCommandSupported(normalized.kind) &&
-        !isTestSessionExistingIdentityBootstrap(normalized.kind) &&
-        !isTestSessionStarterCreditBootstrapNoOp(normalized.kind)
-      ) {
-        return commandErrorResult(
-          normalized.kind,
-          normalized.context.correlationId,
-          new CanonicalCommandError('cross_scope_forbidden', {
-            correlationId: normalized.context.correlationId,
-            details: { reason: 'unsupported' },
-          }).toTransport()
-        );
       }
 
       try {
@@ -197,14 +174,23 @@ export function createCanonicalCommands(
 export function createProductionCanonicalCommands(
   environment: CommandExecutionEnvironment,
   executor: CanonicalTransactionExecutor,
-  options: {
-    readonly guestActionTokenSecret?: string;
-    readonly verifyKaspiQrUpload?: (path: string) => Promise<string>;
-    readonly guestReservationAdmission?: GuestReservationAdmissionPolicy;
-    readonly monetaryEventLoader?: MonetaryEventLoader;
-    readonly isEmailProviderConfigured?: () => boolean;
-  } = {}
+  options: ProductionCommandOptions = {}
 ): CanonicalCommands {
+  return createCanonicalCommands(createProductionCommandHandlers(executor, options), environment);
+}
+
+interface ProductionCommandOptions {
+  readonly guestActionTokenSecret?: string;
+  readonly verifyKaspiQrUpload?: (path: string) => Promise<string>;
+  readonly guestReservationAdmission?: GuestReservationAdmissionPolicy;
+  readonly monetaryEventLoader?: MonetaryEventLoader;
+  readonly isEmailProviderConfigured?: () => boolean;
+}
+
+export function createProductionCommandHandlers(
+  executor: CanonicalTransactionExecutor,
+  options: ProductionCommandOptions = {}
+): CommandHandlerMap {
   const guestEnvironmentFactory = (
     base: CommandExecutionEnvironment
   ): GuestBookingCommandEnvironment => ({
@@ -219,8 +205,7 @@ export function createProductionCanonicalCommands(
     guestActionTokenSecret: options.guestActionTokenSecret,
   });
 
-  const commandsRef: { current?: CanonicalCommands } = {};
-  const handlerMap: CommandHandlerMap = {
+  return {
     ...createParticipantAccessCommandHandlers(executor),
     ...createSelfParticipantProvisioningCommandHandlers(executor),
     ...createIdentityAdministrationCommandHandlers(executor),
@@ -274,6 +259,4 @@ export function createProductionCanonicalCommands(
     ),
     ...createAdminGuestCourseEnrollmentLinkCommandHandlers(executor),
   };
-  commandsRef.current = createCanonicalCommands(handlerMap, environment);
-  return commandsRef.current;
 }

@@ -13,7 +13,6 @@ import {
   SystemActorIdSchema,
   type CommandEnvelope,
   type CommandExecutionEnvironment,
-  type CommandResult,
 } from '@ski-academy/shared-domain';
 import {
   buildCommandEnvelopeFromCallable,
@@ -51,6 +50,18 @@ function accountEnvelope(
   };
 }
 
+function bookingEnvelope(): CommandEnvelope<'create_confirmed_booking'> {
+  return {
+    kind: 'create_confirmed_booking',
+    context: accountEnvelope().context,
+    intent: {
+      bookingId: BookingIdSchema.parse('booking_fn_cmd_01'),
+      instructorId: InstructorIdSchema.parse('instructor_fn_cmd_01'),
+      participantIds: [ParticipantIdSchema.parse('participant_fn_cmd_01')],
+    },
+  };
+}
+
 describe('CanonicalCommands.execute', () => {
   it('leaves complete_booking unregistered so attendance commands own completion', async () => {
     const commands = createProductionCanonicalCommands(
@@ -81,7 +92,7 @@ describe('CanonicalCommands.execute', () => {
     const environment = testEnvironment('2026-06-01T12:00:00.000Z');
     const commands = createCanonicalCommands(
       {
-        complete_booking: async (envelope, env) => {
+        create_confirmed_booking: async (envelope, env) => {
           expect(env.clock.decidedAt().toISOString()).toBe('2026-06-01T12:00:00.000Z');
           expect(env.scope).toEqual({ dataScope: 'live' });
           return commandSuccessResult(envelope.kind, envelope.context.correlationId);
@@ -90,10 +101,10 @@ describe('CanonicalCommands.execute', () => {
       environment
     );
 
-    const result = await commands.execute(accountEnvelope());
+    const result = await commands.execute(bookingEnvelope());
     expect(result).toEqual({
       status: 'success',
-      kind: 'complete_booking',
+      kind: 'create_confirmed_booking',
       correlationId,
     });
   });
@@ -102,7 +113,7 @@ describe('CanonicalCommands.execute', () => {
     const testSessionId = TestSessionIdSchema.parse('test_runtime_scope_01');
     const commands = createCanonicalCommands(
       {
-        complete_booking: async (envelope, env) => {
+        create_confirmed_booking: async (envelope, env) => {
           expect(env.scope).toEqual({ dataScope: 'test', testSessionId });
           return commandSuccessResult(envelope.kind, envelope.context.correlationId);
         },
@@ -113,7 +124,7 @@ describe('CanonicalCommands.execute', () => {
       }
     );
 
-    await expect(commands.execute(accountEnvelope())).resolves.toMatchObject({ status: 'success' });
+    await expect(commands.execute(bookingEnvelope())).resolves.toMatchObject({ status: 'success' });
   });
 
   it('rejects forged system administrator context at the authorization boundary', async () => {
@@ -264,25 +275,22 @@ describe('callable transport adapter', () => {
     const envelope = buildCommandEnvelopeFromCallable(
       { accountId, capability: 'account_owner', source: 'client_callable' },
       {
-        kind: 'complete_booking',
+        kind: 'create_confirmed_booking',
         idempotencyKey: 'adapter-idem',
         correlationId,
-        intent: { bookingId: BookingIdSchema.parse('booking_fn_cmd_05') },
+        intent: bookingEnvelope().intent,
       }
     );
 
     const commands = createCanonicalCommands(
       {
-        complete_booking: async () =>
-          commandSuccessResult(
-            'complete_booking',
-            correlationId
-          ) as CommandResult<'complete_booking'>,
+        create_confirmed_booking: async () =>
+          commandSuccessResult('create_confirmed_booking', correlationId),
       },
       testEnvironment('2026-01-02T00:00:00.000Z')
     );
 
-    const result = await commands.execute(envelope);
+    const result = await commands.execute(envelope, 'authenticated_callable');
     expect(result.status).toBe('success');
   });
 });

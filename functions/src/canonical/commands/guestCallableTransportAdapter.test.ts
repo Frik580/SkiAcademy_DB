@@ -142,6 +142,23 @@ describe('guestCallableTransportAdapter', () => {
     ).toThrow(HttpsError);
   });
 
+  it('rejects a guest course withdrawal before any Firestore transaction', async () => {
+    const runTransaction = vi.fn();
+    const handler = createExecuteGuestCanonicalCommandHandler({ runTransaction } as never);
+    await expect(
+      handler({
+        data: {
+          kind: 'withdraw_course_enrollment',
+          intent: { courseEnrollmentId: 'enrollment_guest_withdraw_denied' },
+          correlationId,
+          idempotencyKey: 'guest-withdraw-denied',
+          expectedRevision: 1,
+        },
+      } as never)
+    ).rejects.toMatchObject({ code: 'permission-denied', details: { code: 'forbidden' } });
+    expect(runTransaction).not.toHaveBeenCalled();
+  });
+
   it('treats missing, empty, and whitespace-only guest action secrets as unavailable', () => {
     const previousSecret = process.env.GUEST_ACTION_TOKEN_SECRET;
     try {

@@ -165,6 +165,39 @@ export function assertGuestBookingLinkProof(
   }
 }
 
+export function assertGuestParticipantReuseProof(
+  envelope: CommandEnvelope<'create_guest_booking_request'>,
+  participant: Participant,
+  originalBooking: Booking | undefined,
+  secret: string | undefined,
+  now: CanonicalTimestamp
+): void {
+  const proof = envelope.intent.guestParticipantProof;
+  if (!proof || !secret || !originalBooking ||
+      originalBooking.bookingId !== proof.bookingId ||
+      originalBooking.archival?.isDeleted === true ||
+      originalBooking.payerAccountId !== undefined ||
+      originalBooking.attribution.bookingOrigin !== 'guest' ||
+      originalBooking.attribution.bookedBy.kind !== 'guest' ||
+      originalBooking.party.participantIds.length !== 1 ||
+      originalBooking.party.participantIds[0] !== participant.participantId ||
+      originalBooking.audit.createdByCommandId !== participant.audit.createdByCommandId ||
+      originalBooking.attribution.bookedBy.guestSubjectId !==
+        guestSubjectIdFromBookingId(proof.bookingId) ||
+      !verifyGuestActionCredentialPartsAuthoritative({
+        secret,
+        ...proof.credential,
+        now,
+        expectedBookingId: proof.bookingId,
+        expectedGuestSubjectId: guestSubjectIdFromBookingId(proof.bookingId),
+        expectedPurpose: 'link_guest_booking',
+      }).valid) {
+    throw new CanonicalCommandError('unauthorized', {
+      correlationId: envelope.context.correlationId,
+    });
+  }
+}
+
 export function assertLinkGuestBookingAsAdministratorAuthorization(
   envelope: CommandEnvelope<'link_guest_booking_to_account_as_administrator'>
 ): void {

@@ -331,7 +331,7 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     const secondCourseId = await seedSecondCourse();
     const secondEnrollmentId = CourseEnrollmentIdSchema.parse('enrollment_browser_profile_second');
     const secondEnvelope = guestEnrollmentAttemptEnvelope({
-      idempotencyKey: 'idem-browser-profile-second',
+      idempotencyKey: 'create-guest-private:af15600c7ec9486a8ff8051bd243accb',
       participantId,
       enrollmentId: secondEnrollmentId,
       courseId: secondCourseId,
@@ -539,7 +539,7 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     const revisionRef = firestore.doc(canonicalPaths.adminCoursesRevision().replace(/^\//, ''));
     const beforeRevision = (await revisionRef.get()).data()?.revision ?? 0;
     const commands = createCommands();
-    const envelope = guestEnrollmentEnvelope('idem-guest-admin-visible');
+    const envelope = guestEnrollmentEnvelope('create-guest-private:99407ab756c241b080789d41069cdf07');
     const created = await commands.execute(envelope);
     expect(created.status).toBe('success');
     expect(parseCommandResultPayload('create_course_enrollments', created.payload).success).toBe(
@@ -848,7 +848,7 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     const policy = { actorKey: 'actor_a', maxActiveLesson: 1, maxActiveCourse: 1 };
     const commands = createCommands('2026-01-01T00:00:00.000Z', policy);
     const firstEnvelope = guestEnrollmentAttemptEnvelope({
-      idempotencyKey: 'guest-course-limit-1',
+      idempotencyKey: 'create-guest-private:39ae19d3fda24338999ceeacfc4ebdf2',
       participantId: ParticipantIdSchema.parse('participant_guest_course_limit_1'),
       enrollmentId: CourseEnrollmentIdSchema.parse('enrollment_guest_course_limit_1'),
     });

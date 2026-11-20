@@ -17,8 +17,7 @@ import { useNotifications } from '../../../features/notifications';
 import { Auth } from '../../../features/auth';
 import { ModalLayer } from '../../../ui/ModalLayer';
 import {
-  createLogicalEnrollmentAttemptId,
-  deriveGuestCreateEnrollmentIdempotencyKey,
+  createGuestEnrollmentAttempt,
   deriveRequestCancellationIdempotencyKey,
   resolveGuestCourseSessionParticipantId,
   isAnySelectedParticipantEnrolledInCourse,
@@ -124,7 +123,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   } | null>(null);
   const guestLookupGeneration = useRef(0);
   const isSubmittingRef = useRef(false);
-  const guestEnrollmentAttemptKeyRef = useRef<string | null>(null);
+  const guestEnrollmentAttemptKeyRef = useRef<ReturnType<typeof createGuestEnrollmentAttempt> | null>(null);
 
   const activeAccountId = authenticatedProfile?.uid;
   const profileAccountId = userProfile?.uid;
@@ -294,20 +293,15 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     setSubmissionError('');
     setIsSubmitting(true);
     setGuestQuotaErrorCourseId(null);
-    const stableEnrollmentId =
-      guestEnrollmentAttemptKeyRef.current ?? createLogicalEnrollmentAttemptId();
-    if (!guestEnrollmentAttemptKeyRef.current) {
-      guestEnrollmentAttemptKeyRef.current = stableEnrollmentId;
-    }
-    const participantId = resolveGuestCourseSessionParticipantId();
-    const idempotencyKey = deriveGuestCreateEnrollmentIdempotencyKey(stableEnrollmentId);
-
     try {
+      const attempt = guestEnrollmentAttemptKeyRef.current ?? createGuestEnrollmentAttempt();
+      guestEnrollmentAttemptKeyRef.current = attempt;
+      const participantId = resolveGuestCourseSessionParticipantId();
       const credential = await createGuestEnrollment({
         courseId: course.id,
-        enrollmentId: stableEnrollmentId,
+        enrollmentId: attempt.enrollmentId,
         participantId,
-        identity: { enrollmentId: stableEnrollmentId, idempotencyKey },
+        identity: attempt,
         guestDisplayName: guestName.trim(),
         guestDiscipline: resolvedGuestDiscipline,
         guestPhone: normalizedPhone,

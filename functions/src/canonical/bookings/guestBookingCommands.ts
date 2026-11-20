@@ -5,6 +5,7 @@ import {
   assertBookingPaymentIdentity,
   BookingSchema,
   GuestContactSchema,
+  GuestBookingActionCredentialSchema,
   canonicalScopeFields,
   LIVE_CANONICAL_EXECUTION_SCOPE,
   CanonicalCommandError,
@@ -123,6 +124,7 @@ import {
   assertGuestActorMatchesBooking,
   assertGuestBookingRequestContext,
   assertGuestParticipantForBooking,
+  assertGuestParticipantReuseProof,
   assertGuestBookingLinkProof,
   assertLinkGuestBookingAuthorization,
   requireGuestActor,
@@ -133,6 +135,7 @@ import {
   buildExpireGuestReservationAuditPlan,
   buildLinkGuestBookingAuditPlan,
 } from './guestBookingAudit';
+import { verifyGuestActionCredentialPartsAuthoritative } from './guestCredentialVerification';
 
 export interface GuestBookingCommandEnvironment extends CommandExecutionEnvironment {
   readonly guestActionTokenSecret?: string;
@@ -206,10 +209,50 @@ function createGuestBookingRequestHandler(
   const plannedParticipantRevision = AggregateRevisionSchema.parse(1);
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'create_guest_booking_request'> = {
+    authorizeReplay: async (session, result) => {
+      if (result.status !== 'success') return;
+      const parsedCredential = GuestBookingActionCredentialSchema.safeParse(
+        result.payload?.guestActionCredential
+      );
+      const secret = environment.guestActionTokenSecret;
+      if (parsedCredential.success && secret && isGuestBookingPrivateCreateKey(envelope.context.idempotencyKey)) {
+        const credential = parsedCredential.data;
+        const status = credential.statusCredential;
+        if (verifyGuestActionCredentialPartsAuthoritative({
+          secret,
+          ...(status ?? credential),
+          now: timestampFromDate(environment.clock.now()),
+          expectedBookingId: envelope.intent.bookingId,
+          expectedGuestSubjectId: guestActor.guestSubjectId,
+          expectedPurpose: status ? 'read_reservation_status' : 'cancel_pending_reservation',
+        }).valid &&
+          credential.bookingId === envelope.intent.bookingId &&
+          credential.guestSubjectId === guestActor.guestSubjectId
+        ) {
+          const read = await session.tx.get({ path: bookingDocumentPath });
+          session.plan.planRead({ path: bookingDocumentPath, category: 'authorization_check' });
+          const booking = parseBooking(read.exists ? read.data : undefined);
+          if (booking &&
+              booking.bookingId === envelope.intent.bookingId &&
+              booking.archival?.isDeleted !== true &&
+              booking.payerAccountId === undefined &&
+              booking.attribution.bookingOrigin === 'guest' &&
+              booking.attribution.bookedBy.kind === 'guest' &&
+              booking.attribution.bookedBy.guestSubjectId === guestActor.guestSubjectId &&
+              booking.party.participantIds.length === 1 &&
+              booking.party.participantIds[0] === participantId
+          ) return;
+        }
+      }
+      throw new CanonicalCommandError('unauthorized', {
+        correlationId: envelope.context.correlationId,
+      });
+    },
     read: async (session) => {
       await assertNewLessonBookingSettings(session, envelope);
       await assertActiveLessonLevel(session, envelope, envelope.intent.difficulty);
       admissionPlan = undefined;
+      shouldCreateGuestParticipant = false;
       if (!environment.guestActionTokenSecret) {
         throw new CanonicalCommandError('unavailable', {
           correlationId: envelope.context.correlationId,
@@ -256,7 +299,7 @@ function createGuestBookingRequestHandler(
       const existingParticipant = parseParticipant(
         participantRead.exists ? participantRead.data : undefined
       );
-      if (!existingParticipant) {
+      if (!participantRead.exists) {
         guestParticipantProfile = resolveGuestParticipantProfileForBooking(envelope);
         shouldCreateGuestParticipant = true;
         session.plan.planMutation({
@@ -266,7 +309,18 @@ function createGuestBookingRequestHandler(
           estimatedPayloadBytes: PARTICIPANT_ACCESS_PLANNING_ESTIMATES.participantBytes,
         });
       } else {
-        assertGuestParticipantForBooking(envelope, existingParticipant, participantId);
+        const participant = assertGuestParticipantForBooking(envelope, existingParticipant, participantId);
+        const proof = envelope.intent.guestParticipantProof;
+        let originalBooking: Booking | undefined;
+        if (proof) {
+          const path = bookingPath(proof.bookingId);
+          const read = await session.tx.get({ path });
+          session.plan.planRead({ path, category: 'authorization_check' });
+          originalBooking = parseBooking(read.exists ? read.data : undefined);
+        }
+        assertGuestParticipantReuseProof(
+          envelope, participant, originalBooking, environment.guestActionTokenSecret, now
+        );
       }
 
       const instructorBlockRead = await session.tx.get({ path: instructorBlockPath });

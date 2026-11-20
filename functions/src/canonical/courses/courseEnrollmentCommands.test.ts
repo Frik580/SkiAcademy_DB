@@ -435,7 +435,7 @@ describe('create_course_enrollments command', () => {
           enrollmentIds: [enrollmentId],
           ...(guestComment === undefined ? {} : { guestComment }),
         },
-        idempotencyKey: 'guest-comment',
+        idempotencyKey: 'create-guest-private:39ae19d3fda24338999ceeacfc4ebdf2',
         correlationId,
         guestParticipantDisplayName: 'Guest',
         guestParticipantDiscipline: 'ski',
@@ -470,6 +470,60 @@ describe('create_course_enrollments command', () => {
       expect(executor.snapshot()).toEqual(after);
     }
   );
+
+  it('preserves guest enrollment effects without returning credentials on a new attempt key', async () => {
+    const enrollmentId = CourseEnrollmentIdSchema.parse('enrollment_guest_recovery');
+    const guestParticipantId = ParticipantIdSchema.parse('participant_guest_recovery');
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+    const parsed = parseCallableGuestCommandTransport({
+      kind: 'create_course_enrollments',
+      intent: { courseId, participantIds: [guestParticipantId], enrollmentIds: [enrollmentId] },
+      idempotencyKey: 'create-guest-private:39ae19d3fda24338999ceeacfc4ebdf2',
+      correlationId,
+      guestParticipantDisplayName: 'Guest',
+      guestParticipantDiscipline: 'ski',
+      guestPhone: '+77001234567',
+    });
+    if (!parsed.success || parsed.data.kind !== 'create_course_enrollments')
+      throw new Error('Invalid fixture');
+    const envelope = buildGuestCommandEnvelopeFromCallable(
+      guestSubjectIdFromCourseEnrollmentId(enrollmentId),
+      parsed.data
+    );
+    const options = { guestActionTokenSecret: 'guest-replay-secret' };
+    const commands = createProductionCanonicalCommands(environment(), executor, options);
+    const created = await commands.execute(envelope);
+    expect(created).toMatchObject({ status: 'success', payload: { outcome: 'created' } });
+    const before = executor.snapshot();
+    expect(await commands.execute(envelope)).toEqual(created);
+    const guarded = await commands.execute({
+      ...envelope, context: { ...envelope.context, idempotencyKey: 'distinct-guest-attempt' },
+    });
+    expect(guarded).toMatchObject({ status: 'error', error: { code: 'unauthorized' } });
+    expect(executor.snapshot()).toEqual(before);
+    const rotated = createProductionCanonicalCommands(environment(), executor, {
+      guestActionTokenSecret: 'rotated-replay-secret',
+    });
+    expect(await rotated.execute(envelope)).toMatchObject({
+      status: 'error', error: { code: 'unauthorized' },
+    });
+    expect(executor.snapshot()).toEqual(before);
+    const enrollmentPath = `course_enrollments/${enrollmentId}`;
+    const linkedFixture = Object.fromEntries(
+      [...before.docs.entries()].map(([path, document]) => [
+        path,
+        path === enrollmentPath ? { ...document.data, payerAccountId: accountId } : document.data,
+      ])
+    );
+    const linkedExecutor = createInMemoryCanonicalTransactionExecutor(linkedFixture);
+    const linkedBefore = linkedExecutor.snapshot();
+    const afterLink = createProductionCanonicalCommands(environment(), linkedExecutor, options);
+    expect(await afterLink.execute(envelope)).toMatchObject({
+      status: 'error',
+      error: { code: 'unauthorized' },
+    });
+    expect(linkedExecutor.snapshot()).toEqual(linkedBefore);
+  });
 
   it.each(['', '   ', 'x'.repeat(501)])(
     'rejects invalid guest comments before canonical writes (%s)',
@@ -539,7 +593,7 @@ describe('create_course_enrollments command', () => {
           exercisedCapability: 'guest',
           source: 'guest_callable',
           correlationId,
-          idempotencyKey: 'guest-profile-plan',
+          idempotencyKey: 'create-guest-private:39ae19d3fda24338999ceeacfc4ebdf2',
           transportMetadata: {
             participant_display_name: 'Petr',
             participant_age_years: '20',

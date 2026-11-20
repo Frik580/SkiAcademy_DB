@@ -206,6 +206,7 @@
   "functions/src/canonical/testSessions/canonicalExecutionScopeResolver.test.ts": "functions-unit",
   "functions/src/canonical/testSessions/canonicalReadScopeResolver.test.ts": "functions-unit",
   "functions/src/canonical/testSessions/deleteTestSessionStorage.test.ts": "functions-unit",
+  "functions/src/canonical/testSessions/executeTestSessionLifecycleCallable.test.ts": "functions-unit",
   "functions/src/canonical/testSessions/persistentTestAccountAuthority.test.ts": "functions-unit",
   "functions/src/canonical/testSessions/testSessionDomainIsolation.emulator.test.ts": "canonical-backend",
   "functions/src/canonical/testSessions/testSessionDomainIsolation.test.ts": "functions-unit",

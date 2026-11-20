@@ -33,6 +33,7 @@ import {
   type CallableAccountProfile,
 } from './resolveCallableAccountContext';
 import { parseAccount } from '../participantAccess/participantAccessStore';
+import { logSecurityCommandEvent, securityDenialCode } from './securityCommandLogging';
 import {
   CanonicalExecutionScopeError,
   createFirestoreCanonicalExecutionScopeStore,
@@ -94,25 +95,24 @@ function mapExecutionScopeError(error: unknown): never {
   throw error;
 }
 
+type CanonicalCallableRequest = CallableRequest<
+  CallableCommandTransportInput<CommandKind> & {
+    readonly exercisedCapability?: unknown;
+    readonly administratorContext?: unknown;
+  }
+>;
+
 export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
   const runtime = createCanonicalCommandRuntime(firestore, {
     guestActionTokenSecret: readGuestActionTokenSecret(),
   });
   const executionScopeStore = createFirestoreCanonicalExecutionScopeStore(firestore);
 
-  return async (
-    request: CallableRequest<
-      CallableCommandTransportInput<CommandKind> & {
-        readonly exercisedCapability?: unknown;
-        readonly administratorContext?: unknown;
-      }
-    >
-  ): Promise<CommandResult<CommandKind>> => {
-    if (!request.auth?.uid) {
-      throw new HttpsError('unauthenticated', 'Authentication is required.');
-    }
-
-    const transportInput = parseAuthenticatedCallableCommandTransportInput(request);
+  async function execute(
+    authUid: string,
+    transportInput: ReturnType<typeof parseAuthenticatedCallableCommandTransportInput>,
+    audit: { scope: 'LIVE' | 'TEST' | 'unresolved' }
+  ): Promise<CommandResult<CommandKind>> {
     const progressContract = getCommandPolicy(transportInput.kind)?.participantProgressContract;
     // Old tabs silently submitted level assignments through progress updates.
     // Reject before any domain transaction; refreshing loads the canonical UX.
@@ -126,7 +126,7 @@ export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
         { code: 'unavailable', retryable: false, clientUpdateRequired: true }
       );
     }
-    const userSnap = await firestore.collection('users').doc(request.auth.uid).get();
+    const userSnap = await firestore.collection('users').doc(authUid).get();
     const userData = userSnap.data() as Record<string, unknown> | undefined;
     const profile = readCallableAccountProfile(userData);
     const account = parseAccount(userData);
@@ -136,7 +136,7 @@ export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
       accountContext = resolveCallableAccountContext(
         profile,
         {
-          authUid: request.auth.uid,
+          authUid,
           commandKind: transportInput.kind,
           exercisedCapability: transportInput.exercisedCapability,
           administratorContext: transportInput.administratorContext,
@@ -174,6 +174,7 @@ export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
     } catch (error) {
       mapExecutionScopeError(error);
     }
+    audit.scope = executionScope.dataScope === 'test' ? 'TEST' : 'LIVE';
 
     if (accountContext.instructorId) {
       const { accountId, instructorId } = accountContext;
@@ -190,7 +191,13 @@ export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
     }
 
     const envelope = buildCommandEnvelopeFromCallable(accountContext, transportInput);
-    const commands = runtime.createCommands(executionScope);
+    const requiresCurrentAdministrator =
+      accountContext.source === 'admin_callable' ||
+      transportInput.requestedTestSessionId !== undefined;
+    const commands = runtime.createCommands(
+      executionScope,
+      requiresCurrentAdministrator ? accountContext.accountId : undefined
+    );
 
     try {
       const result = await commands.execute(envelope, 'authenticated_callable');
@@ -230,6 +237,29 @@ export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
         });
       }
       rethrowCanonicalCommandErrorAsHttps(error, envelope.context.correlationId);
+    }
+  }
+
+  return async (request: CanonicalCallableRequest): Promise<CommandResult<CommandKind>> => {
+    const authUid = request.auth?.uid;
+    if (!authUid) throw new HttpsError('unauthenticated', 'Authentication is required.');
+
+    const transportInput = parseAuthenticatedCallableCommandTransportInput(request);
+    const audit: { scope: 'LIVE' | 'TEST' | 'unresolved' } = { scope: 'unresolved' };
+    try {
+      return await execute(authUid, transportInput, audit);
+    } catch (error) {
+      const resultCode = securityDenialCode(error);
+      if (resultCode) {
+        logSecurityCommandEvent({
+          actor: { kind: 'account', id: authUid },
+          commandKind: transportInput.kind,
+          resultCode,
+          scope: audit.scope,
+          correlationId: transportInput.correlationId,
+        });
+      }
+      throw error;
     }
   };
 }

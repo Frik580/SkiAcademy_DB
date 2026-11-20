@@ -53,6 +53,7 @@ const guestSubjectId = guestSubjectIdFromBookingId(bookingId);
 const adminAccountId = AccountIdSchema.parse('account_guest_admin_01');
 const linkAccountId = AccountIdSchema.parse('account_guest_link_01');
 const tokenSecret = 'guest-command-test-secret-01';
+const privateCreateKey = 'create-guest-private:39ae19d3fda24338999ceeacfc4ebdf2';
 const decidedAt = timestampFromDate(new Date('2026-01-01T10:00:00.000Z'));
 
 function environment(at = '2026-01-01T10:00:00.000Z') {
@@ -106,7 +107,6 @@ function seedAccount(accountId: string) {
 function baseFixture(extra: Record<string, unknown> = {}) {
   return {
     [`instructors/${instructorId}`]: seedInstructor(),
-    [`participants/${participantId}`]: seedGuestParticipant(),
     [`users/${adminAccountId}`]: seedAccount(adminAccountId),
     [`users/${linkAccountId}`]: seedAccount(linkAccountId),
     ...extra,
@@ -134,7 +134,7 @@ function guestCreateEnvelope(
     context: {
       actor: guestCommandActor(guestSubjectId),
       exercisedCapability: 'guest',
-      idempotencyKey: 'guest-create-01',
+      idempotencyKey: privateCreateKey,
       correlationId,
       source: 'guest_callable',
       calendarInput: {
@@ -156,9 +156,35 @@ function guestCreateEnvelope(
 }
 
 function fixtureWithoutParticipant(extra: Record<string, unknown> = {}) {
-  const base = baseFixture();
-  delete base[`participants/${participantId}`];
-  return { ...base, ...extra };
+  return baseFixture(extra);
+}
+
+async function authorizedReuseFixture() {
+  const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+  const commands = runCommands(executor);
+  const originalBookingId = BookingIdSchema.parse('booking_guest_origin_01');
+  const envelope = guestCreateEnvelope();
+  const result = await commands.execute({
+    ...envelope,
+    context: {
+      ...envelope.context,
+      actor: guestCommandActor(guestSubjectIdFromBookingId(originalBookingId)),
+      calendarInput: { ...envelope.context.calendarInput!, localTime: '11:00' },
+    },
+    intent: { ...envelope.intent, bookingId: originalBookingId },
+  });
+  const credential = result.status === 'success'
+    ? result.payload?.guestActionCredential.linkCredential
+    : undefined;
+  if (!credential) throw new Error('Originating lesson fixture did not return a link credential.');
+  return {
+    executor,
+    commands,
+    request: {
+      ...envelope,
+      intent: { ...envelope.intent, guestParticipantProof: { bookingId: originalBookingId, credential } },
+    },
+  };
 }
 
 function runCommands(
@@ -251,13 +277,14 @@ describe('guest lesson profile completion canonical security', () => {
     expect((await runCommands(executor).execute(guestCreateEnvelope())).status).toBe('success');
   });
 
-  it('does not grant profile authority or disclose profile data when creation reuses a foreign unmanaged guest', async () => {
-    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
-    const created = await runCommands(executor).execute(guestCreateEnvelope());
+  it('does not grant profile or link authority when an existing guest is reused with proof', async () => {
+    const { executor, commands, request } = await authorizedReuseFixture();
+    const created = await commands.execute(request);
     expect(created.status).toBe('success');
     if (created.status !== 'success') throw new Error('Creation failed');
     const credential = created.payload!.guestActionCredential;
     expect(credential.profileCompletionCredential).toBeUndefined();
+    expect(credential.linkCredential).toBeUndefined();
     const read = await queryLessonBookingReadModels(
       fixtureFirestore(executor),
       {
@@ -270,7 +297,7 @@ describe('guest lesson profile completion canonical security', () => {
       { guestActionSecret: tokenSecret, now: new Date('2026-01-01T10:30:00.000Z') }
     );
     expect(read.items[0]).not.toHaveProperty('guestParticipantProfile');
-    // Even a correctly signed booking credential cannot authorize a foreign Participant.
+    // Profile completion remains bound to the Booking that created the Participant.
     const nonce = 'guest_profile_attack_nonce';
     const forged = {
       ...credential,
@@ -686,22 +713,40 @@ describe('create_guest_booking_request command', () => {
   });
 
   it('does not overwrite an existing guest Participant.skillLevel from booking difficulty', async () => {
-    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
-    const commands = runCommands(executor);
-    const result = await commands.execute(
-      guestCreateEnvelope({
-        intent: {
-          bookingId,
-          instructorId,
-          participantIds: [participantId],
-          difficulty: 'advanced',
-        },
-      })
-    );
+    const { executor, commands, request } = await authorizedReuseFixture();
+    const result = await commands.execute({
+      ...request,
+      intent: { ...request.intent, difficulty: 'advanced' },
+    });
     expect(result.status).toBe('success');
     const snapshot = executor.snapshot();
     expect(snapshot.docs.get(`bookings/${bookingId}`)?.data?.difficulty).toBe('advanced');
     expect(snapshot.docs.get(`participants/${participantId}`)?.data?.skillLevel).toBe('beginner');
+  });
+
+  it('rejects guest Participant reuse without authoritative proof before any write', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture({
+      [`participants/${participantId}`]: seedGuestParticipant(),
+    }));
+    const before = executor.snapshot();
+    expect(await runCommands(executor).execute(guestCreateEnvelope())).toMatchObject({
+      status: 'error',
+      error: { code: 'unauthorized' },
+    });
+    expect(executor.snapshot()).toEqual(before);
+  });
+
+  it('rejects a Participant proof that belongs to a different Booking before any write', async () => {
+    const { executor, commands, request } = await authorizedReuseFixture();
+    const before = executor.snapshot();
+    expect(await commands.execute({
+      ...request,
+      intent: {
+        ...request.intent,
+        guestParticipantProof: { ...request.intent.guestParticipantProof, bookingId },
+      },
+    })).toMatchObject({ status: 'error', error: { code: 'unauthorized' } });
+    expect(executor.snapshot()).toEqual(before);
   });
 
   it('replays without duplicates and returns the stored credential', async () => {
@@ -724,6 +769,47 @@ describe('create_guest_booking_request command', () => {
       [...snapshot.docs.keys()].filter((path) => path.startsWith('activity_logs/')).length
     ).toBe(1);
   });
+
+  it('withholds saved credentials if the Booking no longer exists', async () => {
+    const executor = createInMemoryCanonicalTransactionExecutor(fixtureWithoutParticipant());
+    const envelope = guestCreateEnvelope();
+    expect(await runCommands(executor).execute(envelope)).toMatchObject({ status: 'success' });
+    const fixture = Object.fromEntries(
+      [...executor.snapshot().docs.entries()]
+        .filter(([path]) => path !== `bookings/${bookingId}`)
+        .map(([path, document]) => [path, document.data])
+    );
+    const replayExecutor = createInMemoryCanonicalTransactionExecutor(fixture);
+    const before = replayExecutor.snapshot();
+    expect(await runCommands(replayExecutor).execute(envelope)).toMatchObject({
+      status: 'error',
+      error: { code: 'unauthorized' },
+    });
+    expect(replayExecutor.snapshot()).toEqual(before);
+  });
+
+  it.each(['legacy key', 'expired credential', 'rotated signing key'] as const)(
+    'withholds the saved guest credential on replay with a %s without a duplicate booking',
+    async (caseName) => {
+      const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
+      const envelope = guestCreateEnvelope();
+      const request = caseName === 'legacy key' ? {
+        ...envelope,
+        context: { ...envelope.context, idempotencyKey: 'legacy-guest-create-key' },
+      } : envelope;
+      expect(await runCommands(executor).execute(request)).toMatchObject({ status: 'success' });
+      const before = executor.snapshot();
+      const replayClock = caseName === 'expired credential' ? '2026-01-16T10:00:00.000Z' : undefined;
+      const commands = createProductionCanonicalCommands(environment(replayClock), executor, {
+        guestActionTokenSecret: caseName === 'rotated signing key' ? 'rotated-guest-secret' : tokenSecret,
+      });
+      expect(await commands.execute(request)).toMatchObject({
+        status: 'error',
+        error: { code: 'unauthorized' },
+      });
+      expect(executor.snapshot()).toEqual(before);
+    }
+  );
 
   it('rejects provisioning without guest participant transport metadata', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(fixtureWithoutParticipant());
@@ -1808,7 +1894,11 @@ describe('link_guest_booking_to_account command', () => {
   it('requires proof and rejects a reservation-status credential for an older Booking', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(fixtureWithoutParticipant());
     const commands = runCommands(executor);
-    const created = await commands.execute(guestCreateEnvelope());
+    const envelope = guestCreateEnvelope();
+    const created = await commands.execute({
+      ...envelope,
+      context: { ...envelope.context, idempotencyKey: 'legacy-guest-booking-link' },
+    });
     if (created.status !== 'success') throw new Error('Guest booking fixture failed');
     expect(created.payload?.guestActionCredential?.linkCredential).toBeUndefined();
     const statusProof = created.payload?.guestActionCredential?.statusCredential;
@@ -1881,6 +1971,10 @@ describe('link_guest_booking_to_account command', () => {
     expect(booking?.payerAccountId).toBe(linkAccountId);
     expect(payment?.payerAccountId).toBe(linkAccountId);
     expect(booking?.payerAccountId).toBe(payment?.payerAccountId);
+    expect(await commands.execute(create)).toMatchObject({
+      status: 'error',
+      error: { code: 'unauthorized' },
+    });
     expect(payment?.paidAmount).toBe(paymentBefore?.paidAmount);
     expect(payment?.outstandingAmount).toBe(paymentBefore?.outstandingAmount);
     expect(payment?.paymentStatus).toBe(paymentBefore?.paymentStatus);
@@ -2268,7 +2362,7 @@ describe('guest booking schedule occupancy guards', () => {
 
   it('replays the same guest create command without duplicate writes', async () => {
     const executor = createInMemoryCanonicalTransactionExecutor(scheduleFixture());
-    const envelope = guestEnvelopeForAttempt(guestBookingId, '11:00', instructorId, 'guest-idem');
+    const envelope = guestEnvelopeForAttempt(guestBookingId, '11:00', instructorId, privateCreateKey);
     const first = await runCommands(executor).execute(envelope);
     const second = await runCommands(executor).execute(envelope);
     expect(first.status).toBe('success');

@@ -317,6 +317,13 @@ export const CommandIntentSchemaByKind = {
       bookingId: BookingIdSchema,
       instructorId: InstructorIdSchema,
       participantIds: z.array(ParticipantIdSchema).length(1),
+      guestParticipantProof: z
+        .object({
+          bookingId: BookingIdSchema,
+          credential: GuestBookingCredentialPartsSchema,
+        })
+        .strict()
+        .optional(),
       discipline: z.enum(['ski', 'snowboard']).optional(),
       difficulty: LessonDifficultySchema.optional(),
       notes: BookingLessonNotesSchema,

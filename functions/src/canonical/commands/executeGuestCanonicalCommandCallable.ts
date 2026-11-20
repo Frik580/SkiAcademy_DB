@@ -25,6 +25,11 @@ import {
   mapCommandErrorTransportToHttpsError,
   rethrowCanonicalCommandErrorAsHttps,
 } from './mapCommandError';
+import {
+  logSecurityCommandEvent,
+  securityDenialCode,
+  takeSecurityLogSlot,
+} from './securityCommandLogging';
 
 const MALFORMED_CORRELATION_ID = CorrelationIdSchema.parse('correlation_malformed_guest_callable');
 
@@ -56,19 +61,20 @@ export function createExecuteGuestCanonicalCommandHandler(
           : Array.isArray(forwardedFor)
             ? forwardedFor.reduce((count, entry) => count + entry.split(',').length, 0)
             : forwardedFor.split(',').length;
-        console.warn(
-          JSON.stringify({
-            event: 'guest_reservation_network_source_unavailable',
-            failureReason: !guestActionTokenSecret
-              ? 'key_unavailable'
-              : typeof forwardedFor === 'undefined' || forwardedFor === ''
-                ? 'missing_source'
-                : xffEntryCount !== 1
-                  ? 'unsupported_chain'
-                  : 'malformed_source',
-            xffEntryCount,
-          })
-        );
+        if (takeSecurityLogSlot())
+          console.warn(
+            JSON.stringify({
+              event: 'guest_reservation_network_source_unavailable',
+              failureReason: !guestActionTokenSecret
+                ? 'key_unavailable'
+                : typeof forwardedFor === 'undefined' || forwardedFor === ''
+                  ? 'missing_source'
+                  : xffEntryCount !== 1
+                    ? 'unsupported_chain'
+                    : 'malformed_source',
+              xffEntryCount,
+            })
+          );
         throw new HttpsError('failed-precondition', 'Guest reservation admission is unavailable.');
       }
       guestReservationAdmission = { actorKey, ...limits };
@@ -82,21 +88,37 @@ export function createExecuteGuestCanonicalCommandHandler(
     try {
       const result = await commands.execute(envelope, 'guest_callable');
       if (result.status === 'error') {
-        if (result.error.code === 'guest_reservation_limit') {
-          console.warn(JSON.stringify({
-            event: 'guest_active_reservation_limit_exceeded',
-            reservationType:
-              transportInput.kind === 'create_guest_booking_request' ? 'lesson' : 'course',
-          }));
+        if (result.error.code === 'guest_reservation_limit' && takeSecurityLogSlot()) {
+          console.warn(
+            JSON.stringify({
+              event: 'guest_active_reservation_limit_exceeded',
+              reservationType:
+                transportInput.kind === 'create_guest_booking_request' ? 'lesson' : 'course',
+            })
+          );
         }
         throw mapCommandErrorTransportToHttpsError(result.error);
       }
       return result;
     } catch (error) {
-      rethrowCanonicalCommandErrorAsHttps(
-        error,
-        envelope.context.correlationId ?? MALFORMED_CORRELATION_ID
-      );
+      try {
+        rethrowCanonicalCommandErrorAsHttps(
+          error,
+          envelope.context.correlationId ?? MALFORMED_CORRELATION_ID
+        );
+      } catch (transportError) {
+        const resultCode = securityDenialCode(transportError);
+        if (resultCode) {
+          logSecurityCommandEvent({
+            actor: { kind: 'guest', id: guestSubjectId },
+            commandKind: envelope.kind,
+            resultCode,
+            scope: 'LIVE',
+            correlationId: envelope.context.correlationId,
+          });
+        }
+        throw transportError;
+      }
     }
   };
 }

@@ -27,7 +27,7 @@ import type {
   GuestCourseEnrollmentInput,
 } from './courseEnrollmentContracts';
 import {
-  deriveGuestCreateEnrollmentIdempotencyKey,
+  createGuestEnrollmentAttempt,
   deriveRequestCancellationIdempotencyKey,
   deriveWithdrawEnrollmentIdempotencyKey,
   resolveEnrollmentIdsForAuthenticatedCommand,
@@ -369,7 +369,7 @@ export function useCourseEnrollmentCommands(accountId: string | undefined) {
 }
 
 export {
-  deriveGuestCreateEnrollmentIdempotencyKey,
+  createGuestEnrollmentAttempt,
   deriveRequestCancellationIdempotencyKey,
   deriveWithdrawEnrollmentIdempotencyKey,
 };

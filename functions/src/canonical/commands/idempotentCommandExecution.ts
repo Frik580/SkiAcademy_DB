@@ -80,6 +80,10 @@ export interface IdempotentCommandWriteContext {
 }
 
 export interface IdempotentCanonicalCommandHandler<Kind extends CommandKind> {
+  readonly authorizeReplay?: (
+    session: CanonicalAtomicTransactionSession,
+    result: CommandResult<Kind>
+  ) => Promise<void>;
   readonly read?: (session: CanonicalAtomicTransactionSession) => Promise<void>;
   readonly planAuditOutbox?: (
     session: CanonicalAtomicTransactionSession
@@ -91,6 +95,7 @@ export interface IdempotentCanonicalCommandHandler<Kind extends CommandKind> {
 }
 
 export interface AuthoritativeIdempotentCanonicalCommandHandler<Kind extends CommandKind> {
+  readonly authorizeReplay?: IdempotentCanonicalCommandHandler<Kind>['authorizeReplay'];
   readonly read?: (session: CanonicalAtomicTransactionSession) => Promise<void>;
   readonly planAuditOutbox: (
     session: CanonicalAtomicTransactionSession
@@ -218,10 +223,9 @@ export async function executeIdempotentCanonicalCommand<Kind extends CommandKind
             throw idempotencyConflictError(envelope);
           }
 
-          return {
-            result: fromStoredCommandResult(record.result, envelope.kind),
-            replayed: true,
-          };
+          const result = fromStoredCommandResult(record.result, envelope.kind);
+          if (handler.authorizeReplay) await handler.authorizeReplay(session, result);
+          return { result, replayed: true };
         }
 
         if (revisionTarget !== undefined) {

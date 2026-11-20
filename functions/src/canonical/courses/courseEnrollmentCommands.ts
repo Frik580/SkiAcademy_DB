@@ -24,6 +24,7 @@ import {
   GUEST_ACTION_TOKEN_VERSION,
   guestActorRef,
   guestSubjectIdFromCourseEnrollmentId,
+  isGuestReservationPrivateCreateKey,
   signGuestCourseEnrollmentActionCredential,
   type GuestCourseEnrollmentLinkCredential,
   isCourseEnrollmentAllowedBeforeStart,
@@ -33,6 +34,7 @@ import {
   nextAggregateRevision,
   paymentEffectFromProjectionChange,
   paymentIdFromCourseEnrollmentId,
+  parseCommandResultPayload,
   resolveCommandIdempotencyIdentity,
   resolveCreateCourseEnrollmentIds,
   resolveGuestCourseReservationExpiresAt,
@@ -133,6 +135,7 @@ import {
   resolveGuestParticipantProfileForCourseEnrollment,
 } from './guestCourseEnrollmentAuthorization';
 import { buildCreateCourseEnrollmentsAuditPlan } from './courseEnrollmentAudit';
+import { verifyGuestCourseEnrollmentActionCredentialPartsAuthoritative } from '../bookings/guestCredentialVerification';
 import type { GuestCourseEnrollmentCommandEnvironment } from './guestCourseEnrollmentLifecycle';
 import {
   COURSE_ENROLLMENT_PLANNING_ESTIMATES,
@@ -156,7 +159,6 @@ interface PlannedParticipantEnrollment {
   readonly seatClaimPlan?: ResourceClaimOperationPlan;
   readonly dayClaimPlans: readonly ResourceClaimOperationPlan[];
   readonly alreadyApplied: boolean;
-  readonly existingReservationExpiresAt?: CanonicalTimestamp;
   readonly shouldCreateGuestParticipant?: boolean;
   readonly guestParticipantProfile?: import('@ski-academy/shared-domain').GuestCourseParticipantProfileFromTransport;
   readonly guestParticipantToUpdate?: import('@ski-academy/shared-domain').Participant;
@@ -238,15 +240,6 @@ function assertEquivalentExistingCourseEnrollment(input: {
       correlationId: input.envelope.context.correlationId,
       details: { field: 'enrollmentIds', reason: 'conflict' },
     });
-  }
-  if (input.mode === 'guest') {
-    if (input.enrollment.lifecycle.status !== 'pending') {
-      throw new CanonicalCommandError('validation', {
-        correlationId: input.envelope.context.correlationId,
-        details: { field: 'enrollmentIds', reason: 'conflict' },
-      });
-    }
-    return;
   }
   if (input.enrollment.lifecycle.status !== 'confirmed') {
     throw new CanonicalCommandError('validation', {
@@ -445,8 +438,52 @@ async function createCourseEnrollmentsHandler(
   const guestLinkCredentials: GuestCourseEnrollmentLinkCredential[] = [];
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'create_course_enrollments'> = {
+    authorizeReplay: async (session, result) => {
+      if (mode !== 'guest' || result.status !== 'success') return;
+      const payload = parseCommandResultPayload(envelope.kind, result.payload);
+      const credentials = payload.success ? payload.data.guestLinkCredentials ?? [] : undefined;
+      const secret = environment.guestActionTokenSecret;
+      const enrollmentId = enrollmentIds[0]!;
+      const guestSubjectId = guestSubjectIdFromCourseEnrollmentId(enrollmentId);
+      const now = timestampFromDate(environment.clock.now());
+      if (
+        secret &&
+        isGuestReservationPrivateCreateKey(envelope.context.idempotencyKey) &&
+        credentials?.length === 1 && credentials.every((credential) =>
+          credential.enrollmentId === enrollmentId &&
+          credential.guestSubjectId === guestSubjectId &&
+          verifyGuestCourseEnrollmentActionCredentialPartsAuthoritative({
+            secret,
+            ...credential,
+            now,
+            expectedEnrollmentId: enrollmentId,
+            expectedGuestSubjectId: guestSubjectId,
+            expectedPurpose: 'link_guest_course_enrollment',
+          }).valid
+        )
+      ) {
+        const path = courseEnrollmentPath(enrollmentId);
+        const read = await session.tx.get({ path });
+        session.plan.planRead({ path, category: 'authorization_check' });
+        const enrollment = parseCourseEnrollment(read.exists ? read.data : undefined);
+        if (enrollment &&
+            enrollment.enrollmentId === enrollmentId &&
+            enrollment.courseId === envelope.intent.courseId &&
+            enrollment.participantId === envelope.intent.participantIds[0] &&
+            enrollment.payerAccountId === undefined &&
+            enrollment.guestAccountLink === undefined &&
+            enrollment.attribution.bookingOrigin === 'guest' &&
+            enrollment.attribution.bookedBy.kind === 'guest' &&
+            enrollment.attribution.bookedBy.guestSubjectId === guestSubjectId
+        ) return;
+      }
+      throw new CanonicalCommandError('unauthorized', {
+        correlationId: envelope.context.correlationId,
+      });
+    },
     read: async (session) => {
       admissionPlan = undefined;
+      guestLinkCredentials.length = 0;
       const authorizationAccountReadCache = new Map<
         string,
         { readonly exists: boolean; readonly data?: Record<string, unknown> }
@@ -627,6 +664,11 @@ async function createCourseEnrollmentsHandler(
               details: { field: 'enrollmentIds', reason: 'conflict' },
             });
           }
+          if (mode === 'guest') {
+            throw new CanonicalCommandError('unauthorized', {
+              correlationId: envelope.context.correlationId,
+            });
+          }
           assertEquivalentExistingCourseEnrollment({
             envelope,
             enrollment: existingEnrollment,
@@ -666,9 +708,6 @@ async function createCourseEnrollmentsHandler(
             },
             dayClaimPlans: [],
             alreadyApplied: true,
-            ...(existingEnrollment.lifecycle.status === 'pending'
-              ? { existingReservationExpiresAt: existingEnrollment.lifecycle.reservationExpiresAt }
-              : {}),
           });
           continue;
         }
@@ -1127,25 +1166,7 @@ async function createCourseEnrollmentsHandler(
         };
 
         for (const planned of plannedEnrollments) {
-          if (planned.alreadyApplied) {
-            if (mode === 'guest') {
-              const secret = environment.guestActionTokenSecret;
-              if (!secret) {
-                throw new CanonicalCommandError('unavailable', {
-                  correlationId: envelope.context.correlationId,
-                });
-              }
-              guestLinkCredentials.push(
-                guestCourseCredential({
-                  enrollmentId: planned.enrollmentId,
-                  secret,
-                  linkExpiresAt: courseRecord.scheduleProjection.finalCourseDayEndsAt,
-                  cancellationExpiresAt: planned.existingReservationExpiresAt,
-                })
-              );
-            }
-            continue;
-          }
+          if (planned.alreadyApplied) continue;
 
           if (planned.shouldCreateGuestParticipant && planned.guestParticipantProfile) {
             const guestParticipant = {

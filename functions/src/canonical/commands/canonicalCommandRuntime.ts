@@ -4,8 +4,11 @@ import { createProductionCanonicalCommands, type CanonicalCommands } from './can
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 import type { CanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 import type { GuestReservationAdmissionPolicy } from './guestReservationAdmission';
+import { accountPath, parseAccount } from '../participantAccess/participantAccessStore';
+import { isAdministratorProfile } from './resolveCallableAccountContext';
 import {
   withCanonicalExecutionScope,
+  type AccountId,
   type CanonicalExecutionScope,
 } from '@ski-academy/shared-domain';
 
@@ -16,7 +19,7 @@ export interface CanonicalCommandRuntimeOptions {
 
 export interface CanonicalCommandRuntime {
   readonly executor: CanonicalTransactionExecutor;
-  createCommands(scope: CanonicalExecutionScope): CanonicalCommands;
+  createCommands(scope: CanonicalExecutionScope, administratorId?: AccountId): CanonicalCommands;
 }
 
 export function createCanonicalCommandRuntime(
@@ -26,10 +29,23 @@ export function createCanonicalCommandRuntime(
   const executor = createFirestoreCanonicalTransactionExecutor(firestore);
   return {
     executor,
-    createCommands(scope: CanonicalExecutionScope) {
+    createCommands(scope: CanonicalExecutionScope, administratorId?: AccountId) {
+      const commandExecutor = administratorId
+        ? createFirestoreCanonicalTransactionExecutor(firestore, {
+            path: accountPath(administratorId),
+            allows(data) {
+              const account = parseAccount(data);
+              return (
+                isAdministratorProfile(data) &&
+                account?.accountId === administratorId &&
+                account.lifecycle.status === 'active'
+              );
+            },
+          })
+        : executor;
       return createProductionCanonicalCommands(
         withCanonicalExecutionScope({ clock: createAuthoritativeCommandClock(new Date()) }, scope),
-        executor,
+        commandExecutor,
         {
           guestActionTokenSecret: options.guestActionTokenSecret,
           guestReservationAdmission: options.guestReservationAdmission,

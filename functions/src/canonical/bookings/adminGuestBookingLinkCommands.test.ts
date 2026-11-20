@@ -75,26 +75,6 @@ function seedAccount(accountId: typeof adminAccountId) {
   });
 }
 
-function seedGuestParticipant() {
-  return {
-    participantId: guestParticipantId,
-    displayName: 'Guest Link Source',
-    age: { kind: 'age_years', years: 25 },
-    skillLevel: 'beginner',
-    discipline: 'ski',
-    management: { kind: 'unmanaged_guest' },
-    lifecycle: { status: 'active' },
-    revision: 1,
-    createdAt: decidedAt,
-    updatedAt: decidedAt,
-    audit: {
-      createdByCommandId: 'command_seed_participant',
-      lastChangedByCommandId: 'command_seed_participant',
-      correlationId,
-    },
-  };
-}
-
 function seedManagedParticipant(
   participantId: typeof managedParticipantId,
   managementParticipantId: typeof managementId,
@@ -151,7 +131,6 @@ function baseFixture(extra: Record<string, unknown> = {}) {
       pricePerHourKZT: 12_000,
       isAvailable: true,
     },
-    [`participants/${guestParticipantId}`]: seedGuestParticipant(),
     [`participants/${managedParticipantId}`]: self.participant,
     [`participants/${dependentParticipantId}`]: dependent.participant,
     [`participant_management/${managementId}`]: self.management,

@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import type { DocumentSnapshot, Firestore } from 'firebase-admin/firestore';
+import type { DocumentReference, DocumentSnapshot, Firestore, Transaction } from 'firebase-admin/firestore';
 import {
   AccountIdSchema,
   AggregateRevisionSchema,
@@ -62,6 +62,8 @@ export interface TestSessionLifecyclePorts {
   readonly now: () => Date;
   readonly storage: TestSessionStorageObjectStore;
   readonly executor: CanonicalTransactionExecutor;
+  /** Recheck the caller at the first transaction that admits a lifecycle operation. */
+  readonly authorizeAdmission?: (transaction: Transaction) => Promise<void>;
   /** Test-only poisoned inventory. Production callables leave this unset. */
   readonly extraCandidates?: (
     testSessionId: string,
@@ -70,6 +72,10 @@ export interface TestSessionLifecyclePorts {
 }
 
 type CreateInput = Extract<ExecuteTestSessionLifecycleInput, { command: 'create_test_session' }>;
+interface ProvisioningRetryAdmission {
+  readonly authorize: NonNullable<TestSessionLifecyclePorts['authorizeAdmission']>;
+  committed(): void;
+}
 
 function opaque(prefix: string): string {
   return CanonicalOpaqueIdSchema.parse(`${prefix}${randomBytes(16).toString('hex')}`);
@@ -126,11 +132,13 @@ async function readSession(firestore: Firestore, testSessionId: string): Promise
 async function persistSession(
   ports: TestSessionLifecyclePorts,
   session: TestSession,
-  slot: TestSessionStatus | 'release' | 'keep'
+  slot: TestSessionStatus | 'release' | 'keep',
+  authorizeAdmission?: TestSessionLifecyclePorts['authorizeAdmission']
 ): Promise<void> {
   const ref = ports.firestore.doc(`test_sessions/${session.testSessionId}`);
   const slotRef = ports.firestore.doc(ACTIVE_SLOT_PATH);
   await ports.firestore.runTransaction(async (transaction) => {
+    await authorizeAdmission?.(transaction);
     const currentSlot = slot === 'keep' ? undefined : await transaction.get(slotRef);
     transaction.set(ref, asData(session));
     if (!currentSlot) return;
@@ -282,11 +290,16 @@ async function writeMembershipAndAssignment(
   });
 }
 
-async function clearAssignments(ports: TestSessionLifecyclePorts, session: TestSession): Promise<void> {
+async function clearAssignments(
+  ports: TestSessionLifecyclePorts,
+  session: TestSession,
+  authorizeAdmission?: TestSessionLifecyclePorts['authorizeAdmission']
+): Promise<void> {
   const accountIds = membershipAccountIds(session);
   if (accountIds.length === 0) return;
   const now = timestampFromDate(ports.now());
   await ports.firestore.runTransaction(async (transaction) => {
+    await authorizeAdmission?.(transaction);
     const refs = accountIds.map((accountId) => ports.firestore.doc(`test_actor_assignments/${accountId}`));
     const snaps: DocumentSnapshot[] = [];
     for (const ref of refs) snaps.push(await transaction.get(ref));
@@ -417,6 +430,7 @@ async function reserveCreate(
   let existingId: string | undefined;
   try {
     existingId = await ports.firestore.runTransaction(async (transaction) => {
+      await ports.authorizeAdmission?.(transaction);
       const idem = await transaction.get(idemRef);
       if (idem.exists) return String(idem.get('testSessionId'));
       const slot = await transaction.get(slotRef);
@@ -447,7 +461,8 @@ async function reserveCreate(
 
 async function bindPersistentIdentities(
   ports: TestSessionLifecyclePorts,
-  session: TestSession
+  session: TestSession,
+  admission?: ProvisioningRetryAdmission
 ): Promise<void> {
   const provisioning = session.provisioning;
   if (!provisioning) throw new TestSessionMaintenanceError('TEST_INSTRUCTOR_INVALID');
@@ -476,18 +491,37 @@ async function bindPersistentIdentities(
       writes.push({ path: `users/${accountId}/wallet/state`, data: { delete: true } });
     }
   }
-  const batch = ports.firestore.batch();
-  for (const write of writes) {
-    if (write.data.delete === true) batch.delete(ports.firestore.doc(write.path));
-    else batch.set(ports.firestore.doc(write.path), write.data);
+  function stageWrites(writer: {
+    delete(ref: DocumentReference): void;
+    set(ref: DocumentReference, data: Record<string, unknown>): void;
+  }) {
+    for (const write of writes) {
+      const ref = ports.firestore.doc(write.path);
+      if (write.data.delete === true) writer.delete(ref);
+      else writer.set(ref, write.data);
+    }
   }
+  if (admission) {
+    await ports.firestore.runTransaction(async (transaction) => {
+      await admission.authorize(transaction);
+      stageWrites(transaction);
+    });
+    admission.committed();
+    return;
+  }
+  const batch = ports.firestore.batch();
+  stageWrites(batch);
   await batch.commit();
 }
 
-async function provisionFixtures(ports: TestSessionLifecyclePorts, session: TestSession): Promise<TestSession> {
+async function provisionFixtures(
+  ports: TestSessionLifecyclePorts,
+  session: TestSession,
+  admission?: ProvisioningRetryAdmission
+): Promise<TestSession> {
   const provisioning = session.provisioning;
   if (!provisioning?.testInstructorId) throw new TestSessionMaintenanceError('TEST_INSTRUCTOR_INVALID');
-  await bindPersistentIdentities(ports, session);
+  await bindPersistentIdentities(ports, session, admission);
   await writeMembershipAndAssignment(ports, session, membershipAccountIds(session));
   const clonedCourseIds = [];
   for (const sourceCourseId of provisioning.sourceCourseIds) {
@@ -623,7 +657,8 @@ async function finishActive(ports: TestSessionLifecyclePorts, session: TestSessi
 async function resumeProvisioning(
   ports: TestSessionLifecyclePorts,
   session: TestSession,
-  resumed: boolean
+  resumed: boolean,
+  admission?: ProvisioningRetryAdmission
 ): Promise<TestSessionLifecycleResult> {
   if (session.status === 'active') {
     return TestSessionLifecycleResultSchema.parse({
@@ -637,12 +672,17 @@ async function resumeProvisioning(
   if (current.status === 'failed') {
     assertTestSessionStatusTransition('failed', 'provisioning');
     current = advance(current, { status: 'provisioning' }, ports.now(), false);
-    await persistSession(ports, current, 'provisioning');
+    await persistSession(ports, current, 'provisioning', admission?.authorize);
+    admission?.committed();
   }
   if (current.status !== 'provisioning') {
     throw new TestSessionMaintenanceError('TEST_SESSION_TRANSITION_FORBIDDEN');
   }
-  const provisioned = await provisionFixtures(ports, current);
+  const provisioned = await provisionFixtures(
+    ports,
+    current,
+    session.status === 'failed' ? undefined : admission
+  );
   const verifier = await verifySessionFixtures(ports, provisioned, false);
   if (!verifier.ok) throw new TestSessionMaintenanceError('TEST_MAINTENANCE_FAILED');
   const active = await finishActive(ports, provisioned);
@@ -712,11 +752,15 @@ async function writeManifest(
     preserve: [...(operation === 'reset' ? TEST_SESSION_RESET_PRESERVE : TEST_SESSION_DELETE_PRESERVE)],
     warnings: [] as string[],
   };
-  await ports.firestore.doc(`test_sessions/${session.testSessionId}/maintenance_manifests/${manifestId}`).set({
-    ...manifest,
-    operation,
-    fingerprint,
-    testSessionId: session.testSessionId,
+  const manifestRef = ports.firestore.doc(`test_sessions/${session.testSessionId}/maintenance_manifests/${manifestId}`);
+  await ports.firestore.runTransaction(async (transaction) => {
+    await ports.authorizeAdmission?.(transaction);
+    transaction.set(manifestRef, {
+      ...manifest,
+      operation,
+      fingerprint,
+      testSessionId: session.testSessionId,
+    });
   });
   return manifest;
 }
@@ -747,6 +791,7 @@ async function claimMaintenance(
   const ref = ports.firestore.doc(`test_sessions/${session.testSessionId}`);
   const slotRef = ports.firestore.doc(ACTIVE_SLOT_PATH);
   return ports.firestore.runTransaction(async (transaction) => {
+    await ports.authorizeAdmission?.(transaction);
     const snap = await transaction.get(ref);
     const current = parseTestSession(snap.data() as Record<string, unknown> | undefined);
     if (!current || current.testSessionId !== session.testSessionId) {
@@ -1053,9 +1098,10 @@ export async function executeTestSessionLifecycle(
       });
     }
     assertTestSessionStatusTransition(session.status, 'closed');
-    await clearAssignments(ports, session);
+    const hasAssignments = membershipAccountIds(session).length > 0;
+    await clearAssignments(ports, session, ports.authorizeAdmission);
     const closed = advance(session, { status: 'closed', maintenance: undefined }, ports.now(), true);
-    await persistSession(ports, closed, 'release');
+    await persistSession(ports, closed, 'release', hasAssignments ? undefined : ports.authorizeAdmission);
     return TestSessionLifecycleResultSchema.parse({
       command: 'close_test_session',
       outcome: 'closed',
@@ -1106,7 +1152,16 @@ export async function executeTestSessionLifecycle(
     );
   }
   if (session.status === 'provisioning' || session.maintenance?.operationKind === 'provision') {
-    return resumeProvisioning(ports, session, true).catch(async (error) => {
+    const authorize = ports.authorizeAdmission;
+    let admitted = !authorize;
+    const admission: ProvisioningRetryAdmission | undefined = authorize && {
+      authorize,
+      committed: () => {
+        admitted = true;
+      },
+    };
+    return resumeProvisioning(ports, session, true, admission).catch(async (error) => {
+      if (!admitted) throw error;
       const latest = (await readSession(ports.firestore, session.testSessionId)) ?? session;
       if (latest.status === 'provisioning') await markFailed(ports, latest, 'provision', errorCode(error));
       throw error;

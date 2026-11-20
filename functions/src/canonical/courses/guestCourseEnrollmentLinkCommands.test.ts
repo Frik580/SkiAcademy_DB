@@ -259,7 +259,7 @@ describe('guest course enrollment participant profile creation', () => {
     const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
     const before = executor.snapshot().docs.get(`participants/${guestParticipantId}`)?.data;
     const commands = runCommands(executor);
-    const envelope = guestCreateEnvelope('guest-same-profile-replay');
+    const envelope = guestCreateEnvelope('create-guest-private:99407ab756c241b080789d41069cdf07');
     const created = await commands.execute(envelope);
     expect(created.status, JSON.stringify(created)).toBe('success');
     expect(created.payload).not.toHaveProperty('adminPeopleRevision');

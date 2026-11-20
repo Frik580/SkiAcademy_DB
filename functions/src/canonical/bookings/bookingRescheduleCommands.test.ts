@@ -1068,23 +1068,6 @@ function guestFixture() {
       pricePerHourKZT: 18_000,
       isAvailable: true,
     },
-    [`participants/${guestBlockerParticipantId}`]: {
-      participantId: guestBlockerParticipantId,
-      displayName: 'Guest Instructor Blocker',
-      age: { kind: 'age_years', years: 24 },
-      skillLevel: 'beginner',
-      discipline: 'ski',
-      management: { kind: 'unmanaged_guest' },
-      lifecycle: { status: 'active' },
-      revision: 1,
-      createdAt: decidedAt,
-      updatedAt: decidedAt,
-      audit: {
-        createdByCommandId: 'command_seed_guest_blocker_participant',
-        lastChangedByCommandId: 'command_seed_guest_blocker_participant',
-        correlationId,
-      },
-    },
     [`users/${adminAccountId}`]: AccountSchema.parse({
       accountId: adminAccountId,
       lifecycle: { status: 'active' },
@@ -1761,6 +1744,12 @@ describe('admin change_booking_instructor unmanaged_guest', () => {
         idempotencyKey: 'guest-instructor-blocker',
         correlationId,
         source: 'guest_callable',
+        transportMetadata: guestParticipantTransportMetadataFromProfile({
+          displayName: 'Guest Instructor Blocker',
+          ageYears: 24,
+          skillLevel: 'beginner',
+          discipline: 'ski',
+        }),
         calendarInput: {
           localDate: '2026-01-15',
           localTime: '09:00',

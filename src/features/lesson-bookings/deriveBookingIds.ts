@@ -4,7 +4,7 @@ import {
 } from '@ski-academy/shared-domain/canonical/identifiers';
 import { canonicalDeterministicHash } from '@ski-academy/shared-domain/canonical/deterministicIdentity';
 import {
-  GUEST_BOOKING_PRIVATE_CREATE_KEY_PREFIX,
+  createGuestReservationPrivateCreateKey,
   type BookingId,
   type IdempotencyKey,
   type ParticipantId,
@@ -28,12 +28,8 @@ export function deriveAuthenticatedCreateIdempotencyKey(bookingId: string): Idem
 }
 
 export function createGuestCreateIdempotencyKey(bookingId: string): IdempotencyKey {
-  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
-    const bytes = crypto.getRandomValues(new Uint8Array(16));
-    const nonce = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
-    return `${GUEST_BOOKING_PRIVATE_CREATE_KEY_PREFIX}${nonce}` as IdempotencyKey;
-  }
-  return `create-guest-request:${bookingId}` as IdempotencyKey;
+  return (createGuestReservationPrivateCreateKey() ??
+    `create-guest-request:${bookingId}`) as IdempotencyKey;
 }
 
 export function deriveCancellationIdempotencyKey(

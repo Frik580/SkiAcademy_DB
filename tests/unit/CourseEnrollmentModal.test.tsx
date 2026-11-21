@@ -108,8 +108,10 @@ vi.mock('../../src/features/notifications', () => ({
 }));
 
 vi.mock('../../src/features/course-enrollments', () => ({
-  createLogicalEnrollmentAttemptId: () => 'attempt_01',
-  deriveGuestCreateEnrollmentIdempotencyKey: () => 'guest-idempotency',
+  createGuestEnrollmentAttempt: () => ({
+    enrollmentId: 'attempt_01',
+    idempotencyKey: 'create-guest-private:39ae19d3fda24338999ceeacfc4ebdf2',
+  }),
   deriveRequestCancellationIdempotencyKey: (id: string, revision: number) =>
     `cancel:${id}:${revision}`,
   resolveGuestCourseSessionParticipantId: () => 'guest_session_participant_01',
@@ -918,6 +920,10 @@ describe('CourseEnrollmentModal guest enrollment', () => {
             courseId: 'course_01',
             participantId: 'guest_session_participant_01',
             enrollmentId: 'attempt_01',
+            identity: {
+              enrollmentId: 'attempt_01',
+              idempotencyKey: expect.stringMatching(/^create-guest-private:[0-9a-f]{32}$/),
+            },
             guestDisplayName: 'Guest One',
             guestPhone: '+77001234567',
             guestEmail: 'guest@example.com',

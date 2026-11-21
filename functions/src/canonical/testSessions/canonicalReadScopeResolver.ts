@@ -34,6 +34,15 @@ function parseRequestedTestSessionId(value: unknown): TestSessionId | undefined 
   return parsed.data;
 }
 
+export async function assertTestSessionMaintenanceActor(
+  store: CanonicalExecutionScopeStore,
+  accountId: AccountId
+): Promise<void> {
+  if (await store.readTestActor(accountId)) {
+    throw new CanonicalExecutionScopeError('TEST_ACTOR_REQUEST_FORBIDDEN');
+  }
+}
+
 async function resolveMaintenanceTestSession(
   store: CanonicalExecutionScopeStore,
   input: ResolveCanonicalReadScopeInput,
@@ -46,10 +55,7 @@ async function resolveMaintenanceTestSession(
     throw new CanonicalExecutionScopeError('TEST_SESSION_FORBIDDEN');
   }
 
-  const rawActor = await store.readTestActor(input.accountId);
-  if (rawActor) {
-    throw new CanonicalExecutionScopeError('TEST_ACTOR_REQUEST_FORBIDDEN');
-  }
+  await assertTestSessionMaintenanceActor(store, input.accountId);
 
   const rawSession = await store.readTestSession(testSessionId);
   if (!rawSession) {

@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Firestore } from 'firebase-admin/firestore';
 import { CanonicalCommandError, CorrelationIdSchema } from '@ski-academy/shared-domain';
-import { error as logError } from 'firebase-functions/logger';
+import { error as logError, warn } from 'firebase-functions/logger';
 import { createExecuteCanonicalCommandHandler } from './executeCanonicalCommandCallable';
 
 const { execute } = vi.hoisted(() => ({ execute: vi.fn() }));
-vi.mock('firebase-functions/logger', () => ({ error: vi.fn() }));
+vi.mock('firebase-functions/logger', () => ({ error: vi.fn(), warn: vi.fn() }));
 vi.mock('./canonicalCommandRuntime', () => ({
   createCanonicalCommandRuntime: () => ({ createCommands: () => ({ execute }) }),
   readGuestActionTokenSecret: () => undefined,
@@ -50,10 +50,39 @@ describe('canonical callable unexpected exception diagnostics', () => {
     });
   });
 
-  it('does not log expected authorization failures as unexpected exceptions', async () => {
-    execute.mockRejectedValue(new CanonicalCommandError('forbidden', { correlationId }));
-    await expect(invoke()).rejects.toMatchObject({ code: 'permission-denied' });
-    expect(logError).not.toHaveBeenCalled();
+  it.each([
+    ['forbidden', 'permission-denied'],
+    ['unauthorized', 'unauthenticated'],
+  ] as const)(
+    'writes a structured security event for %s',
+    async (code, transportCode) => {
+      execute.mockRejectedValue(new CanonicalCommandError(code, { correlationId }));
+      await expect(invoke()).rejects.toMatchObject({ code: transportCode });
+      expect(logError).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledExactlyOnceWith('Canonical security command event', {
+        actor: { kind: 'account', reference: expect.stringMatching(/^[a-f0-9]{64}$/) },
+        commandKind: 'block_participant',
+        resultCode: code,
+        scope: 'LIVE',
+        correlationId,
+      });
+    }
+  );
+
+  it('bounds authorization diagnostics per minute', async () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(60_000);
+    try {
+      execute.mockRejectedValue(new CanonicalCommandError('forbidden', { correlationId }));
+      for (let index = 0; index < 35; index += 1) {
+        await expect(invoke()).rejects.toMatchObject({ code: 'permission-denied' });
+      }
+      expect(warn).toHaveBeenCalledTimes(30);
+      now.mockReturnValue(120_000);
+      await expect(invoke()).rejects.toMatchObject({ code: 'permission-denied' });
+      expect(warn).toHaveBeenCalledTimes(31);
+    } finally {
+      now.mockRestore();
+    }
   });
 });
 

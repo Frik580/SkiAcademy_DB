@@ -20,9 +20,19 @@ import {
 export const GUEST_ACTION_TOKEN_VERSION = 'guest-token:v1' as const;
 export const GUEST_BOOKING_PRIVATE_CREATE_KEY_PREFIX = 'create-guest-private:';
 
-export function isGuestBookingPrivateCreateKey(key: string): boolean {
+export function isGuestReservationPrivateCreateKey(key: string): boolean {
   return key.startsWith(GUEST_BOOKING_PRIVATE_CREATE_KEY_PREFIX) &&
     /^[0-9a-f]{32}$/.test(key.slice(GUEST_BOOKING_PRIVATE_CREATE_KEY_PREFIX.length));
+}
+
+export const isGuestBookingPrivateCreateKey = isGuestReservationPrivateCreateKey;
+
+export function createGuestReservationPrivateCreateKey(): string | undefined {
+  if (typeof crypto === 'undefined' || typeof crypto.getRandomValues !== 'function') {
+    return undefined;
+  }
+  const nonce = bytesToHex(crypto.getRandomValues(new Uint8Array(16)));
+  return `${GUEST_BOOKING_PRIVATE_CREATE_KEY_PREFIX}${nonce}`;
 }
 
 export const GUEST_ACTION_TOKEN_PURPOSES = [

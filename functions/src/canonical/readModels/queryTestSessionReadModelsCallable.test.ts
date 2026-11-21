@@ -28,7 +28,7 @@ const account = AccountSchema.parse({
   },
 });
 
-function createFirestore(role: 'admin' | 'user'): Firestore {
+function createFirestore(role: 'admin' | 'user', registeredTestActor = false): Firestore {
   const query = {
     where: () => query,
     orderBy: () => query,
@@ -47,7 +47,18 @@ function createFirestore(role: 'admin' | 'user'): Firestore {
           }),
         };
       }
-      if (name === 'test_sessions' || name === 'test_actors' || name === 'courses') {
+      if (name === 'test_actors') {
+        return {
+          ...query,
+          doc: () => ({
+            get: async () => ({
+              exists: registeredTestActor,
+              data: () => (registeredTestActor ? { accountId, allowed: true } : undefined),
+            }),
+          }),
+        };
+      }
+      if (name === 'test_sessions' || name === 'courses') {
         return query;
       }
       if (isTestScopeCollection(name)) return missingTestScopeCollection();
@@ -72,6 +83,16 @@ describe('queryTestSessionReadModels callable authorization', () => {
 
   it('fails closed for an authenticated non-admin', async () => {
     const handler = createQueryTestSessionReadModelsHandler(createFirestore('user'));
+    await expect(
+      handler({
+        auth: { uid: accountId },
+        data: { scope: 'test_session_list' },
+      } as CallableRequest<Record<string, unknown>>)
+    ).rejects.toMatchObject({ code: 'permission-denied' });
+  });
+
+  it('requires an administrator outside the TestActor registry for maintenance reads', async () => {
+    const handler = createQueryTestSessionReadModelsHandler(createFirestore('admin', true));
     await expect(
       handler({
         auth: { uid: accountId },

@@ -33,6 +33,7 @@ const PROJECT_ID = 'demo-ski-school-e2e';
 const correlationId = CorrelationIdSchema.parse('correlation_guest_emulator_01');
 const instructorId = InstructorIdSchema.parse('instructor_guest_emulator_01');
 const participantId = ParticipantIdSchema.parse('participant_guest_emulator_01');
+const privateCreateKey = 'create-guest-private:39ae19d3fda24338999ceeacfc4ebdf2';
 const adminAccountId = AccountIdSchema.parse('account_guest_emulator_admin');
 const bookingId = BookingIdSchema.parse('booking_guest_emulator_01');
 const guestSubjectId = guestSubjectIdFromBookingId(bookingId);
@@ -101,7 +102,11 @@ function guestCreateEnvelope(input: {
     intent: {
       bookingId: BookingIdSchema.parse(input.bookingId),
       instructorId,
-      participantIds: [participantId],
+      participantIds: [
+        input.bookingId === bookingId
+          ? participantId
+          : ParticipantIdSchema.parse(`participant_${input.bookingId}`),
+      ],
     },
   };
 }
@@ -128,32 +133,7 @@ async function seedInstructorOnly(): Promise<void> {
 }
 
 async function seedFixture(): Promise<void> {
-  await firestore.collection('instructors').doc(instructorId).set({
-    id: instructorId,
-    name: 'Guest Emulator Instructor',
-    pricePerHourKZT: 12_000,
-    isAvailable: true,
-  });
-  await firestore
-    .collection('participants')
-    .doc(participantId)
-    .set({
-      participantId,
-      displayName: 'Guest Emulator Participant',
-      age: { kind: 'age_years', years: 24 },
-      skillLevel: 'beginner',
-      discipline: 'ski',
-      management: { kind: 'unmanaged_guest' },
-      lifecycle: { status: 'active' },
-      revision: 1,
-      createdAt: decidedAt,
-      updatedAt: decidedAt,
-      audit: {
-        createdByCommandId: 'command_seed_participant',
-        lastChangedByCommandId: 'command_seed_participant',
-        correlationId,
-      },
-    });
+  await seedInstructorOnly();
   await firestore
     .collection('users')
     .doc(adminAccountId)
@@ -199,7 +179,6 @@ describe.skipIf(!runsOnFirestoreEmulator)('guest booking commands (firestore emu
   }, 30_000);
 
   it('links with the signed guest proof and applies the link once', async () => {
-    await firestore.doc(`participants/${participantId}`).delete();
     const commands = createCommands('2026-01-01T10:00:00.000Z');
     const created = await commands.execute(guestCreateEnvelope({
       bookingId,
@@ -312,7 +291,7 @@ describe.skipIf(!runsOnFirestoreEmulator)('guest booking commands (firestore emu
     const commands = createCommands('2026-01-01T10:00:00.000Z', policy);
     const firstEnvelope = guestCreateEnvelope({
       bookingId: 'booking_guest_limit_1',
-      idempotencyKey: 'guest-limit-1',
+      idempotencyKey: privateCreateKey,
       localTime: '09:00',
     });
     const first = await commands.execute(firstEnvelope);
@@ -610,10 +589,10 @@ describe.skipIf(!runsOnFirestoreEmulator)('guest booking commands (firestore emu
 
     const commands = createCommands('2026-01-01T10:00:00.000Z');
     const first = await commands.execute(
-      guestCreateEnvelope({ bookingId, idempotencyKey: 'guest-provision-01' })
+      guestCreateEnvelope({ bookingId, idempotencyKey: privateCreateKey })
     );
     const replay = await commands.execute(
-      guestCreateEnvelope({ bookingId, idempotencyKey: 'guest-provision-01' })
+      guestCreateEnvelope({ bookingId, idempotencyKey: privateCreateKey })
     );
 
     expect(first.status).toBe('success');

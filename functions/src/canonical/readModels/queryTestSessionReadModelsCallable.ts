@@ -6,7 +6,10 @@ import {
 } from '@ski-academy/shared-domain';
 import { resolveCallableAdministratorActor } from './resolveCallableAdministrator';
 import { parseReadModelCallableData, rethrowReadScopeHttpsError } from './readModelScope';
-import { resolveCanonicalReadScope } from '../testSessions/canonicalReadScopeResolver';
+import {
+  assertTestSessionMaintenanceActor,
+  resolveCanonicalReadScope,
+} from '../testSessions/canonicalReadScopeResolver';
 import { createFirestoreCanonicalExecutionScopeStore } from '../testSessions/canonicalExecutionScopeResolver';
 import { queryTestSessionReadModels } from './testSessionReadModels';
 
@@ -21,14 +24,17 @@ export function createQueryTestSessionReadModelsHandler(firestore: Firestore) {
 
     try {
       const actor = await resolveCallableAdministratorActor(firestore, request.auth?.uid);
+      const scopeStore = createFirestoreCanonicalExecutionScopeStore(firestore);
       if (input.scope === 'test_session_inventory') {
-        await resolveCanonicalReadScope(createFirestoreCanonicalExecutionScopeStore(firestore), {
+        await resolveCanonicalReadScope(scopeStore, {
           accountId: actor.accountId,
           accountLifecycleStatus: 'active',
           isAdministrator: true,
           requestedTestSessionId: input.testSessionId,
           purpose: 'maintenance',
         });
+      } else {
+        await assertTestSessionMaintenanceActor(scopeStore, actor.accountId);
       }
       return await queryTestSessionReadModels(firestore, input);
     } catch (error) {

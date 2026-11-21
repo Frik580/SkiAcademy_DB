@@ -8,9 +8,11 @@ import {
   courseEnrollmentIdFromCommandParticipant,
 } from '@ski-academy/shared-domain/canonical/deterministicIdentity';
 import {
+  createGuestReservationPrivateCreateKey,
   type CourseEnrollmentId,
   type IdempotencyKey,
   type ParticipantId,
+  IdempotencyKeySchema,
 } from '@ski-academy/shared-domain';
 
 export function createLogicalEnrollmentAttemptId(): CourseEnrollmentId {
@@ -72,8 +74,12 @@ export function deriveAuthenticatedCreateEnrollmentIdempotencyKey(
   ]);
 }
 
-export function deriveGuestCreateEnrollmentIdempotencyKey(enrollmentId: string): IdempotencyKey {
-  return `create-guest-course-enrollment:${enrollmentId}` as IdempotencyKey;
+export function createGuestEnrollmentAttempt() {
+  const enrollmentId = createLogicalEnrollmentAttemptId();
+  const privateKey = createGuestReservationPrivateCreateKey();
+  if (!privateKey) throw new Error('Guest reservation retry credentials are unavailable.');
+  const idempotencyKey = IdempotencyKeySchema.parse(privateKey);
+  return { enrollmentId, idempotencyKey };
 }
 
 export function deriveWithdrawEnrollmentIdempotencyKey(

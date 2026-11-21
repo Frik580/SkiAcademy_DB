@@ -6,10 +6,12 @@ import {
   AccountIdSchema,
   BookingIdSchema,
   CorrelationIdSchema,
+  IdempotencyKeySchema,
   InstructorIdSchema,
   ParticipantIdSchema,
   PaymentIdSchema,
   accountCommandActor,
+  createGuestReservationPrivateCreateKey,
   guestCommandActor,
   guestParticipantTransportMetadataFromProfile,
   guestSubjectIdFromBookingId,
@@ -59,7 +61,6 @@ const COLLECTIONS_TO_CLEAR = [
 
 function guestCreateEnvelope(input: {
   bookingId: string;
-  idempotencyKey: string;
   localTime?: string;
   participantId?: string;
 }): CommandEnvelope<'create_guest_booking_request'> {
@@ -69,7 +70,7 @@ function guestCreateEnvelope(input: {
     context: {
       actor: guestCommandActor(guestSubjectIdFromBookingId(id)),
       exercisedCapability: 'guest',
-      idempotencyKey: input.idempotencyKey,
+      idempotencyKey: IdempotencyKeySchema.parse(createGuestReservationPrivateCreateKey()),
       correlationId,
       source: 'guest_callable',
       calendarInput: {
@@ -136,23 +137,6 @@ async function seedFixture(): Promise<void> {
     pricePerHourKZT: 12_000,
     isAvailable: true,
   });
-  await firestore.collection('participants').doc(participantId).set({
-    participantId,
-    displayName: 'Guest Expiry Sweep Participant',
-    age: { kind: 'age_years', years: 24 },
-    skillLevel: 'beginner',
-    discipline: 'ski',
-    management: { kind: 'unmanaged_guest' },
-    lifecycle: { status: 'active' },
-    revision: 1,
-    createdAt: decidedAt,
-    updatedAt: decidedAt,
-    audit: {
-      createdByCommandId: 'command_seed_participant',
-      lastChangedByCommandId: 'command_seed_participant',
-      correlationId,
-    },
-  });
   await firestore.collection('users').doc(adminAccountId).set({
     accountId: adminAccountId,
     lifecycle: { status: 'active' },
@@ -213,12 +197,12 @@ describe.skipIf(!runsOnFirestoreEmulator)(
     }, 30_000);
 
     it('expires an eligible unpaid guest Booking once, releases the claim, and is idempotent', async () => {
+      const created = await createCommands('2026-01-01T10:00:00.000Z').execute(
+        guestCreateEnvelope({ bookingId })
+      );
       expect(
-        (
-          await createCommands('2026-01-01T10:00:00.000Z').execute(
-            guestCreateEnvelope({ bookingId, idempotencyKey: 'expiry-sweep-create' })
-          )
-        ).status
+        created.status,
+        created.status === 'error' ? JSON.stringify(created.error) : undefined
       ).toBe('success');
 
       const beforeDeadline = await sweepExpiredGuestLessonReservations(firestore, {
@@ -265,7 +249,7 @@ describe.skipIf(!runsOnFirestoreEmulator)(
       expect(
         (
           await createCommands('2026-01-01T10:00:00.000Z').execute(
-            guestCreateEnvelope({ bookingId, idempotencyKey: 'expiry-sweep-funded-create' })
+            guestCreateEnvelope({ bookingId })
           )
         ).status
       ).toBe('success');
@@ -320,7 +304,7 @@ describe.skipIf(!runsOnFirestoreEmulator)(
       expect(
         (
           await createCommands('2026-01-01T10:00:00.000Z').execute(
-            guestCreateEnvelope({ bookingId, idempotencyKey: 'expiry-sweep-partial-create' })
+            guestCreateEnvelope({ bookingId })
           )
         ).status
       ).toBe('success');
@@ -349,7 +333,6 @@ describe.skipIf(!runsOnFirestoreEmulator)(
           await createCommands('2026-01-01T10:00:00.000Z').execute(
             guestCreateEnvelope({
               bookingId: missingId,
-              idempotencyKey: 'expiry-sweep-missing-create',
               localTime: '11:00',
               participantId: 'participant_guest_expiry_missing_01',
             })
@@ -374,7 +357,6 @@ describe.skipIf(!runsOnFirestoreEmulator)(
           await createCommands('2026-01-01T10:00:00.000Z').execute(
             guestCreateEnvelope({
               bookingId: mismatchId,
-              idempotencyKey: 'expiry-sweep-mismatch-create',
               localTime: '13:00',
               participantId: 'participant_guest_expiry_mismatch_01',
             })
@@ -401,7 +383,7 @@ describe.skipIf(!runsOnFirestoreEmulator)(
       expect(
         (
           await createCommands('2026-01-01T10:00:00.000Z').execute(
-            guestCreateEnvelope({ bookingId, idempotencyKey: 'expiry-sweep-race-create' })
+            guestCreateEnvelope({ bookingId })
           )
         ).status
       ).toBe('success');
@@ -451,7 +433,6 @@ describe.skipIf(!runsOnFirestoreEmulator)(
           await createCommands('2026-01-01T10:00:00.000Z').execute(
             guestCreateEnvelope({
               bookingId: fundedBeforeDeadlineId,
-              idempotencyKey: 'expiry-sweep-funded-before-create',
               localTime: '12:00',
               participantId: 'participant_guest_expiry_funded_before',
             })
@@ -490,7 +471,6 @@ describe.skipIf(!runsOnFirestoreEmulator)(
           await createCommands('2026-01-01T10:00:00.000Z').execute(
             guestCreateEnvelope({
               bookingId: fundedAtDeadlineId,
-              idempotencyKey: 'expiry-sweep-funded-at-create',
               localTime: '13:00',
               participantId: 'participant_guest_expiry_funded_at',
             })
@@ -552,7 +532,7 @@ describe.skipIf(!runsOnFirestoreEmulator)(
       expect(
         (
           await createCommands('2026-01-01T10:00:00.000Z').execute(
-            guestCreateEnvelope({ bookingId, idempotencyKey: 'expiry-sweep-late-pay-create' })
+            guestCreateEnvelope({ bookingId })
           )
         ).status
       ).toBe('success');
@@ -581,7 +561,7 @@ describe.skipIf(!runsOnFirestoreEmulator)(
       expect(
         (
           await createCommands('2026-01-01T10:00:00.000Z').execute(
-            guestCreateEnvelope({ bookingId, idempotencyKey: 'expiry-sweep-slot-create' })
+            guestCreateEnvelope({ bookingId })
           )
         ).status
       ).toBe('success');
@@ -609,7 +589,6 @@ describe.skipIf(!runsOnFirestoreEmulator)(
           await createCommands('2026-01-01T11:02:00.000Z').execute(
             guestCreateEnvelope({
               bookingId: reuseId,
-              idempotencyKey: 'expiry-sweep-slot-reuse',
               participantId: 'participant_guest_expiry_reuse',
             })
           )
@@ -629,7 +608,6 @@ describe.skipIf(!runsOnFirestoreEmulator)(
           await createCommands('2026-01-01T10:00:00.000Z').execute(
             guestCreateEnvelope({
               bookingId: firstId,
-              idempotencyKey: 'expiry-sweep-batch-a',
               localTime: '09:00',
               participantId: 'participant_guest_expiry_batch_a',
             })
@@ -641,7 +619,6 @@ describe.skipIf(!runsOnFirestoreEmulator)(
           await createCommands('2026-01-01T10:00:00.000Z').execute(
             guestCreateEnvelope({
               bookingId: secondId,
-              idempotencyKey: 'expiry-sweep-batch-b',
               localTime: '10:00',
               participantId: 'participant_guest_expiry_batch_b',
             })
@@ -653,7 +630,6 @@ describe.skipIf(!runsOnFirestoreEmulator)(
           await createCommands('2026-01-01T10:00:00.000Z').execute(
             guestCreateEnvelope({
               bookingId: thirdId,
-              idempotencyKey: 'expiry-sweep-batch-c',
               localTime: '11:00',
               participantId: 'participant_guest_expiry_batch_c',
             })

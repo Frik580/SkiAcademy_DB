@@ -7,9 +7,11 @@ import {
   AggregateRevisionSchema,
   BookingIdSchema,
   CorrelationIdSchema,
+  IdempotencyKeySchema,
   InstructorIdSchema,
   ParticipantIdSchema,
   accountCommandActor,
+  createGuestReservationPrivateCreateKey,
   guestCommandActor,
   guestParticipantTransportMetadataFromProfile,
   guestSubjectIdFromBookingId,
@@ -88,23 +90,6 @@ async function seedFixture() {
     pricePerHourKZT: 12_000,
     isAvailable: true,
   });
-  await firestore.collection('participants').doc(guestParticipantId).set({
-    participantId: guestParticipantId,
-    displayName: 'Guest Emulator Source',
-    age: { kind: 'age_years', years: 24 },
-    skillLevel: 'beginner',
-    discipline: 'ski',
-    management: { kind: 'unmanaged_guest' },
-    lifecycle: { status: 'active' },
-    revision: 1,
-    createdAt: decidedAt,
-    updatedAt: decidedAt,
-    audit: {
-      createdByCommandId: 'command_seed_guest',
-      lastChangedByCommandId: 'command_seed_guest',
-      correlationId,
-    },
-  });
   await firestore.collection('participants').doc(managedParticipantId).set({
     participantId: managedParticipantId,
     displayName: 'Managed Emulator Target',
@@ -162,7 +147,7 @@ function guestCreateEnvelope(): CommandEnvelope<'create_guest_booking_request'> 
     context: {
       actor: guestCommandActor(guestSubjectIdFromBookingId(bookingId)),
       exercisedCapability: 'guest',
-      idempotencyKey: 'admin-guest-booking-em-create',
+      idempotencyKey: IdempotencyKeySchema.parse(createGuestReservationPrivateCreateKey()),
       correlationId,
       source: 'guest_callable',
       calendarInput: {
@@ -234,7 +219,11 @@ describe.skipIf(!runsOnFirestoreEmulator)(
       'replaces the guest occurrence, migrates claims, and associates Payment payer without funding',
       async () => {
         const commands = createCommands();
-        expect((await commands.execute(guestCreateEnvelope())).status).toBe('success');
+        const created = await commands.execute(guestCreateEnvelope());
+        expect(
+          created.status,
+          created.status === 'error' ? JSON.stringify(created.error) : undefined
+        ).toBe('success');
         const bookingBefore = (await firestore.doc(`bookings/${bookingId}`).get()).data();
         const paymentBefore = (
           await firestore.doc(`payments/${paymentIdFromBookingId(bookingId)}`).get()

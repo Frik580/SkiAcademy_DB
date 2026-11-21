@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initializeApp, getApps, deleteApp, type App } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import {
@@ -14,6 +14,7 @@ import {
 } from '@ski-academy/shared-domain';
 import { createAuthoritativeCommandClock } from '../commands/commandClock';
 import { createProductionCanonicalCommands } from '../commands/canonicalCommands';
+import { createExecuteCanonicalCommandHandler } from '../commands/executeCanonicalCommandCallable';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
 import { queryAdminIdentityReadModels } from '../readModels/adminIdentityReadModels';
 
@@ -134,6 +135,54 @@ describe.skipIf(!runsOnFirestoreEmulator)('identity administration Firestore emu
       .set(seedAccount(targetAccountId, { role: 'user' }));
     await firestore.collection('participants').doc(participantId).set(seedParticipant());
   });
+
+  it.each([
+    ['disable_account', { accountId: targetAccountId, reasonExplanation: 'Disable account' }],
+    [
+      'change_account_role',
+      { accountId: targetAccountId, role: 'admin', reasonExplanation: 'Change role' },
+    ],
+  ])(
+    'checks current administrator authority when %s starts its transaction',
+    async (kind, intent) => {
+      const actorRef = firestore.collection('users').doc(adminAccountId);
+      const runTransaction = firestore.runTransaction.bind(firestore);
+      const spy = vi
+        .spyOn(firestore, 'runTransaction')
+        .mockImplementationOnce(async (callback, options) => {
+          await actorRef.update({ role: 'user' });
+          return runTransaction(callback, options);
+        });
+      const execute = createExecuteCanonicalCommandHandler(firestore);
+      try {
+        await expect(
+          execute({
+            auth: { uid: adminAccountId },
+            data: {
+              kind,
+              intent,
+              correlationId,
+              expectedRevision: 1,
+              idempotencyKey: `demotion-${kind}`,
+            },
+          } as Parameters<typeof execute>[0])
+        ).rejects.toMatchObject({ code: 'permission-denied' });
+        expect(spy).toHaveBeenCalledOnce();
+      } finally {
+        spy.mockRestore();
+      }
+      const actor = (await actorRef.get()).data();
+      expect(actor).toMatchObject({
+        role: 'user',
+        systemRole: 'owner',
+        lifecycle: { status: 'active' },
+      });
+      const target = (await firestore.collection('users').doc(targetAccountId).get()).data();
+      expect(target).toMatchObject({ role: 'user', lifecycle: { status: 'active' }, revision: 1 });
+      expect((await firestore.collection('activity_logs').get()).empty).toBe(true);
+      expect((await firestore.collection('command_idempotency').get()).empty).toBe(true);
+    }
+  );
 
   it('disables an Account, archives a Participant, and creates Instructor catalog through the Admin SDK', async () => {
     const executor = createFirestoreCanonicalTransactionExecutor(firestore);

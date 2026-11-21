@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { deleteApp, getApps, initializeApp, type App } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
+import type { CallableRequest } from 'firebase-functions/v2/https';
 import {
   AccountIdSchema,
   CourseDaySchema,
@@ -19,6 +20,7 @@ import {
   type TestSessionLifecycleResult,
 } from '@ski-academy/shared-domain';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
+import { createExecuteTestSessionLifecycleHandler } from './executeTestSessionLifecycleCallable';
 import {
   createFirestoreCanonicalExecutionScopeStore,
   resolveCanonicalExecutionScope,
@@ -255,6 +257,75 @@ describe.skipIf(!runsOnFirestoreEmulator)('T42B-7 TestSession lifecycle emulator
     expect(second.outcome).toBe('already_completed');
     expect((await firestore.collection('test_sessions').get()).size).toBe(1);
   });
+
+  it('checks the current administrator role before reserving a session', async () => {
+    const demotedBeforeReservation = new Proxy(firestore, {
+      get(target, property) {
+        if (property === 'runTransaction') {
+          return async (...args: Parameters<Firestore['runTransaction']>) => {
+            await target.doc(`users/${adminId}`).update({ role: 'user' });
+            return target.runTransaction(...args);
+          };
+        }
+        const value: unknown = Reflect.get(target, property);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    const handler = createExecuteTestSessionLifecycleHandler(demotedBeforeReservation);
+    await expect(handler({
+      auth: { uid: adminId },
+      data: createInput('idem_t42b7_role_change'),
+    } as CallableRequest<Record<string, unknown>>)).rejects.toMatchObject({ code: 'permission-denied' });
+    expect((await firestore.collection('test_sessions').get()).empty).toBe(true);
+    expect((await firestore.doc('test_session_active_slots/v1').get()).exists).toBe(false);
+  });
+
+  it.each([
+    { status: 'failed', invalidIdentity: false },
+    { status: 'provisioning', invalidIdentity: false },
+    { status: 'provisioning', invalidIdentity: true },
+  ] as const)(
+    'keeps provisioning state unchanged before retry admission ($status, invalid identity $invalidIdentity)',
+    async ({ status, invalidIdentity }) => {
+      const created = await createSession('idem_t42b7_retry_role_base');
+      const ref = firestore.doc(`test_sessions/${created.testSessionId}`);
+      await ref.update({
+        status,
+        maintenance: {
+          operationId: 'op_t42b7_retry_role',
+          operationKind: 'provision',
+          phase: 'PRECHECK',
+          startedAt: at,
+          startedByAccountId: adminId,
+          leaseExpiresAt: timestampFromDate(new Date('2026-09-21T00:00:00.000Z')),
+        },
+      });
+      const accountRef = firestore.doc(`users/${adminId}`);
+      await accountRef.update({ role: 'user' });
+      const before = (await ref.get()).data();
+      const denied = new Error('administrator authority revoked');
+      const instructor = firestore.doc(`instructors/${instructorId}`);
+      if (invalidIdentity) await instructor.update({ dataScope: 'live' });
+      const identityBefore = (await instructor.get()).data();
+      const retry = executeTestSessionLifecycle({
+        ...ports(),
+        async authorizeAdmission(transaction) {
+          if ((await transaction.get(accountRef)).get('role') !== 'admin') throw denied;
+        },
+      }, adminId, {
+        command: 'retry_test_session_maintenance',
+        testSessionId: created.testSessionId,
+        idempotencyKey: 'idem_t42b7_retry_role_denied',
+      });
+      if (invalidIdentity) {
+        await expect(retry).rejects.toMatchObject({ code: 'TEST_INSTRUCTOR_INVALID' });
+      } else {
+        await expect(retry).rejects.toBe(denied);
+      }
+      expect((await ref.get()).data()).toEqual(before);
+      expect((await instructor.get()).data()).toEqual(identityBefore);
+    }
+  );
 
   it('resets wallet, courses, learning state, and reviews without touching LIVE', async () => {
     const created = await createSession('idem_t42b7_reset');

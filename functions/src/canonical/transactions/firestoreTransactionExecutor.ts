@@ -49,9 +49,18 @@ export interface CanonicalTransactionExecutor {
   runAtomic<TResult>(input: CanonicalAtomicTransactionInput<TResult>): Promise<TResult>;
 }
 
+export interface CanonicalTransactionAuthorization {
+  readonly path: string;
+  allows(data: Record<string, unknown> | undefined): boolean;
+}
+
 class FirestoreCanonicalTransactionOperations implements CanonicalTransactionOperationsInternal {
   phase: CanonicalTransactionPhase = 'reads';
   private readonly pendingReads = new Set<Promise<unknown>>();
+  private authorizedDocument?: {
+    readonly path: string;
+    readonly snapshot: CanonicalTransactionReadResult;
+  };
 
   constructor(
     private readonly firestore: Firestore,
@@ -60,6 +69,9 @@ class FirestoreCanonicalTransactionOperations implements CanonicalTransactionOpe
 
   async get(ref: CanonicalTransactionDocumentRef): Promise<CanonicalTransactionReadResult> {
     assertReadPhase(this, 'read');
+    if (this.authorizedDocument?.path === ref.path) {
+      return this.authorizedDocument.snapshot;
+    }
     const readPromise = this.transaction.get(this.firestore.doc(ref.path)).then((snapshot) => ({
       exists: snapshot.exists,
       ...(snapshot.exists ? { data: snapshot.data() as Record<string, unknown> } : {}),
@@ -70,6 +82,17 @@ class FirestoreCanonicalTransactionOperations implements CanonicalTransactionOpe
     } finally {
       this.pendingReads.delete(readPromise);
     }
+  }
+
+  async authorize(
+    authorization: CanonicalTransactionAuthorization,
+    correlationId: CorrelationId
+  ): Promise<void> {
+    const snapshot = await this.get({ path: authorization.path });
+    if (!authorization.allows(snapshot.data)) {
+      throw new CanonicalCommandError('forbidden', { correlationId });
+    }
+    this.authorizedDocument = { path: authorization.path, snapshot };
   }
 
   async query(
@@ -153,7 +176,8 @@ class FirestoreCanonicalTransactionSession implements CanonicalAtomicTransaction
   constructor(
     readonly correlationId: CorrelationId,
     readonly tx: CanonicalTransactionOperations,
-    private readonly phaseControl: CanonicalTransactionOperationsInternal
+    private readonly phaseControl: CanonicalTransactionOperationsInternal,
+    private readonly authorizationPath?: string
   ) {}
 
   assertWithinBudget(): void {
@@ -162,6 +186,12 @@ class FirestoreCanonicalTransactionSession implements CanonicalAtomicTransaction
 
   async transitionToWrites(): Promise<void> {
     await this.phaseControl.awaitPendingReads();
+    if (
+      this.authorizationPath &&
+      !this.plan.build().reads.some(({ path }) => path === this.authorizationPath)
+    ) {
+      this.plan.planRead({ path: this.authorizationPath, category: 'authorization_check' });
+    }
     this.assertWithinBudget();
     this.phaseControl.enterWritePhase();
   }
@@ -198,7 +228,8 @@ export function isRetryableClosedFirestoreTransactionError(error: unknown): bool
 }
 
 export function createFirestoreCanonicalTransactionExecutor(
-  firestore: Firestore
+  firestore: Firestore,
+  authorization?: CanonicalTransactionAuthorization
 ): CanonicalTransactionExecutor {
   return {
     async runAtomic<TResult>(input: CanonicalAtomicTransactionInput<TResult>): Promise<TResult> {
@@ -213,9 +244,11 @@ export function createFirestoreCanonicalTransactionExecutor(
             const session = new FirestoreCanonicalTransactionSession(
               input.correlationId,
               operations,
-              operations
+              operations,
+              authorization?.path
             );
             try {
+              if (authorization) await operations.authorize(authorization, input.correlationId);
               return await input.run(session);
             } finally {
               try {

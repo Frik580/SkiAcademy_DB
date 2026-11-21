@@ -26,6 +26,7 @@ import {
   validateReleaseMapping,
 } from './validateTestManifest.mjs';
 import { runGroup, runProcess, vitestArgs } from './runManifestTests.mjs';
+import { planCiJobs } from './ciChangePlan.mjs';
 const copy = (value) => structuredClone(value);
 const inventory = JSON.parse(
   readFileSync(new URL('./testManifest.inventory.json', import.meta.url), 'utf8')
@@ -139,7 +140,7 @@ describe('canonical manifest integrity', () => {
     );
     assert.ok(deferredSuites.every((s) => s.reason && s.proposedGroup));
   });
-  it('CI executes every manifest group once and retains existing quality gate dependencies', () => {
+  it('CI retains every manifest group and its required quality gate dependencies', () => {
     const workflow = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
     function assertBindings(text) {
       text = text.replaceAll('\r\n', '\n');
@@ -169,6 +170,18 @@ describe('canonical manifest integrity', () => {
         needs?.sort(),
         [...new Set(executionGroups.map((group) => group.ciGate))].sort()
       );
+      for (const [job, output] of [
+        ['functions-tests', 'functions_tests'],
+        ['functions-emulator', 'functions_emulator'],
+        ['emulator-integration', 'emulator_integration'],
+        ['firestore', 'firestore'],
+        ['e2e', 'e2e'],
+      ]) {
+        assert.ok(jobs[job].includes('needs: lint'));
+        assert.ok(jobs[job].includes(`if: needs.lint.outputs.${output} == 'true'`));
+      }
+      assert.ok(jobs.quality.includes('require_result'));
+      assert.ok(jobs.lint.includes('node scripts/ciChangePlan.mjs'));
       assert.equal(text.includes('continue-on-error:'), false);
     }
     assertBindings(workflow.replaceAll('\r\n', '\n'));
@@ -185,6 +198,43 @@ describe('canonical manifest integrity', () => {
     assert.ok(local.includes('for (const group of groups)'));
   });
 });
+it('selects expensive CI gates conservatively and preserves full manual validation', () => {
+  const planned = (paths, options) => planCiJobs(paths, options);
+  const docs = planned(['docs/operations.md']);
+  assert.ok(Object.values(docs).every((value) => value === false));
+  const frontend = planned(['src/features/courses/components/CourseEnrollmentModal.tsx']);
+  assert.equal(frontend.e2e, true);
+  assert.equal(frontend.functions_emulator, false);
+  const backend = planned(['functions/src/canonical/bookings/guestBookingCommands.ts']);
+  assert.equal(backend.functions_tests, true);
+  assert.equal(backend.functions_emulator, true);
+  assert.equal(backend.emulator_integration, true);
+  assert.equal(backend.e2e, true);
+  const firestore = planned(['firestore.rules']);
+  assert.equal(firestore.firestore, true);
+  assert.equal(firestore.emulator_integration, true);
+  assert.equal(firestore.functions_emulator, false);
+  const storage = planned(['storage.rules']);
+  assert.equal(storage.emulator_integration, true);
+  assert.equal(storage.firestore, false);
+  for (const paths of [
+    ['.github/workflows/ci.yml'],
+    ['scripts/testManifest.inventory.json'],
+    ['package-lock.json'],
+    null,
+  ]) {
+    assert.ok(Object.values(planned(paths)).every(Boolean));
+  }
+  const onMain = planned(['functions/src/index.ts'], { eventName: 'push' });
+  assert.equal(onMain.functions_tests, true);
+  assert.equal(onMain.functions_emulator, false);
+  assert.equal(onMain.e2e, false);
+  assert.ok(Object.values(planned([], { fullValidation: true })).every(Boolean));
+  assert.ok(Object.values(planned([], { eventName: 'workflow_dispatch' })).every(
+    (value) => value === false
+  ));
+});
+
 it('matches real Vitest discovery for app projects and backend filters', () => {
   for (const id of ['app-unit', 'canonical-backend']) {
     const current = suites.find((suite) => suite.id === id);

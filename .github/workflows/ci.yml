@@ -20,6 +20,12 @@ jobs:
   lint:
     name: Lint and i18n
     runs-on: ubuntu-latest
+    outputs:
+      functions_tests: ${{ steps.scope.outputs.functions_tests }}
+      functions_emulator: ${{ steps.scope.outputs.functions_emulator }}
+      emulator_integration: ${{ steps.scope.outputs.emulator_integration }}
+      firestore: ${{ steps.scope.outputs.firestore }}
+      e2e: ${{ steps.scope.outputs.e2e }}
     env:
       VITE_FIREBASE_API_KEY: ci-placeholder-api-key
       VITE_FIREBASE_APP_ID: ci-placeholder-app-id
@@ -41,6 +47,14 @@ jobs:
           node-version: '22'
           cache: npm
 
+      - name: Plan affected CI gates
+        id: scope
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          CI_FORCE_FULL: ${{ github.event_name == 'workflow_dispatch' && inputs.full_validation && 'true' || 'false' }}
+        run: node scripts/ciChangePlan.mjs
+
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
@@ -61,6 +75,7 @@ jobs:
 
   app-tests:
     name: App unit coverage
+    needs: lint
     runs-on: ubuntu-latest
     env:
       VITE_FIREBASE_API_KEY: ci-placeholder-api-key
@@ -106,6 +121,8 @@ jobs:
 
   functions-tests:
     name: Functions unit tests
+    needs: lint
+    if: needs.lint.outputs.functions_tests == 'true'
     runs-on: ubuntu-latest
     env:
       VITE_FIREBASE_API_KEY: ci-placeholder-api-key
@@ -151,6 +168,8 @@ jobs:
 
   functions-emulator:
     name: Functions emulator suite
+    needs: lint
+    if: needs.lint.outputs.functions_emulator == 'true'
     runs-on: ubuntu-latest
     # Measured suites total ~48 minutes locally; also allow dependency setup/build.
     timeout-minutes: 60
@@ -211,6 +230,8 @@ jobs:
 
   emulator-integration:
     name: Emulator integration and Storage rules
+    needs: lint
+    if: needs.lint.outputs.emulator_integration == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -248,6 +269,8 @@ jobs:
 
   firestore:
     name: Firestore rules
+    needs: lint
+    if: needs.lint.outputs.firestore == 'true'
     runs-on: ubuntu-latest
     env:
       VITE_FIREBASE_API_KEY: ci-placeholder-api-key
@@ -296,6 +319,7 @@ jobs:
 
   build:
     name: Production build
+    needs: lint
     runs-on: ubuntu-latest
     env:
       VITE_FIREBASE_API_KEY: ci-placeholder-api-key
@@ -340,7 +364,8 @@ jobs:
       ]
     runs-on: ubuntu-latest
     steps:
-      - name: Verify quality jobs
+      - name: Verify every expected CI gate (and only planned skips)
+        shell: bash
         env:
           LINT_RESULT: ${{ needs.lint.result }}
           APP_TESTS_RESULT: ${{ needs.app-tests.result }}
@@ -350,18 +375,36 @@ jobs:
           BUILD_RESULT: ${{ needs.build.result }}
           INTEGRATION_RESULT: ${{ needs.emulator-integration.result }}
           E2E_RESULT: ${{ needs.e2e.result }}
+          SHOULD_FUNCTIONS_TESTS: ${{ needs.lint.outputs.functions_tests }}
+          SHOULD_FUNCTIONS_EMULATOR: ${{ needs.lint.outputs.functions_emulator }}
+          SHOULD_FIRESTORE: ${{ needs.lint.outputs.firestore }}
+          SHOULD_INTEGRATION: ${{ needs.lint.outputs.emulator_integration }}
+          SHOULD_E2E: ${{ needs.lint.outputs.e2e }}
         run: |
+          set -euo pipefail
+          require_result() {
+            local label="$1" expected="$2" actual="$3"
+            if [[ "$expected" == "true" && "$actual" == "success" ]] ||
+               [[ "$expected" == "false" && "$actual" == "skipped" ]]; then
+              echo "$label: $actual (expected=$expected)"
+            else
+              echo "::error::$label: result=$actual expected_to_run=$expected"
+              exit 1
+            fi
+          }
           test "$LINT_RESULT" = "success"
           test "$APP_TESTS_RESULT" = "success"
-          test "$FUNCTIONS_TESTS_RESULT" = "success"
-          test "$FUNCTIONS_EMULATOR_RESULT" = "success"
-          test "$FIRESTORE_RESULT" = "success"
           test "$BUILD_RESULT" = "success"
-          test "$INTEGRATION_RESULT" = "success"
-          test "$E2E_RESULT" = "success"
+          require_result functions-unit "$SHOULD_FUNCTIONS_TESTS" "$FUNCTIONS_TESTS_RESULT"
+          require_result functions-emulator "$SHOULD_FUNCTIONS_EMULATOR" "$FUNCTIONS_EMULATOR_RESULT"
+          require_result firestore "$SHOULD_FIRESTORE" "$FIRESTORE_RESULT"
+          require_result integration "$SHOULD_INTEGRATION" "$INTEGRATION_RESULT"
+          require_result playwright "$SHOULD_E2E" "$E2E_RESULT"
 
   e2e:
     name: Playwright E2E
+    needs: lint
+    if: needs.lint.outputs.e2e == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     permissions:

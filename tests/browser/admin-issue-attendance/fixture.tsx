@@ -11,7 +11,7 @@ const params = new URLSearchParams(location.search);
 localStorage.setItem('alpine_glide_lang', params.get('language') === 'en' ? 'en' : 'ru');
 document.documentElement.classList.toggle('dark', params.get('theme') === 'dark');
 
-// Presentation-only fixture. It never executes a canonical command.
+// The center uses the canonical client flow with test transport.
 export function Fixture() {
   const [pending, setPending] = useState(false);
   return (

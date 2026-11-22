@@ -293,6 +293,27 @@ export type AdminLessonBookingAttemptResult =
       readonly refreshFailed?: boolean;
     };
 
+export async function runAdminLessonBookingCommand(
+  adminAccountId: string,
+  attempt: AdminLessonBookingAttempt
+): Promise<
+  | { readonly status: 'success' }
+  | { readonly status: 'error'; readonly error: CanonicalCommandClientError }
+> {
+  try {
+    await executeAdminLessonBookingAttempt(adminAccountId, attempt);
+    return { status: 'success' };
+  } catch (error) {
+    return {
+      status: 'error',
+      error:
+        error instanceof CanonicalCommandClientError
+          ? error
+          : toCanonicalCommandClientError(error, 'correlation_admin_lesson_unknown'),
+    };
+  }
+}
+
 export function useAdminLessonBookingCommands(input: {
   readonly adminAccountId: string;
   readonly refreshBooking: (bookingId: BookingId) => Promise<AdminLessonBookingRefreshResult>;
@@ -322,22 +343,16 @@ export function useAdminLessonBookingCommands(input: {
           return { status: 'failure' };
         }
       };
-      try {
-        await executeAdminLessonBookingAttempt(adminAccountId, attempt);
-      } catch (error) {
-        const normalized =
-          error instanceof CanonicalCommandClientError
-            ? error
-            : toCanonicalCommandClientError(error, 'correlation_admin_lesson_unknown');
-        if (normalized.code === 'stale_version') {
+      const command = await runAdminLessonBookingCommand(adminAccountId, attempt);
+      if (command.status === 'error') {
+        if (command.error.code === 'stale_version') {
           const refresh = await refreshCanonicalProjections();
           return {
-            status: 'error',
-            error: normalized,
+            ...command,
             ...(refresh.status === 'failure' ? { refreshFailed: true } : {}),
           };
         }
-        return { status: 'error', error: normalized };
+        return command;
       }
       const refreshResult = await refreshCanonicalProjections();
       if (refreshResult.status === 'success') {

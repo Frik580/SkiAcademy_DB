@@ -5,10 +5,12 @@ import { useAdminIssueTranslations } from './useAdminIssueTranslations';
 export function AdminIssueAttendancePanel({
   input,
   pending,
+  alreadySaved,
   onSubmit,
 }: {
   readonly input: AdminIssueAttendanceInput;
   readonly pending: boolean;
+  readonly alreadySaved?: boolean;
   readonly onSubmit: () => void;
 }) {
   const { t } = useAdminIssueTranslations();
@@ -46,7 +48,7 @@ export function AdminIssueAttendancePanel({
         className="w-full sm:w-auto"
         pending={pending}
         pendingLabel={t('adminIssueAttendanceSaving')}
-        disabled={Boolean(input.unavailableReason)}
+        disabled={alreadySaved || Boolean(input.unavailableReason)}
         onClick={onSubmit}
       >
         {t('adminIssueAttendanceAllPresent')}

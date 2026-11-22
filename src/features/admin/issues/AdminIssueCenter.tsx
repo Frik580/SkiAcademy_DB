@@ -135,7 +135,7 @@ export function AdminIssueCenter({ adminAccountId }: { readonly adminAccountId: 
     ? selectedChangeRequestResult.data
     : undefined;
 
-  const { list, detail, retryList, retryDetail, loadMore } = useAdminIssueReadModels({
+  const { list, detail, retryList, refreshList, retryDetail, loadMore } = useAdminIssueReadModels({
     enabled: true,
     scope: view === 'history' ? 'admin_history' : 'admin_open',
     ...(severity === undefined ? {} : { severity }),
@@ -185,7 +185,7 @@ export function AdminIssueCenter({ adminAccountId }: { readonly adminAccountId: 
         : undefined,
     locale,
     refreshIssues: async () => {
-      const results = await Promise.all([retryList(), retryDetail(true)]);
+      const results = await Promise.all([refreshList(), retryDetail(true)]);
       return results.every((result) => result.status === 'success')
         ? { status: 'success' }
         : { status: 'failure' };
@@ -276,17 +276,38 @@ export function AdminIssueCenter({ adminAccountId }: { readonly adminAccountId: 
     return () => query.removeEventListener('change', update);
   }, []);
   const modalDetail = selectedOpen && mobileDetail;
-  useModalAccessibility(
-    detailRoot,
+  const closeDetail = useCallback(
     () =>
       updateQuery({
         [ADMIN_ISSUE_QUERY_KEY]: undefined,
         [ADMIN_CHANGE_REQUEST_QUERY_KEY]: undefined,
       }),
-    attendance.pending,
-    modalDetail
+    [updateQuery]
   );
+  useModalAccessibility(detailRoot, closeDetail, attendance.pending, modalDetail);
   useBodyScrollLock(modalDetail);
+  useEffect(() => {
+    if (mobileDetail || !selectedIssueParam || selectedChangeRequestParam || attendance.pending)
+      return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (
+        event.key === 'Escape' &&
+        !event.defaultPrevented &&
+        !document.querySelector('[aria-modal="true"]')
+      ) {
+        event.preventDefault();
+        closeDetail();
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [
+    attendance.pending,
+    closeDetail,
+    mobileDetail,
+    selectedChangeRequestParam,
+    selectedIssueParam,
+  ]);
 
   const openIssueDestination = (
     item: AdminIssueInboxItem | AdminIssueDetailReadModel,
@@ -320,10 +341,27 @@ export function AdminIssueCenter({ adminAccountId }: { readonly adminAccountId: 
         : 'adminIssueCourseContext'
     );
 
+  const notice = attendance.notice ?? attendance.outcome;
+  const attendanceFeedback = notice && (
+    <div role={notice.errorCode ? 'alert' : 'status'} className="space-y-2 type-compact">
+      <p>
+        {t(notice.key)}
+        {notice.errorCode && notice.errorCode !== 'stale_version' ? ` (${notice.errorCode})` : ''}
+      </p>
+      {notice.refreshing && (
+        <p className="text-[var(--ink-dim)]">{t('adminIssueAttendanceRefreshing')}</p>
+      )}
+      {notice.refreshFailed && (
+        <p className="text-[var(--ink-dim)]">{t('adminIssueAttendanceRefreshPending')}</p>
+      )}
+    </div>
+  );
+
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)]">
       {view === 'open' && <AdminLevelRequests accountId={adminAccountId} />}
       <section aria-label={t('adminIssueInboxTitle')} className="space-y-4">
+        {!attendance.notice && attendanceFeedback}
         <div className="flex flex-wrap items-center gap-2">
           <div className="inline-flex border border-[var(--border)]">
             <button
@@ -618,23 +656,39 @@ export function AdminIssueCenter({ adminAccountId }: { readonly adminAccountId: 
               : 'hidden min-h-56 lg:flex lg:items-center lg:justify-center'
           }`}
         >
-          {attendance.notice && (
-            <div
-              role={attendance.notice.errorCode ? 'alert' : 'status'}
-              aria-live="polite"
-              className="mb-4 space-y-2 type-compact text-[var(--ink)]"
-            >
-              <p>
-                {t(attendance.notice.key)}
-                {attendance.notice.errorCode && attendance.notice.errorCode !== 'stale_version'
-                  ? ` (${attendance.notice.errorCode})`
-                  : ''}
-              </p>
-              {attendance.notice.refreshFailed && (
-                <p className="text-[var(--ink-dim)]">{t('adminIssueAttendanceRefreshPending')}</p>
-              )}
+          {selectedIssueParam && !selectedChangeRequestParam && (
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="type-card-title text-[var(--ink)]">
+                  {t(
+                    detail.item
+                      ? ADMIN_ISSUE_KIND_LABEL_KEYS[detail.item.kind]
+                      : 'adminIssueDetailTitle'
+                  )}
+                </h3>
+                {detail.item?.presentationOrigin === 'guest' ||
+                selectedListIssue?.presentationOrigin === 'guest' ? (
+                  <p className="mt-1 type-caption text-[var(--ink-dim)]">
+                    {t('adminIssueGuestOrigin')}
+                  </p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                aria-label={t('adminIssueClose')}
+                disabled={attendance.pending}
+                onClick={closeDetail}
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
           )}
+          {attendance.pending && (
+            <p role="status" className="mb-4 type-compact">
+              {t('adminIssueAttendanceSaving')}
+            </p>
+          )}
+          {attendance.notice && <div className="mb-4">{attendanceFeedback}</div>}
           {selectedChangeRequestParam ? (
             !selectedChangeRequestResult.success ? (
               <div role="alert" className="space-y-3 type-compact text-red-700">
@@ -737,13 +791,6 @@ export function AdminIssueCenter({ adminAccountId }: { readonly adminAccountId: 
           ) : !selectedIssueResult.success ? (
             <div role="alert" className="space-y-3 type-compact text-red-700">
               <p>{t('adminIssueNotFound')}</p>
-              <button
-                type="button"
-                onClick={() => updateQuery({ [ADMIN_ISSUE_QUERY_KEY]: undefined })}
-                className="border border-[var(--border)] px-3 py-2 type-button"
-              >
-                {t('adminIssueClose')}
-              </button>
             </div>
           ) : detail.loading ? (
             <div role="status" className="flex min-h-48 items-center justify-center">
@@ -768,31 +815,11 @@ export function AdminIssueCenter({ adminAccountId }: { readonly adminAccountId: 
               </button>
             </div>
           ) : !detail.item ? (
-            <p className="type-compact text-[var(--ink-dim)]">{t('adminIssueNotFound')}</p>
+            attendance.notice?.key !== 'adminIssueAttendanceSaved' && (
+              <p className="type-compact text-[var(--ink-dim)]">{t('adminIssueNotFound')}</p>
+            )
           ) : (
             <div className="space-y-5">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="type-card-title text-[var(--ink)]">
-                    {t(ADMIN_ISSUE_KIND_LABEL_KEYS[detail.item.kind])}
-                  </h3>
-                  {detail.item.presentationOrigin === 'guest' ||
-                  selectedListIssue?.presentationOrigin === 'guest' ? (
-                    <p className="mt-1 type-caption text-[var(--ink-dim)]">
-                      {t('adminIssueGuestOrigin')}
-                    </p>
-                  ) : null}
-                </div>
-                <button
-                  type="button"
-                  aria-label={t('adminIssueClose')}
-                  disabled={attendance.pending}
-                  onClick={() => updateQuery({ [ADMIN_ISSUE_QUERY_KEY]: undefined })}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
               <div
                 className={`flex gap-3 border p-3 ${
                   detail.item.actionRequirement === 'action_required'
@@ -917,6 +944,7 @@ export function AdminIssueCenter({ adminAccountId }: { readonly adminAccountId: 
                     <AdminIssueAttendancePanel
                       input={attendance.panel}
                       pending={attendance.pending}
+                      alreadySaved={attendance.alreadySaved}
                       onSubmit={() => void attendance.submit()}
                     />
                   )}

@@ -1198,6 +1198,7 @@ export const translations = {
     adminIssueAttendanceAllPresent: 'Everyone attended',
     adminIssueAttendanceSaving: 'Saving...',
     adminIssueAttendanceSaved: 'Attendance saved',
+    adminIssueAttendanceRefreshing: 'Updating task data…',
     adminIssueAttendanceSaveFailed: 'Could not save attendance',
     adminIssueAttendanceStale:
       'Attendance was changed. The lesson data has been refreshed; review it before trying again.',
@@ -3921,6 +3922,7 @@ export const translations = {
     adminIssueAttendanceAllPresent: 'Все присутствовали',
     adminIssueAttendanceSaving: 'Сохраняем...',
     adminIssueAttendanceSaved: 'Посещаемость сохранена',
+    adminIssueAttendanceRefreshing: 'Обновляем данные задачи…',
     adminIssueAttendanceSaveFailed: 'Не удалось сохранить посещаемость',
     adminIssueAttendanceStale:
       'Посещаемость была изменена. Данные занятия обновлены; проверьте их перед повторной попыткой.',

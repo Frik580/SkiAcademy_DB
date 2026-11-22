@@ -81,7 +81,8 @@ vi.mock('../../src/features/admin/identity/useAdminIdentityCommands', () => ({
   executeAdminIdentityAttempt: (...args: unknown[]) => mockExecute(...args),
 }));
 
-vi.mock('../../src/infrastructure/firebase', () => ({
+vi.mock('../../src/infrastructure/firebase', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/infrastructure/firebase')>()),
   uploadImage: vi.fn(async () => 'https://example.com/avatar.jpg'),
 }));
 

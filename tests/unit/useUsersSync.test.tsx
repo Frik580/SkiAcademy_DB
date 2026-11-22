@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { UserProfile } from '../../src/types';
 
 const firestoreMocks = vi.hoisted(() => ({
+  subscribeScopedDocuments: vi.fn(),
   collection: vi.fn((_db: unknown, path: string) => ({ kind: 'collection', path })),
   doc: vi.fn((_db: unknown, collectionPath: string, id: string) => ({
     kind: 'document',
@@ -17,6 +18,10 @@ const firestoreMocks = vi.hoisted(() => ({
     collectionRef,
     constraints,
   })),
+}));
+
+vi.mock('../../src/lib/canonical/scopedClientDocuments', () => ({
+  subscribeScopedDocuments: firestoreMocks.subscribeScopedDocuments,
 }));
 
 vi.mock('../../src/infrastructure/firebase', async () => {
@@ -77,6 +82,7 @@ describe('users sync scope and teardown', () => {
     firestoreMocks.onSnapshot.mockReset();
     firestoreMocks.query.mockClear();
     firestoreMocks.onSnapshot.mockReturnValue(vi.fn());
+    firestoreMocks.subscribeScopedDocuments.mockReset().mockReturnValue(vi.fn());
     useAuthStore.setState({ firebaseUser: null } as never);
     useProfileStore.setState({
       userProfile: null,
@@ -98,28 +104,25 @@ describe('users sync scope and teardown', () => {
     await waitFor(() => expect(useProfileStore.getState().usersList).toEqual([]));
     expect(firestoreMocks.collection).not.toHaveBeenCalled();
     expect(firestoreMocks.onSnapshot).not.toHaveBeenCalled();
+    expect(firestoreMocks.subscribeScopedDocuments).not.toHaveBeenCalled();
   });
 
   it('keeps the paged users directory on Admin and unsubscribes when switching to Instructor', async () => {
     const unsubscribe = vi.fn();
-    firestoreMocks.onSnapshot.mockReturnValue(unsubscribe);
+    firestoreMocks.subscribeScopedDocuments.mockReturnValue(unsubscribe);
     useAuthStore.setState({ firebaseUser: { uid: adminInstructorProfile.uid } } as never);
     useProfileStore.setState({ userProfile: adminInstructorProfile });
     const { Wrapper, navigation } = routerWrapper('/admin');
     const hook = renderHook(() => useUsersSync(), { wrapper: Wrapper });
 
-    await waitFor(() => expect(firestoreMocks.onSnapshot).toHaveBeenCalled());
-    const activeSnapshotCount = firestoreMocks.onSnapshot.mock.calls.length;
-    const usersQueries = firestoreMocks.onSnapshot.mock.calls.map(
-      ([usersQuery]) =>
-        usersQuery as { collectionRef: { path: string }; constraints: Array<{ count?: number }> }
-    );
+    await waitFor(() => expect(firestoreMocks.subscribeScopedDocuments).toHaveBeenCalled());
+    const activeSnapshotCount = firestoreMocks.subscribeScopedDocuments.mock.calls.length;
+    const usersQueries = firestoreMocks.subscribeScopedDocuments.mock.calls.map(([input]) => input);
     expect(usersQueries.length).toBeGreaterThan(0);
     for (const usersQuery of usersQueries) {
-      expect(usersQuery.collectionRef.path).toBe('users');
-      expect(usersQuery.constraints[0]).toEqual({
-        kind: 'limit',
-        count: useProfileStore.getState().usersPageSize + 1,
+      expect(usersQuery).toEqual({
+        collection: 'users',
+        take: useProfileStore.getState().usersPageSize + 1,
       });
     }
 
@@ -127,24 +130,36 @@ describe('users sync scope and teardown', () => {
 
     await waitFor(() => expect(unsubscribe).toHaveBeenCalledTimes(activeSnapshotCount));
     await waitFor(() => expect(useProfileStore.getState().usersList).toEqual([]));
-    expect(firestoreMocks.onSnapshot).toHaveBeenCalledTimes(activeSnapshotCount);
+    expect(firestoreMocks.subscribeScopedDocuments).toHaveBeenCalledTimes(activeSnapshotCount);
+    expect(firestoreMocks.onSnapshot).not.toHaveBeenCalled();
     hook.unmount();
   });
 
   it('unsubscribes the users directory and clears it on logout', async () => {
     const unsubscribe = vi.fn();
-    firestoreMocks.onSnapshot.mockReturnValue(unsubscribe);
+    firestoreMocks.subscribeScopedDocuments.mockReturnValue(unsubscribe);
     useAuthStore.setState({ firebaseUser: { uid: adminInstructorProfile.uid } } as never);
     useProfileStore.setState({ userProfile: adminInstructorProfile });
     const { Wrapper } = routerWrapper('/admin');
     const hook = renderHook(() => useUsersSync(), { wrapper: Wrapper });
-    await waitFor(() => expect(firestoreMocks.onSnapshot).toHaveBeenCalled());
-    const activeSnapshotCount = firestoreMocks.onSnapshot.mock.calls.length;
+    await waitFor(() => expect(firestoreMocks.subscribeScopedDocuments).toHaveBeenCalled());
+    const activeSnapshotCount = firestoreMocks.subscribeScopedDocuments.mock.calls.length;
+
+    const publish = firestoreMocks.subscribeScopedDocuments.mock.calls.at(-1)![1];
+    const snapshot = {
+      docs: [{ id: adminInstructorProfile.uid, data: () => adminInstructorProfile }],
+    };
+    act(() => publish(snapshot));
+    expect(useProfileStore.getState().usersList.map((user) => user.uid)).toEqual([
+      adminInstructorProfile.uid,
+    ]);
 
     act(() => useAuthStore.setState({ firebaseUser: null } as never));
 
     await waitFor(() => expect(unsubscribe).toHaveBeenCalledTimes(activeSnapshotCount));
     await waitFor(() => expect(useProfileStore.getState().usersList).toEqual([]));
+    act(() => publish(snapshot));
+    expect(useProfileStore.getState().usersList).toEqual([]);
     hook.unmount();
   });
 

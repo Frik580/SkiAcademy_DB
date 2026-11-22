@@ -9,11 +9,12 @@ import { useCoursesSync } from '../../src/features/courses/sync/useCoursesSync';
 import { useCourseEnrollmentStore } from '../../src/features/course-enrollments/courseEnrollmentStore';
 import { useCourseCatalogReadSync } from '../../src/features/course-enrollments/useCourseEnrollmentReadSync';
 
-const onSnapshot = vi.hoisted(() =>
+// Guest documents are already LIVE-scoped by the server; this hook consumes
+// scoped snapshots, not direct Firestore collection snapshots.
+const subscribeScopedDocuments = vi.hoisted(() =>
   vi.fn(
     (
       _query: unknown,
-      _options: unknown,
       onNext: (snapshot: {
         docs: Array<{ id: string; data: () => unknown }>;
         metadata: { fromCache: boolean };
@@ -32,17 +33,6 @@ const onSnapshot = vi.hoisted(() =>
               dataScope: 'live',
             }),
           },
-          {
-            id: 'course_test_clone',
-            data: () => ({
-              title: 'TEST BASE',
-              price: 250000,
-              capacity: { totalSeats: 8, availableSeats: 8 },
-              lifecycle: 'active',
-              dataScope: 'test',
-              testSessionId: 'test_course_client_a01',
-            }),
-          },
         ],
       });
       return () => undefined;
@@ -52,17 +42,7 @@ const onSnapshot = vi.hoisted(() =>
 
 const queryCourseCatalogReadModels = vi.hoisted(() => vi.fn());
 
-vi.mock('../../src/infrastructure/firebase', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../src/infrastructure/firebase')>()),
-  collection: () => ({}),
-  db: {},
-  doc: (_db: unknown, collection: string, id: string) => ({ path: `${collection}/${id}` }),
-  handleFirestoreError: () => undefined,
-  limit: () => ({}),
-  onSnapshot,
-  OperationType: { LIST: 'LIST' },
-  query: () => ({}),
-}));
+vi.mock('../../src/lib/canonical/scopedClientDocuments', () => ({ subscribeScopedDocuments }));
 
 vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryCourseCatalogReadModels,
@@ -127,7 +107,7 @@ describe('product course catalogue client', () => {
   );
 
   beforeEach(() => {
-    onSnapshot.mockClear();
+    subscribeScopedDocuments.mockClear();
     queryCourseCatalogReadModels.mockReset();
     useAuthStore.setState({ firebaseUser: null, authLoading: false, authGeneration: 0 });
     useCoursesStore.setState({ courses: [] });
@@ -169,12 +149,12 @@ describe('product course catalogue client', () => {
 
   it('waits for both server snapshots before confirming an empty public list', () => {
     const onNext: Array<(value: { docs: []; metadata: { fromCache: boolean } }) => void> = [];
-    onSnapshot
-      .mockImplementationOnce((_query, _options, receive) => {
+    subscribeScopedDocuments
+      .mockImplementationOnce((_query, receive) => {
         onNext.push(receive);
         return () => undefined;
       })
-      .mockImplementationOnce((_query, _options, receive) => {
+      .mockImplementationOnce((_query, receive) => {
         onNext.push(receive);
         return () => undefined;
       });
@@ -186,7 +166,7 @@ describe('product course catalogue client', () => {
     expect(useCoursesStore.getState().publicCoursesStatus).toBe('loading');
     act(() => onNext[1]({ docs: [], metadata: { fromCache: false } }));
     expect(useCoursesStore.getState().publicCoursesStatus).toBe('ready');
-    expect(onSnapshot).toHaveBeenCalledTimes(2);
+    expect(subscribeScopedDocuments).toHaveBeenCalledTimes(2);
   });
 
   it('shows only the server TEST course after sign-in and restores LIVE on logout', async () => {
@@ -262,5 +242,34 @@ describe('product course catalogue client', () => {
     expect(course?.id).toBe('course_test_clone');
     expect(course?.id).not.toBe('course_1784217360616');
     expect(course?.description).toBe('TEST clone');
+  });
+
+  it('ignores a pending TEST catalogue response after switching accounts', async () => {
+    let finish!: (value: unknown) => void;
+    useAuthStore.getState().setFirebaseUser({ uid: 'account_old_actor' } as never);
+    queryCourseCatalogReadModels.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        })
+    );
+    renderHook(() => useCoursesSync(), { wrapper });
+    expect(queryCourseCatalogReadModels).toHaveBeenCalledTimes(1);
+
+    const nextItem = { ...productItem, courseId: 'course_next_account', title: 'Next Account' };
+    queryCourseCatalogReadModels.mockResolvedValue({ scope: 'product', items: [nextItem] });
+    await act(async () => {
+      useAuthStore.getState().setFirebaseUser({ uid: 'account_next_actor' } as never);
+    });
+    expect(useCoursesStore.getState().courses.map((course) => course.id)).toEqual([
+      'course_next_account',
+    ]);
+    await act(async () => finish({ scope: 'product', items: [productItem] }));
+    expect(useCoursesStore.getState().courses.map((course) => course.id)).toEqual([
+      'course_next_account',
+    ]);
+    expect(useCourseEnrollmentStore.getState().catalogByCourseId.has('course_test_clone')).toBe(
+      false
+    );
   });
 });

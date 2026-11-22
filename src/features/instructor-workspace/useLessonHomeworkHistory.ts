@@ -79,7 +79,8 @@ export function useLessonHomeworkHistory(
           };
         });
       } catch (error) {
-        if ((error as { code?: string }).code === 'unauthenticated') {
+        const code = (error as { code?: string }).code;
+        if (code === 'unauthenticated' || code === 'functions/unauthenticated') {
           if (current())
             setState({
               key,

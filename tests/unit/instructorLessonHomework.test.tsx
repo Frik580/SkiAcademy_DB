@@ -7,7 +7,8 @@ import { useAuthStore } from '../../src/features/auth/authStore';
 import type { User } from 'firebase/auth';
 import type { ChatMessage } from '../../src/types';
 
-const mocks = vi.hoisted(() => ({ getDocs: vi.fn(), media: vi.fn() }));
+const mocks = vi.hoisted(() => ({ getDocs: vi.fn(), media: vi.fn(), callFunction: vi.fn() }));
+vi.mock('../../src/lib/functions/functionsClient', () => ({ callFunction: mocks.callFunction }));
 vi.mock('../../src/infrastructure/firebase', async (original) => ({
   ...(await original<object>()),
   getDocs: mocks.getDocs,
@@ -49,6 +50,8 @@ const expand = () =>
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.getDocs.mockReset();
+  mocks.callFunction.mockReset();
+  mocks.callFunction.mockRejectedValue({ code: 'functions/permission-denied' });
   localStorage.setItem('alpine_glide_lang', 'en');
   useAuthStore.setState({ firebaseUser: { uid: 'coach' } as User, authGeneration: 1 });
   mocks.getDocs.mockResolvedValue(respond([]));
@@ -148,6 +151,9 @@ it('distinguishes denial, empty and unavailable, clears revoked data and never r
   expect(screen.queryByText(/Homework 40/)).toBeNull();
   expect(screen.queryByRole('button', { name: 'Show more' })).toBeNull();
   expect(screen.queryByText(translations.en.lessonHomeworkEmpty)).toBeNull();
+  expect(mocks.getDocs).toHaveBeenCalledTimes(2);
+  expect(mocks.callFunction).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
 });
 
 it('clears history on sign-out and makes no further reads', async () => {
@@ -160,6 +166,73 @@ it('clears history on sign-out and makes no further reads', async () => {
   expand();
   await screen.findByRole('alert');
   expect(mocks.getDocs).toHaveBeenCalledTimes(2);
+});
+
+it('uses server-authorized homework when direct Firestore access is denied', async () => {
+  mocks.getDocs.mockRejectedValue({ code: 'permission-denied' });
+  mocks.callFunction.mockResolvedValue({ messages: [item('01')], cursor: null, hasMore: false });
+  render(view());
+  expand();
+  await screen.findByText(/Homework 01/);
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(mocks.callFunction).toHaveBeenCalledWith(
+    'queryChatMessages',
+    { threadId: 'lesson', take: 1, homeworkOnly: true },
+    { idempotencyKey: expect.any(String), maxAttempts: 1 }
+  );
+});
+
+it('preserves history on a transient callable failure and allows a manual retry', async () => {
+  mocks.getDocs
+    .mockResolvedValueOnce(respond(Array.from({ length: 20 }, (_, i) => item(String(40 - i)))))
+    .mockRejectedValueOnce({ code: 'permission-denied' })
+    .mockRejectedValueOnce({ code: 'permission-denied' });
+  mocks.callFunction
+    .mockRejectedValueOnce({ code: 'functions/unavailable' })
+    .mockResolvedValueOnce({ messages: [item('19')], cursor: null, hasMore: false });
+  render(view());
+  expand();
+  await screen.findByText(/Homework 40/);
+  fireEvent.click(screen.getByRole('button', { name: 'Show more' }));
+  await screen.findByRole('button', { name: 'Retry' });
+  expect(screen.getByText(/Homework 40/)).toBeTruthy();
+  expect(mocks.callFunction).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+  await screen.findByText(/Homework 19/);
+  expect(mocks.callFunction).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole('alert')).toBeNull();
+});
+
+it('clears loaded history when the callable reports expired authentication', async () => {
+  mocks.getDocs
+    .mockResolvedValueOnce(respond(Array.from({ length: 20 }, (_, i) => item(String(40 - i)))))
+    .mockRejectedValueOnce({ code: 'permission-denied' });
+  mocks.callFunction.mockRejectedValue({ code: 'functions/unauthenticated' });
+  render(view());
+  expand();
+  await screen.findByText(/Homework 40/);
+  fireEvent.click(screen.getByRole('button', { name: 'Show more' }));
+  await screen.findByRole('alert');
+  expect(screen.queryByText(/Homework 40/)).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Show more' })).toBeNull();
+  expect(mocks.getDocs).toHaveBeenCalledTimes(2);
+  expect(mocks.callFunction).toHaveBeenCalledTimes(1);
+});
+
+it('denies history without retry when parallel reads report offline and expired authentication', async () => {
+  mocks.getDocs
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockRejectedValueOnce({ code: 'permission-denied' });
+  mocks.callFunction.mockRejectedValue({ code: 'functions/unauthenticated' });
+  render(view('a', 'lesson', [source('a'), source('b')]));
+  expand();
+  await screen.findByRole('alert');
+  expect(screen.queryAllByRole('article')).toHaveLength(0);
+  expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Show more' })).toBeNull();
+  expect(mocks.getDocs).toHaveBeenCalledTimes(2);
+  expect(mocks.callFunction).toHaveBeenCalledTimes(1);
 });
 
 it('closes pending history and safely reloads it on reopening', async () => {

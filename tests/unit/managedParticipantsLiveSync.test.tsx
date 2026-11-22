@@ -45,7 +45,10 @@ vi.mock('../../src/features/participants/useParticipantManagementCommands', () =
   }),
 }));
 
-vi.mock('../../src/infrastructure/firebase', () => ({ uploadImage: mocks.uploadImage }));
+vi.mock('../../src/infrastructure/firebase', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/infrastructure/firebase')>()),
+  uploadImage: mocks.uploadImage,
+}));
 
 vi.mock('../../src/features/student-cabinet/components/profileImage', () => ({
   optimizeProfileImage: vi.fn(async (file: Blob) => file),

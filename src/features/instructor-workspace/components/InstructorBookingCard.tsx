@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../media/ProtectedImage';
 import type { InstructorHomeworkSourceInput } from '../instructorLessonContextContracts';
 import React, { useState } from 'react';
 import type { SkillConfig } from '../../../domain/achievements';
@@ -129,7 +130,7 @@ export const InstructorBookingCard: React.FC<InstructorBookingCardProps> = ({
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-800">
             {participant.clientAvatar ? (
-              <img
+              <ProtectedImage
                 src={participant.clientAvatar}
                 alt={studentName}
                 className="w-full h-full object-cover"

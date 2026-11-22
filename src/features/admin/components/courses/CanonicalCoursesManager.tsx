@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../../media/ProtectedImage';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ADMIN_COURSE_READ_MODEL_PAGE_SIZE_MAX,
@@ -3249,7 +3250,11 @@ export const CanonicalCoursesManager: React.FC<CanonicalCoursesManagerInput> = (
                         />
                       ) : null}
                       {editForm.bgImageUrl ? (
-                        <img src={editForm.bgImageUrl} alt="" className="h-20 w-32 object-cover" />
+                        <ProtectedImage
+                          src={editForm.bgImageUrl}
+                          alt=""
+                          className="h-20 w-32 object-cover"
+                        />
                       ) : null}
                     </div>
                     <label htmlFor="course-edit-video" className="grid gap-1 type-caption">

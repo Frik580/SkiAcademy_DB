@@ -1,13 +1,6 @@
+import { subscribeScopedDocuments } from '../../../lib/canonical/scopedClientDocuments';
 import { useEffect } from 'react';
-import {
-  collection,
-  db,
-  handleFirestoreError,
-  limit,
-  onSnapshot,
-  OperationType,
-  query,
-} from '../../../infrastructure/firebase';
+import { handleFirestoreError, OperationType } from '../../../infrastructure/firebase';
 import { toUserProfile } from '../../../infrastructure/firebase';
 import { useAuthStore } from '../../auth/authStore';
 import { useDataSyncScope } from '../../../store/useDataSyncScope';
@@ -39,8 +32,8 @@ export const useUsersSync = () => {
       useAuthStore.getState().firebaseUser?.uid === accountId &&
       useAuthStore.getState().authGeneration === authGeneration &&
       useProfileStore.getState().userProfile?.role === 'admin';
-    const unsubscribe = onSnapshot(
-      query(collection(db, 'users'), limit(usersPageSize + 1)),
+    const unsubscribe = subscribeScopedDocuments(
+      { collection: 'users', take: usersPageSize + 1 },
       (snapshot) => {
         if (!isCurrent()) return;
         const users = snapshot.docs

@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../media/ProtectedImage';
 import { CourseCatalogFeedback } from './CourseCatalogFeedback';
 import type { CourseCatalogLoadInput } from '../groupCourseEnrollmentCta';
 import React from 'react';
@@ -117,7 +118,7 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
           <div className="absolute top-3 left-3 z-10">
             {/^(https?:\/\/|\/|data:image\/)/.test(course.badge) ||
             /\.(png|jpg|jpeg|svg|gif|webp)/i.test(course.badge) ? (
-              <img
+              <ProtectedImage
                 src={course.badge}
                 referrerPolicy="no-referrer"
                 alt="badge"
@@ -130,7 +131,7 @@ export const GroupCourseCard: React.FC<GroupCourseCardProps> = ({
             )}
           </div>
         )}
-        <img
+        <ProtectedImage
           src={optimizedImageUrl(
             course.bgImageUrl ||
               'https://images.unsplash.com/photo-1551698618-1ffdfe1d9772?auto=format&fit=crop&q=80&w=800',

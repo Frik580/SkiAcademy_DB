@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../media/ProtectedImage';
 import React from 'react';
 import { DisabledOptionTooltip } from '../../../ui/DisabledOptionTooltip';
 import type { ManagedParticipantOption } from '../../lesson-bookings/lessonBookingContracts';
@@ -107,7 +108,7 @@ export const ParticipantPicker: React.FC<ParticipantPickerProps> = ({
               }`}
             >
               {participant.avatarUrl && (
-                <img
+                <ProtectedImage
                   src={participant.avatarUrl}
                   alt=""
                   className="mr-2 h-6 w-6 shrink-0 rounded-full object-cover"

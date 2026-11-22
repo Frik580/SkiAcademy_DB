@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../media/ProtectedImage';
 import React from 'react';
 import { Booking } from '../../../types';
 import { useLanguage } from '../../../app/providers/LanguageContext';
@@ -38,7 +39,7 @@ export const UnreviewedCompletedBookingsNotice: React.FC<
             className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[var(--card-bg)] p-3 rounded-xs border border-slate-200/70 dark:border-slate-800/70 hover:border-accent-soft transition duration-200 w-full min-w-0"
           >
             <div className="flex items-center gap-3 min-w-0 w-full">
-              <img
+              <ProtectedImage
                 src={inv.instructorAvatar}
                 alt={inv.instructorName}
                 className="w-8.5 h-8.5 rounded-full object-cover shrink-0 filter grayscale"

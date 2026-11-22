@@ -24,6 +24,12 @@ const maxOne = [
   'scheduledResolveLessonBookingAttendanceOutcomes',
 ];
 const eventDocuments: Record<string, string> = {
+  syncClientInstructorSignal: 'instructors/{id}',
+  syncClientCourseSignal: 'courses/{id}',
+  syncClientCourseContentSignal: 'course_catalog_content/{id}',
+  syncClientUserSignal: 'users/{id}',
+  syncClientNotificationSignal: 'notifications/{id}',
+  syncClientActivitySignal: 'activity_logs/{id}',
   deliverDomainOutboxOnCreate: 'domain_outbox/{outboxId}',
   syncCourseEnrollmentOutcomeWork: 'course_enrollments/{enrollmentId}',
   syncGuestBookingConfirmationWork: 'bookings/{bookingId}',
@@ -34,6 +40,9 @@ const eventDocuments: Record<string, string> = {
   syncLessonBookingAttendanceOutcomeWork: 'bookings/{bookingId}',
 };
 const maxTwenty = [
+  'queryScopedClientDocuments',
+  'queryChatMessages',
+  'mutateChatMessage',
   'claimGuestProfile',
   'reportClientErrors',
   'deleteErrorLog',
@@ -76,11 +85,11 @@ const maxTwenty = [
 ];
 const expectedCaps = Object.fromEntries([
   ...maxOne.map((name) => [name, 1]),
-  ...[...Object.keys(eventDocuments), 'optimizeImage', 'bookingChatMedia'].map((name) => [
-    name,
-    10,
-  ]),
+  ...[...Object.keys(eventDocuments), 'optimizeImage', 'bookingChatMedia', 'protectedImages'].map(
+    (name) => [name, 10]
+  ),
   ...maxTwenty.map((name) => [name, 20]),
+  ['chatMessagesStream', 20],
 ]);
 const secretCallables = new Set(
   maxTwenty.filter((name) => name !== 'scheduledPurgeExpiredNotifications')
@@ -97,7 +106,7 @@ function deploymentSpec(): Record<string, Record<string, unknown>> {
 describe('reviewed Functions deployment configuration', () => {
   it('requires the exact scaling map and export inventory in the generated specification', () => {
     const spec = deploymentSpec();
-    expect(Object.keys(spec)).toHaveLength(55);
+    expect(Object.keys(spec)).toHaveLength(66);
     expect(
       Object.fromEntries(Object.entries(spec).map(([name, e]) => [name, e.maxInstances]))
     ).toEqual(expectedCaps);
@@ -114,6 +123,8 @@ describe('reviewed Functions deployment configuration', () => {
       const purge = name === 'scheduledPurgeExpiredNotifications';
       const scheduled = lowCpuScheduler || purge;
       const chatMedia = name === 'bookingChatMedia';
+      const stream = name === 'chatMessagesStream';
+      const protectedImages = name === 'protectedImages';
       expect(runtime).toEqual({
         platform: 'gcfv2',
         entryPoint: name,
@@ -124,11 +135,15 @@ describe('reviewed Functions deployment configuration', () => {
               ? 256
               : null,
         timeoutSeconds:
-          chatMedia || name === 'clearErrorLogs' ? 120 : name === 'optimizeImage' ? 60 : null,
+          chatMedia || stream || name === 'clearErrorLogs'
+            ? 120
+            : name === 'optimizeImage' || protectedImages
+              ? 60
+              : null,
         minInstances: null,
         maxInstances: expectedCaps[name],
         ingressSettings: null,
-        concurrency: chatMedia ? 1 : null,
+        concurrency: chatMedia ? 1 : stream ? 40 : null,
         serviceAccountEmail: null,
         vpc: null,
         ...(scheduled ? {} : { region: ['us-central1'] }),
@@ -157,7 +172,7 @@ describe('reviewed Functions deployment configuration', () => {
                   retry: true,
                 },
               }
-            : name === 'optimizeImage' || chatMedia
+            : name === 'optimizeImage' || chatMedia || stream || protectedImages
               ? { httpsTrigger: {} }
               : { callableTrigger: {} }),
       });

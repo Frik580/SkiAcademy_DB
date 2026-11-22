@@ -88,6 +88,26 @@ async function expectScopeError(promise: Promise<unknown>, code: string): Promis
 }
 
 describe('resolveCanonicalReadScope', () => {
+  it('uses the current Account role when rejecting a stale administrator decision', async () => {
+    await expectScopeError(
+      resolveCanonicalReadScope(
+        {
+          ...store({ session: session(testSessionId, 'active') }),
+          readAccount: async () => ({
+            accountId,
+            role: 'user',
+            lifecycle: { status: 'active' },
+            revision: 1,
+            createdAt: at,
+            updatedAt: at,
+            audit,
+          }),
+        },
+        { accountId, isAdministrator: true, requestedTestSessionId: testSessionId }
+      ),
+      'TEST_SESSION_FORBIDDEN'
+    );
+  });
   it('resolves an ordinary customer to LIVE without using email', async () => {
     await expect(
       resolveCanonicalReadScope(store(), {

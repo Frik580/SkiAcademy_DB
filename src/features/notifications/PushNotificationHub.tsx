@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../media/ProtectedImage';
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { X, Bell, CheckCircle, AlertTriangle, Info, ShieldAlert } from 'lucide-react';
 import { useLanguage } from '../../app/providers/LanguageContext';
@@ -264,7 +265,7 @@ export const NotificationHubModal: React.FC<NotificationHubModalProps> = ({
                       className="p-3 border border-[var(--border)] bg-black/10 flex items-center justify-between gap-3 rounded-none"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <img
+                        <ProtectedImage
                           src={b.instructorAvatar}
                           alt={b.instructorName}
                           className="w-8 h-8 rounded-none object-cover shrink-0 border border-[var(--border)]"

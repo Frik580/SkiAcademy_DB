@@ -335,36 +335,47 @@ describe('instructor revenue live read states', () => {
 
   it('does not restore the previous total when the server assigns a different test session', async () => {
     profile('account_a', 'coach', { dataScope: 'test' });
+    const assignment = 'test_actor_assignments/account_a';
     const sessionA = 'instructor_lesson_revenue/test_a/instructors/coach';
     const sessionB = 'instructor_lesson_revenue/test_b/instructors/coach';
     mocks.resolve.mockResolvedValueOnce({ statePath, summaryPath: sessionA });
     const hook = renderHook(() => useInstructorLessonRevenue('account_a', 'coach'));
+    act(() => emit(assignment, { activeTestSessionId: 'a' }, true));
+    expect(mocks.resolve).not.toHaveBeenCalled();
+    act(() => emit(assignment, { activeTestSessionId: 'a' }));
     await waitFor(() => expect(mocks.snapshots.has(sessionA)).toBe(true));
     act(() => deliver(amount, sessionA));
     expect(hook.result.current.revenue).toEqual(loaded);
     mocks.resolve.mockResolvedValueOnce({ statePath, summaryPath: sessionB });
     await act(async () => focus());
+    expect(hook.result.current.revenue).toEqual({ status: 'denied' });
+    mocks.resolve.mockResolvedValueOnce({ statePath, summaryPath: sessionB });
+    act(() => emit(assignment, { activeTestSessionId: 'b' }));
     expect(hook.result.current.revenue).toEqual({ status: 'loading' });
     act(() => emit(sessionA, amount));
     expect(hook.result.current.revenue).toEqual({ status: 'loading' });
+    await waitFor(() => expect(mocks.snapshots.has(sessionB)).toBe(true));
     act(() => deliver({ ...amount, retainedAmount: 7 }, sessionB));
     expect(hook.result.current.revenue).toEqual({ status: 'loaded', retainedAmount: 7 });
   });
 
   it('immediately invalidates the total when the observed Account test session changes', async () => {
+    const assignment = 'test_actor_assignments/account_a';
     const sessionA = 'instructor_lesson_revenue/test_a/instructors/coach';
     profile('account_a', 'coach', { dataScope: 'test', testSessionId: 'a' });
     mocks.resolve.mockResolvedValueOnce({ statePath, summaryPath: sessionA });
     const hook = renderHook(() => useInstructorLessonRevenue('account_a', 'coach'));
+    act(() => emit(assignment, { activeTestSessionId: 'a' }));
     await waitFor(() => expect(mocks.snapshots.has(sessionA)).toBe(true));
     act(() => deliver(amount, sessionA));
     expect(hook.result.current.revenue).toEqual(loaded);
-    const recheck = deferredPaths();
     act(() => profile('account_a', 'coach', { dataScope: 'test', testSessionId: 'b' }));
     expect(hook.result.current.revenue).toEqual({ status: 'loading' });
+    expect(mocks.snapshots.get(sessionA)!.stop).toHaveBeenCalledOnce();
+    const recheck = deferredPaths();
+    act(() => emit(assignment, { activeTestSessionId: 'b' }));
     await act(async () => recheck.resolve({ statePath, summaryPath: sessionA }));
     expect(hook.result.current.revenue).toEqual({ status: 'denied' });
-    expect(mocks.snapshots.get(sessionA)!.stop).toHaveBeenCalledOnce();
   });
 });
 

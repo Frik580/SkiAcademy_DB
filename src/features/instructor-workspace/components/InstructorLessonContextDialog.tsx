@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../media/ProtectedImage';
 import { InstructorHomeworkSection } from './InstructorHomeworkSection';
 import { UserRound } from 'lucide-react';
 import { AdminModal } from '../../admin/components/AdminModal';
@@ -77,7 +78,7 @@ export function InstructorLessonContextDialog({
     >
       <div className="flex items-center gap-3 min-w-0">
         {context.avatar ? (
-          <img
+          <ProtectedImage
             src={context.avatar}
             alt=""
             className="w-12 h-12 rounded-full object-cover shrink-0"

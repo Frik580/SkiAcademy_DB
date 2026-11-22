@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../media/ProtectedImage';
 import { useCallback, useEffect, useState } from 'react';
 import { ParticipantIdSchema } from '@ski-academy/shared-domain/canonical/identifiers';
 import { queryParticipantProgressReadModels } from '../../../lib/canonical/canonicalReadModelClient';
@@ -54,7 +55,7 @@ export function AdminLevelRequests({ accountId }: { accountId: string }) {
           <article key={item.participantId} className="space-y-2">
             <header className="flex items-center gap-2">
               {item.participantAvatar && (
-                <img
+                <ProtectedImage
                   className="h-9 w-9 rounded-full object-cover"
                   src={item.participantAvatar}
                   alt=""

@@ -10,6 +10,7 @@ import {
 } from './helpers/firebaseEmulatorTestEnv';
 import {
   collection,
+  collectionGroup,
   deleteDoc,
   doc,
   getDoc,
@@ -31,6 +32,7 @@ import {
   CorrelationIdSchema,
   paymentIdFromBookingId,
   timestampFromDate,
+  TestSessionSchema,
 } from '@ski-academy/shared-domain';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -166,7 +168,463 @@ const userProfile = (
   role,
   avatarUrl: '',
   balanceUSD: 100,
+  revision: 1,
+  createdAt: { seconds: 1700000000, nanoseconds: 0 },
+  updatedAt: { seconds: 1700000000, nanoseconds: 0 },
+  audit: { createdByCommandId: 'seed', lastChangedByCommandId: 'seed', correlationId: 'fixture' },
+  accountId: uid,
+  lifecycle: { status: 'active' },
+  dataScope: 'live',
   ...(systemRole ? { systemRole } : {}),
+});
+
+describe('CA-SEC-05B direct wallet and chat scope boundaries', () => {
+  it('denies direct cross-scope lookups and TEST access to LIVE bookings', async () => {
+    const id = 'scope_boundary_actor';
+    await seedData(async (context) => {
+      const firestore = context.firestore();
+      await setDoc(doc(firestore, 'users', id), {
+        ...userProfile(id, 'actor@example.com'),
+        dataScope: 'test',
+      });
+      await setDoc(doc(firestore, 'test_actors', id), { accountId: id, allowed: true });
+      for (const name of [
+        'courses',
+        'course_catalog_content',
+        'instructors',
+        'availability_slots',
+        'availability_hour_locks',
+        'bookings',
+        'notifications',
+        'activity_logs',
+        'wallet_ledger',
+      ]) {
+        await setDoc(doc(firestore, name, 'scoped-test-record'), {
+          userId: id,
+          dataScope: 'test',
+          testSessionId: 'unrelated_session',
+        });
+      }
+      await setDoc(doc(firestore, 'bookings', 'live-record'), { userId: id, status: 'confirmed' });
+    });
+    const admin = testEnv.authenticatedContext(OWNER_ID).firestore();
+    for (const name of [
+      'courses',
+      'course_catalog_content',
+      'instructors',
+      'availability_slots',
+      'availability_hour_locks',
+      'bookings',
+      'notifications',
+      'activity_logs',
+      'wallet_ledger',
+    ]) {
+      await assertFails(getDoc(doc(admin, name, 'scoped-test-record')));
+      await assertFails(getDocs(collection(admin, name)));
+    }
+    const actor = testEnv.authenticatedContext(id).firestore();
+    await assertFails(getDoc(doc(actor, 'bookings', 'live-record')));
+  });
+  const sessionId = 'test_security_a';
+  const otherSessionId = 'test_security_b';
+  const actorId = 'test_security_actor';
+  const walletPath = `users/${actorId}/wallet/state`;
+  const timestamp = { seconds: 1_790_000_000, nanoseconds: 0 };
+  const metadata = {
+    revision: 1,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    audit: {
+      createdByCommandId: 'seed',
+      lastChangedByCommandId: 'seed',
+      correlationId: 'security',
+    },
+  };
+  const account = (accountId: string, dataScope = 'live') => ({
+    ...userProfile(accountId, `${accountId}@example.com`),
+    ...metadata,
+    accountId,
+    lifecycle: { status: 'active' },
+    dataScope,
+  });
+  const wallet = (dataScope = 'live', testSessionId?: string) => ({
+    ...metadata,
+    accountId: actorId,
+    currency: 'KZT',
+    balance: 100,
+    eventRevision: 1,
+    dataScope,
+    ...(testSessionId ? { testSessionId } : {}),
+  });
+  const seedActor = async () =>
+    seedData(async (c) => {
+      const db = c.firestore();
+      await setDoc(doc(db, `users/${actorId}`), account(actorId, 'test'));
+      await setDoc(doc(db, `test_actors/${actorId}`), {
+        ...metadata,
+        accountId: actorId,
+        participantIds: ['participant_security_actor'],
+        kind: 'test_parent',
+        allowed: true,
+        dataScope: 'test',
+      });
+      await setDoc(doc(db, `test_actor_assignments/${actorId}`), {
+        revision: 1,
+        updatedAt: timestamp,
+        audit: metadata.audit,
+        accountId: actorId,
+        activeTestSessionId: sessionId,
+      });
+      for (const id of [sessionId, otherSessionId]) {
+        await setDoc(
+          doc(db, `test_sessions/${id}`),
+          TestSessionSchema.parse({
+            ...metadata,
+            testSessionId: id,
+            schemaVersion: 1,
+            status: 'active',
+            label: 'Security fixture',
+            createdByAccountId: OWNER_ID,
+            config: { startingBalanceKzt: 100, clonedCourseIds: [] },
+            inventoryRevision: 0,
+          })
+        );
+      }
+      await setDoc(doc(db, walletPath), wallet('test', sessionId));
+    });
+
+  it.each([
+    { dataScope: 'test', testSessionId: sessionId },
+    { dataScope: 'live', testSessionId: sessionId },
+    { dataScope: 'unknown' },
+    {},
+  ])('denies self-signup with an unproven scope: %j', async (scope) => {
+    const uid = 'security_signup';
+    const email = 'signup@example.com';
+    const db = testEnv.authenticatedContext(uid, { email, email_verified: true }).firestore();
+    await assertFails(setDoc(doc(db, `users/${uid}`), { uid, email, role: 'user', ...scope }));
+  });
+
+  it.each([true, false])(
+    'denies LIVE self-signup for a registered TestActor allowed=%s',
+    async (allowed) => {
+      await seedData(async (c) =>
+        setDoc(doc(c.firestore(), `test_actors/${actorId}`), { allowed })
+      );
+      const email = 'actor@example.com';
+      const db = testEnv.authenticatedContext(actorId, { email, email_verified: true }).firestore();
+      await assertFails(
+        setDoc(doc(db, `users/${actorId}`), {
+          uid: actorId,
+          email,
+          role: 'user',
+          dataScope: 'live',
+        })
+      );
+    }
+  );
+
+  it('preserves LIVE own-wallet and empty-wallet reads, denies peers and raw finance', async () => {
+    await seedData(async (c) => {
+      await setDoc(doc(c.firestore(), `users/${actorId}`), account(actorId));
+      await setDoc(doc(c.firestore(), `users/${OTHER_USER_ID}`), account(OTHER_USER_ID));
+    });
+    const db = testEnv.authenticatedContext(actorId).firestore();
+    await assertSucceeds(getDoc(doc(db, walletPath)));
+    await seedData(async (c) => setDoc(doc(c.firestore(), walletPath), wallet()));
+    await assertSucceeds(getDoc(doc(db, walletPath)));
+    await assertFails(
+      getDoc(doc(testEnv.authenticatedContext(OTHER_USER_ID).firestore(), walletPath))
+    );
+    await assertFails(getDocs(collection(db, `users/${actorId}/wallet`)));
+    await assertFails(getDoc(doc(db, 'payments/known_payment')));
+    await assertFails(setDoc(doc(db, walletPath), wallet()));
+  });
+
+  it.each([null, { status: 'disabled' }, { status: 'unknown' }, 'active'])(
+    'denies wallet access with invalid/inactive Account lifecycle %j',
+    async (lifecycle) => {
+      await seedData(async (c) => {
+        await setDoc(doc(c.firestore(), walletPath), wallet());
+        if (lifecycle !== null)
+          await setDoc(doc(c.firestore(), `users/${actorId}`), {
+            ...account(actorId),
+            lifecycle,
+          });
+      });
+      await assertFails(getDoc(doc(testEnv.authenticatedContext(actorId).firestore(), walletPath)));
+    }
+  );
+
+  it('permits assigned TEST wallet only and preserves an empty assigned wallet', async () => {
+    await seedActor();
+    const db = testEnv.authenticatedContext(actorId).firestore();
+    await assertSucceeds(getDoc(doc(db, walletPath)));
+    for (const value of [wallet('test', otherSessionId), wallet(), wallet('test')]) {
+      await seedData(async (c) => setDoc(doc(c.firestore(), walletPath), value));
+      await assertFails(getDoc(doc(db, walletPath)));
+    }
+    await seedData(async (c) => deleteDoc(doc(c.firestore(), walletPath)));
+    await assertSucceeds(getDoc(doc(db, walletPath)));
+  });
+
+  it('updates only the assigned TEST notifications', async () => {
+    await seedActor();
+    await seedData(async (context) => {
+      for (const [id, testSessionId] of [
+        ['assigned', sessionId],
+        ['other', otherSessionId],
+      ]) {
+        await setDoc(doc(context.firestore(), 'notifications', id), {
+          userId: actorId,
+          dataScope: 'test',
+          testSessionId,
+          isRead: false,
+        });
+      }
+    });
+    const db = testEnv.authenticatedContext(actorId).firestore();
+    await assertSucceeds(updateDoc(doc(db, 'notifications', 'assigned'), { isRead: true }));
+    await assertFails(updateDoc(doc(db, 'notifications', 'other'), { isRead: true }));
+  });
+
+  it.each([
+    ['actor revoked', `test_actors/${actorId}`, { allowed: false }],
+    [
+      'assignment changed',
+      `test_actor_assignments/${actorId}`,
+      { activeTestSessionId: otherSessionId },
+    ],
+    ['assignment cleared', `test_actor_assignments/${actorId}`, { activeTestSessionId: null }],
+    ['session closed', `test_sessions/${sessionId}`, { status: 'closed' }],
+    ['account disabled', `users/${actorId}`, { lifecycle: { status: 'disabled' } }],
+  ] as const)(
+    'rechecks wallet authority using the same client after %s',
+    async (_label, path, patch) => {
+      await seedActor();
+      const db = testEnv.authenticatedContext(actorId).firestore();
+      await assertSucceeds(getDoc(doc(db, walletPath)));
+      await seedData(async (c) => updateDoc(doc(c.firestore(), path), patch));
+      await assertFails(getDoc(doc(db, walletPath)));
+    }
+  );
+
+  it('does not treat a self-declared TEST Account as server assignment', async () => {
+    await seedData(async (c) => {
+      await setDoc(doc(c.firestore(), `users/${actorId}`), account(actorId, 'test'));
+      await setDoc(doc(c.firestore(), walletPath), wallet('test', sessionId));
+    });
+    await assertFails(getDoc(doc(testEnv.authenticatedContext(actorId).firestore(), walletPath)));
+  });
+
+  it.each(['live', 'test'])(
+    'keeps deferred TEST chat unreachable even through admin and owner guards (%s principal)',
+    async (scope) => {
+      await seedData(async (c) => {
+        const db = c.firestore();
+        await setDoc(doc(db, `users/${actorId}`), { ...account(actorId, scope), role: 'admin' });
+        await setDoc(doc(db, 'bookings/scoped_chat'), {
+          userId: actorId,
+          instructorId: 'coach',
+          status: 'confirmed',
+          dataScope: 'test',
+          testSessionId: sessionId,
+        });
+        await setDoc(doc(db, 'bookings/scoped_chat/messages/known_message'), {
+          senderId: actorId,
+          text: 'private',
+        });
+      });
+      const db = testEnv.authenticatedContext(actorId).firestore();
+      const message = doc(db, 'bookings/scoped_chat/messages/known_message');
+      await assertFails(getDoc(message));
+      await assertFails(getDocs(collection(db, 'bookings/scoped_chat/messages')));
+      await assertFails(updateDoc(message, { isHomework: true }));
+      await assertFails(
+        setDoc(doc(db, 'bookings/scoped_chat/messages/new_message'), {
+          senderId: actorId,
+          text: 'new',
+        })
+      );
+    }
+  );
+
+  it('revokes LIVE chat access on disable and authoritative TEST identity stamping', async () => {
+    await seedData(async (c) => {
+      const db = c.firestore();
+      await setDoc(doc(db, `users/${actorId}`), account(actorId));
+      await setDoc(doc(db, 'bookings/live_chat'), {
+        userId: actorId,
+        instructorId: 'coach',
+        status: 'confirmed',
+      });
+      await setDoc(doc(db, 'bookings/live_chat/messages/message'), {
+        senderId: actorId,
+        text: 'hello',
+      });
+    });
+    const db = testEnv.authenticatedContext(actorId).firestore();
+    const path = 'bookings/live_chat/messages/message';
+    await assertSucceeds(getDoc(doc(db, path)));
+    await assertSucceeds(getDocs(collection(db, 'bookings/live_chat/messages')));
+    await seedData(async (c) =>
+      updateDoc(doc(c.firestore(), `users/${actorId}`), { lifecycle: { status: 'disabled' } })
+    );
+    await assertFails(getDoc(doc(db, path)));
+    await seedData(async (c) => {
+      await updateDoc(doc(c.firestore(), `users/${actorId}`), {
+        lifecycle: { status: 'active' },
+        dataScope: 'test',
+      });
+      await setDoc(doc(c.firestore(), `test_actors/${actorId}`), { allowed: false });
+    });
+    await assertFails(getDoc(doc(db, path)));
+  });
+
+  it('allows an active TEST actor to observe only its own assignment document', async () => {
+    const assignment = `test_actor_assignments/${actorId}`;
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, `users/${actorId}`), { ...account(actorId), dataScope: 'test' });
+      await setDoc(doc(db, `users/${OTHER_USER_ID}`), account(OTHER_USER_ID));
+      await setDoc(doc(db, `test_actors/${actorId}`), { accountId: actorId, allowed: true });
+      await setDoc(doc(db, assignment), { accountId: actorId, activeTestSessionId: null });
+    });
+    const actorDb = testEnv.authenticatedContext(actorId).firestore();
+    const strangerDb = testEnv.authenticatedContext(OTHER_USER_ID).firestore();
+    await assertSucceeds(getDoc(doc(actorDb, assignment)));
+    await assertFails(getDoc(doc(strangerDb, assignment)));
+    await assertFails(getDocs(collection(actorDb, 'test_actor_assignments')));
+    await assertFails(
+      updateDoc(doc(actorDb, assignment), { activeTestSessionId: 'foreign_scope' })
+    );
+    await seedData(async (context) => {
+      await updateDoc(doc(context.firestore(), `test_actors/${actorId}`), { allowed: false });
+    });
+    await assertFails(getDoc(doc(actorDb, assignment)));
+  });
+
+  it('routes eight-participant chat reads through server authorization without exhausting the Rules budget', async () => {
+    const ids = Array.from({ length: 8 }, (_, index) => `participant_security_${index}`);
+    await seedData(async (c) => {
+      const db = c.firestore();
+      await setDoc(doc(db, `users/${actorId}`), account(actorId));
+      const booking = canonicalVictimBooking();
+      await setDoc(
+        doc(db, 'bookings/eight_person_chat'),
+        BookingSchema.parse({
+          ...booking,
+          party: { kind: 'family_group', participantIds: ids },
+          occurrence: {
+            ...booking.occurrence,
+            serviceParty: { ...booking.occurrence.serviceParty, participantIds: ids },
+          },
+        })
+      );
+      for (const [index, participantId] of ids.entries()) {
+        await setDoc(doc(db, `participant_management_active_owner/${participantId}`), {
+          participantId,
+          accountId: index === 7 ? actorId : OTHER_USER_ID,
+        });
+      }
+      await setDoc(doc(db, 'bookings/eight_person_chat/messages/message'), {
+        senderId: OTHER_USER_ID,
+        text: 'hello',
+      });
+    });
+    await assertFails(
+      getDoc(
+        doc(
+          testEnv.authenticatedContext(actorId).firestore(),
+          'bookings/eight_person_chat/messages/message'
+        )
+      )
+    );
+  });
+
+  it.each(['parent', 'instructor', 'administrator'])(
+    'denies canonical TEST chat via a %s relationship and collectionGroup',
+    async (kind) => {
+      await seedData(async (c) => {
+        const db = c.firestore();
+        const booking = canonicalVictimBooking();
+        await setDoc(doc(db, `users/${actorId}`), {
+          ...account(actorId),
+          ...(kind === 'administrator' ? { role: 'admin' } : {}),
+          ...(kind === 'instructor' ? { instructorId: booking.occurrence.instructorId } : {}),
+        });
+        await setDoc(doc(db, 'bookings/canonical_test_chat'), {
+          ...booking,
+          dataScope: 'test',
+          testSessionId: sessionId,
+        });
+        await setDoc(
+          doc(db, `participant_management_active_owner/${booking.party.participantIds[0]}`),
+          { accountId: actorId }
+        );
+        await setDoc(doc(db, 'bookings/canonical_test_chat/messages/message'), {
+          senderId: actorId,
+          text: 'private',
+        });
+      });
+      const db = testEnv.authenticatedContext(actorId).firestore();
+      await assertFails(getDoc(doc(db, 'bookings/canonical_test_chat/messages/message')));
+      await assertFails(getDocs(collection(db, 'bookings/canonical_test_chat/messages')));
+      await assertFails(getDocs(collectionGroup(db, 'messages')));
+      await assertFails(getDocs(collectionGroup(db, 'courses')));
+    }
+  );
+
+  it.each([
+    ['missing Account', null],
+    ['owner-only', { ...account(actorId), systemRole: 'owner' }],
+    ['legacy admin', { uid: actorId, role: 'admin' }],
+    ['unknown role', { ...account(actorId), role: 'operator' }],
+    ['unknown status', { ...account(actorId), role: 'admin', lifecycle: { status: 'unknown' } }],
+    ['disabled admin', { ...account(actorId), role: 'admin', lifecycle: { status: 'disabled' } }],
+    ['mismatched Account', { ...account(actorId), accountId: OTHER_USER_ID, role: 'admin' }],
+  ])(
+    'denies administrative reads/writes for %s even with privileged custom claims',
+    async (_label, profile) => {
+      if (profile)
+        await seedData(async (c) => setDoc(doc(c.firestore(), `users/${actorId}`), profile));
+      const db = testEnv
+        .authenticatedContext(actorId, { admin: true, role: 'admin', systemRole: 'owner' })
+        .firestore();
+      await assertFails(getDocs(collection(db, 'users')));
+      await assertFails(setDoc(doc(db, 'settings/security_setting'), { enabled: true }));
+    }
+  );
+
+  it('accepts a canonical admin without owner role and rechecks demotion on the same client', async () => {
+    await seedData(async (c) =>
+      setDoc(doc(c.firestore(), `users/${actorId}`), { ...account(actorId), role: 'admin' })
+    );
+    const db = testEnv.authenticatedContext(actorId).firestore();
+    await assertFails(getDocs(collection(db, 'users')));
+    await assertSucceeds(setDoc(doc(db, 'settings/security_setting'), { enabled: true }));
+    await seedData(async (c) =>
+      updateDoc(doc(c.firestore(), `users/${actorId}`), { role: 'user' })
+    );
+    await assertFails(getDocs(collection(db, 'users')));
+    await assertFails(updateDoc(doc(db, 'settings/security_setting'), { enabled: false }));
+  });
+
+  it('keeps the exact own-UID bootstrap read while denying legacy protected access', async () => {
+    const db = testEnv.authenticatedContext(actorId).firestore();
+    await assertSucceeds(getDoc(doc(db, `users/${actorId}`)));
+    await seedData(async (c) => {
+      await setDoc(doc(c.firestore(), `users/${actorId}`), {
+        uid: actorId,
+        role: 'user',
+        dataScope: 'live',
+      });
+      await setDoc(doc(c.firestore(), walletPath), wallet());
+    });
+    await assertSucceeds(getDoc(doc(db, `users/${actorId}`)));
+    await assertFails(getDoc(doc(db, walletPath)));
+    await assertFails(getDocs(collection(db, 'users')));
+  });
 });
 
 function canonicalVictimBooking() {
@@ -318,7 +776,7 @@ describe('/users account reads', () => {
     const adminDb = testEnv.authenticatedContext(ADMIN_ID).firestore();
     await assertSucceeds(getDoc(doc(ownerDb, 'users', USER_ID)));
     await assertSucceeds(getDoc(doc(adminDb, 'users', OTHER_USER_ID)));
-    await assertSucceeds(getDocs(collection(adminDb, 'users')));
+    await assertFails(getDocs(collection(adminDb, 'users')));
   });
 });
 
@@ -428,6 +886,9 @@ beforeAll(async () => {
 beforeEach(async () => {
   await testEnv.clearFirestore();
   await seedData(async (context) => {
+    for (const uid of [USER_ID, OTHER_USER_ID]) {
+      await setDoc(doc(context.firestore(), 'users', uid), userProfile(uid, `${uid}@example.com`));
+    }
     await setDoc(
       doc(context.firestore(), 'users', OWNER_ID),
       userProfile(OWNER_ID, 'owner@example.com', 'admin', 'owner')
@@ -500,15 +961,15 @@ describe('bookings', () => {
     await assertSucceeds(getDoc(doc(instructorDb, 'bookings', 'booking-1')));
     await assertFails(getDoc(doc(unrelatedInstructorDb, 'bookings', 'booking-1')));
     await assertFails(getDocs(collection(otherDb, 'bookings')));
-    await assertSucceeds(
+    await assertFails(
       getDocs(query(collection(ownerDb, 'bookings'), where('userId', '==', USER_ID)))
     );
-    await assertSucceeds(
+    await assertFails(
       getDocs(
         query(collection(instructorDb, 'bookings'), where('instructorId', '==', 'instructor-1'))
       )
     );
-    await assertSucceeds(getDocs(collection(adminDb, 'bookings')));
+    await assertFails(getDocs(collection(adminDb, 'bookings')));
     await assertSucceeds(getDoc(doc(anonymousDb, 'availability_slots', 'booking-1')));
     await assertSucceeds(
       getDoc(doc(anonymousDb, 'availability_hour_locks', 'instructor-1__2026-12-01__09:00'))
@@ -579,7 +1040,7 @@ describe('bookings', () => {
       assignedInstructorGet: 'ALLOW',
       unrelatedInstructorGet: 'DENY',
       adminGet: 'ALLOW',
-      adminList: 'ALLOW(2)',
+      adminList: 'DENY',
     };
     expect(results).toEqual(Object.fromEntries(states.map(({ name }) => [name, deniedState])));
   });
@@ -1069,6 +1530,7 @@ describe('user profiles and roles', () => {
         displayName: 'new-user',
         role: 'user',
         avatarUrl: '',
+        dataScope: 'live',
       })
     );
   });
@@ -1764,7 +2226,7 @@ describe('T32.8A identity authority containment', () => {
       .firestore();
     const profileRef = doc(userDb, 'users', USER_ID);
 
-    await assertSucceeds(getDoc(profileRef));
+    await assertFails(getDoc(profileRef));
     await assertFails(updateDoc(profileRef, { displayName: 'Disabled Name' }));
     await assertFails(updateDoc(profileRef, { phoneNumber: '+15550002222' }));
     await assertFails(updateDoc(profileRef, { avatarUrl: 'https://example.com/disabled.jpg' }));
@@ -2055,6 +2517,10 @@ describe('release identity and course access security', () => {
   it('requires a server claim even for a verified email and pins it to UID', async () => {
     await seedData(async (context) => {
       await setDoc(
+        doc(context.firestore(), 'users', 'verified-owner'),
+        userProfile('verified-owner', 'victim@example.com')
+      );
+      await setDoc(
         doc(context.firestore(), 'users', 'client_email_victim'),
         userProfile('client_email_victim', 'victim@example.com')
       );
@@ -2088,6 +2554,13 @@ describe('release identity and course access security', () => {
       });
     });
     await assertSucceeds(getDoc(doc(db, 'bookings', 'legacy-claim-security')));
+    await seedData(async (context) => {
+      await updateDoc(doc(context.firestore(), 'users', 'client_email_victim'), {
+        dataScope: 'test',
+        testSessionId: 'session_other',
+      });
+    });
+    await assertFails(getDoc(doc(db, 'bookings', 'legacy-claim-security')));
     await assertFails(
       updateDoc(doc(db, 'bookings', 'legacy-claim-security'), { userId: 'verified-owner' })
     );
@@ -2104,6 +2577,7 @@ describe('release identity and course access security', () => {
     async (rosterField) => {
       await seedData(async (context) => {
         const db = context.firestore();
+        await setDoc(doc(db, 'users', USER_ID), userProfile(USER_ID, 'user@example.com'));
         await setDoc(doc(db, 'users', INSTRUCTOR_USER_ID), {
           ...userProfile(INSTRUCTOR_USER_ID, 'coach@example.com'),
           instructorId: 'coach-own',
@@ -3497,7 +3971,7 @@ describe('course_catalog_content', () => {
     });
   });
 
-  it('allows unauthenticated and authenticated reads by id and collection list', async () => {
+  it('allows public LIVE reads by id and denies direct collection list', async () => {
     const anonymousDb = testEnv.unauthenticatedContext().firestore();
     const studentDb = testEnv
       .authenticatedContext(USER_ID, { email: 'user@example.com' })
@@ -3505,12 +3979,8 @@ describe('course_catalog_content', () => {
 
     await assertSucceeds(getDoc(doc(anonymousDb, 'course_catalog_content', COURSE_ID)));
     await assertSucceeds(getDoc(doc(studentDb, 'course_catalog_content', COURSE_ID)));
-    await assertSucceeds(
-      getDocs(query(collection(anonymousDb, 'course_catalog_content'), limit(50)))
-    );
-    await assertSucceeds(
-      getDocs(query(collection(studentDb, 'course_catalog_content'), limit(50)))
-    );
+    await assertFails(getDocs(query(collection(anonymousDb, 'course_catalog_content'), limit(50))));
+    await assertFails(getDocs(query(collection(studentDb, 'course_catalog_content'), limit(50))));
   });
 
   it('denies client create, update, and delete while keeping canonical courses protected', async () => {

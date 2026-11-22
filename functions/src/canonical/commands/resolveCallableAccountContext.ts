@@ -63,6 +63,14 @@ export function resolveCallableAccountContext(
   if (!accountId) {
     throw new Error('unauthenticated');
   }
+  if (
+    account &&
+    input.commandKind !== 'provision_self_participant' &&
+    profile?.role !== 'user' &&
+    profile?.role !== 'admin'
+  ) {
+    throw new Error('forbidden');
+  }
 
   if (input.exercisedCapability === 'administrator') {
     throw new Error('forbidden_capability');
@@ -97,7 +105,11 @@ export function resolveCallableAccountContext(
     ? input.exercisedCapability
     : 'account_owner';
   if (capability === 'instructor') {
-    const instructorId = resolveActiveAccountInstructorId(accountId, account, profile?.instructorId);
+    const instructorId = resolveActiveAccountInstructorId(
+      accountId,
+      account,
+      profile?.instructorId
+    );
     if (!instructorId) throw new Error('forbidden');
     return { accountId, capability, source: 'client_callable', instructorId };
   }

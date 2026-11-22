@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../../media/ProtectedImage';
 import { ScheduleConflictDay } from './ScheduleConflictDay';
 import { scheduleDayEvents, scheduleDayNeedsList } from './scheduleDayViewPlacement';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -224,7 +225,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2">
                   {instructor.avatarUrl ? (
-                    <img
+                    <ProtectedImage
                       src={instructor.avatarUrl}
                       alt=""
                       className="h-8 w-8 shrink-0 rounded-full object-cover"

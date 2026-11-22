@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../media/ProtectedImage';
 import React, { useState } from 'react';
 import { FirebaseError } from 'firebase/app';
 import type { User } from 'firebase/auth';
@@ -505,7 +506,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default', onBu
                               : 'border-[var(--border)] hover:border-[var(--ink)] hover:bg-[var(--accent-muted)]'
                           }`}
                         >
-                          <img
+                          <ProtectedImage
                             src={url}
                             alt={seed}
                             className="w-full h-full object-contain filter grayscale"

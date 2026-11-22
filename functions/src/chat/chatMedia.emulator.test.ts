@@ -23,6 +23,10 @@ import {
 } from '../../../tests/helpers/storageRulesFixtures';
 import { getOrInitApp } from '../adminApp';
 import { handleBookingChatMedia } from './chatMediaHttp';
+import { handleProtectedImages } from '../security/protectedImagesHttp';
+import { authorizeProtectedImage } from '../security/protectedImageAccess';
+import { getAdminFirestore } from '../adminFirestore';
+import { createQueryChatMessages } from './chatMessagesRead';
 import {
   TestActorSchema,
   TestActorAssignmentSchema,
@@ -39,7 +43,8 @@ async function request(
   method = 'GET',
   target = path,
   query: Record<string, string> = {},
-  body = Buffer.alloc(0)
+  body = Buffer.alloc(0),
+  handler = handleBookingChatMedia
 ) {
   const result = { status: 200, body: undefined as unknown, headers: {} as Record<string, string> };
   const response = {
@@ -63,12 +68,13 @@ async function request(
       return this;
     },
   };
-  await handleBookingChatMedia(
+  await handler(
     {
       method,
       query: { path: target, ...query },
       rawBody: body,
-      get: () => (uid ? `Bearer ${tokens.get(uid)}` : undefined),
+      get: (header: string) =>
+        header === 'Content-Type' ? 'image/jpeg' : uid ? `Bearer ${tokens.get(uid)}` : undefined,
     } as unknown as Parameters<typeof handleBookingChatMedia>[0],
     response as unknown as Parameters<typeof handleBookingChatMedia>[1]
   );
@@ -130,6 +136,34 @@ afterAll(async () => {
 });
 
 describe('authorized canonical chat media gateway', () => {
+  it('keeps chat readable for the eighth participant through server authorization', async () => {
+    const ids = Array.from({ length: 8 }, (_, index) => `chat_budget_participant_${index}`);
+    const threadId = canonicalStorageBooking.bookingId;
+    await seedStorageFirestore(env, async (db) => {
+      await setDoc(doc(db, 'bookings', threadId), {
+        ...canonicalStorageBooking,
+        party: { kind: 'family_group', participantIds: ids },
+      });
+      for (const [index, id] of ids.entries()) {
+        await setDoc(doc(db, 'participant_management_active_owner', id), {
+          accountId: index === 7 ? STORAGE_USER_ID : 'second-participant-owner',
+        });
+      }
+      await setDoc(doc(db, 'bookings', threadId, 'messages', 'message'), {
+        text: 'Visible',
+        timestamp: '2026-11-21T10:00:00Z',
+      });
+    });
+    const query = createQueryChatMessages(getAdminFirestore());
+    await expect(
+      query({ auth: { uid: STORAGE_USER_ID }, data: { threadId } } as never)
+    ).resolves.toMatchObject({
+      messages: [{ id: 'message', text: 'Visible' }],
+    });
+    await expect(
+      query({ auth: { uid: STORAGE_OTHER_USER_ID }, data: { threadId } } as never)
+    ).rejects.toMatchObject({ code: 'permission-denied' });
+  });
   it('revokes administrator and instructor links on the next request', async () => {
     expect((await request(STORAGE_ADMIN_ID)).status).toBe(200);
     expect((await request(STORAGE_INSTRUCTOR_USER_ID)).status).toBe(200);
@@ -418,7 +452,11 @@ describe('authorized canonical chat media gateway', () => {
         { merge: true }
       );
       for (const uid of [STORAGE_TEST_ACTOR_ID, STORAGE_TEST_ACTOR_B_ID]) {
-        await setDoc(doc(db, 'users', uid), { lifecycle: { status: 'active' } }, { merge: true });
+        await setDoc(
+          doc(db, 'users', uid),
+          { lifecycle: { status: 'active' }, dataScope: 'test' },
+          { merge: true }
+        );
         await setDoc(
           doc(db, 'test_actors', uid),
           TestActorSchema.parse({
@@ -482,6 +520,181 @@ describe('authorized canonical chat media gateway', () => {
     expect((await request(STORAGE_TEST_ACTOR_B_ID, 'GET', testPath)).status).toBe(403);
     expect((await request(STORAGE_USER_ID, 'GET', testPath)).status).toBe(403);
     expect((await request(STORAGE_TEST_ACTOR_ID)).status).toBe(403);
+    const ownAvatar = `test-actors/${STORAGE_TEST_ACTOR_ID}/avatar`;
+    const managedId = 'participant_test_managed_avatar';
+    const managementId = 'management_test_managed_avatar';
+    await seedStorageFirestore(env, async (db) => {
+      const { createdAt, updatedAt, audit } = canonicalStorageBooking;
+      const metadata = { revision: 1, createdAt, updatedAt, audit };
+      await setDoc(
+        doc(db, 'test_actors', STORAGE_TEST_ACTOR_ID),
+        {
+          participantIds: [managedId],
+        },
+        { merge: true }
+      );
+      await setDoc(doc(db, 'participants', managedId), {
+        ...metadata,
+        dataScope: 'test',
+        participantId: managedId,
+        displayName: 'Managed TEST fixture',
+        age: { kind: 'age_years', years: 12 },
+        skillLevel: 'beginner',
+        discipline: 'ski',
+        management: { kind: 'managed', participantManagementId: managementId },
+        lifecycle: { status: 'active' },
+      });
+      await setDoc(doc(db, 'participant_management', managementId), {
+        ...metadata,
+        participantManagementId: managementId,
+        accountId: STORAGE_TEST_ACTOR_ID,
+        participantId: managedId,
+        role: 'owner',
+        authority: 'parent_guardian',
+        status: 'active',
+      });
+    });
+    const managedUpload = (uid: string) =>
+      request(
+        uid,
+        'POST',
+        `participant-avatars/${managedId}/avatar.jpg`,
+        {},
+        Buffer.from('avatar'),
+        handleProtectedImages
+      );
+    expect(await managedUpload(STORAGE_TEST_ACTOR_ID)).toMatchObject({
+      status: 201,
+      body: { path: `test-actors/${managedId}/avatar.jpg` },
+    });
+    expect((await managedUpload(STORAGE_TEST_ACTOR_B_ID)).status).toBe(403);
+
+    const participantId = 'participant_avatar_revocation';
+    const instructorId = 'test-instructor-a';
+    const participantAvatar = `test-actors/${participantId}/avatar.jpg`;
+    const bookingId = 'booking_avatar_revocation';
+    const booking = {
+      ...canonicalStorageBooking,
+      bookingId,
+      dataScope: 'test',
+      testSessionId: STORAGE_TEST_SESSION_A,
+      party: { kind: 'individual', participantIds: [participantId] },
+      occurrence: {
+        ...canonicalStorageBooking.occurrence,
+        instructorId,
+        serviceParty: { participantIds: [participantId] },
+      },
+    };
+    await seedStorageFirestore(env, async (db) => {
+      await setDoc(doc(db, 'participants', participantId), {
+        participantId,
+        displayName: 'Participant fixture',
+        age: { kind: 'age_years', years: 12 },
+        skillLevel: 'beginner',
+        discipline: 'ski',
+        management: { kind: 'unmanaged_guest' },
+        lifecycle: { status: 'active' },
+        revision: 1,
+        createdAt: booking.createdAt,
+        updatedAt: booking.updatedAt,
+        audit: booking.audit,
+        dataScope: 'test',
+        testSessionId: STORAGE_TEST_SESSION_A,
+      });
+      await setDoc(doc(db, 'instructors', instructorId), {
+        id: instructorId,
+        name: 'Instructor fixture',
+        linkedAccountId: STORAGE_TEST_ACTOR_ID,
+        pricePerHourKZT: 10_000,
+        dataScope: 'test',
+      });
+      await setDoc(doc(db, 'bookings', bookingId), booking);
+    });
+    await getStorage(getOrInitApp())
+      .bucket()
+      .file(participantAvatar)
+      .save(Buffer.from('avatar'), {
+        resumable: false,
+        metadata: { contentType: 'image/jpeg' },
+      });
+    const readAvatar = (uid: string) =>
+      request(uid, 'GET', participantAvatar, {}, Buffer.alloc(0), handleProtectedImages);
+    expect((await readAvatar(STORAGE_TEST_ACTOR_ID)).status).toBe(200);
+    expect((await readAvatar(STORAGE_TEST_ACTOR_B_ID)).status).toBe(403);
+    await seedStorageFirestore(env, async (db) => {
+      await setDoc(doc(db, 'bookings', bookingId), {
+        ...booking,
+        lifecycle: {
+          status: 'cancelled',
+          cancelledAt: booking.updatedAt,
+          reasonCode: 'account_owner_cancelled',
+        },
+      });
+    });
+    expect((await readAvatar(STORAGE_TEST_ACTOR_ID)).status).toBe(403);
+    await seedStorageFirestore(env, async (db) => {
+      await setDoc(doc(db, 'bookings', bookingId), booking);
+      await setDoc(
+        doc(db, 'instructors', instructorId),
+        {
+          linkedAccountId: STORAGE_TEST_ACTOR_B_ID,
+        },
+        { merge: true }
+      );
+    });
+    expect((await readAvatar(STORAGE_TEST_ACTOR_ID)).status).toBe(403);
+    expect((await readAvatar(STORAGE_ADMIN_ID)).status).toBe(200);
+
+    const misc = `test-sessions/${STORAGE_TEST_SESSION_A}/misc/private-image.jpg`;
+    const imageRequest = (uid: string, method: string) =>
+      request(uid, method, misc, {}, Buffer.from('image'), handleProtectedImages);
+    expect((await imageRequest(STORAGE_TEST_ACTOR_ID, 'POST')).status).toBe(201);
+    expect((await imageRequest(STORAGE_TEST_ACTOR_ID, 'GET')).status).toBe(200);
+    await seedStorageFirestore(env, async (db) => {
+      await setDoc(
+        doc(db, 'test_sessions', STORAGE_TEST_SESSION_A, 'membership', STORAGE_TEST_ACTOR_B_ID),
+        { accountId: STORAGE_TEST_ACTOR_B_ID }
+      );
+    });
+    expect((await imageRequest(STORAGE_TEST_ACTOR_B_ID, 'GET')).status).toBe(403);
+    expect((await imageRequest(STORAGE_TEST_ACTOR_B_ID, 'POST')).status).toBe(403);
+
+    await seedStorageFirestore(env, async (db) => {
+      await setDoc(
+        doc(db, 'test_actors', STORAGE_TEST_ACTOR_ID),
+        {
+          accountId: STORAGE_TEST_ACTOR_B_ID,
+        },
+        { merge: true }
+      );
+    });
+    await expect(
+      authorizeProtectedImage(
+        getAdminFirestore(),
+        STORAGE_ADMIN_ID,
+        ownAvatar,
+        false,
+        STORAGE_TEST_SESSION_A
+      )
+    ).rejects.toMatchObject({ code: 'permission-denied' });
+    await seedStorageFirestore(env, async (db) => {
+      await setDoc(
+        doc(db, 'test_actors', STORAGE_TEST_ACTOR_ID),
+        {
+          accountId: STORAGE_TEST_ACTOR_ID,
+        },
+        { merge: true }
+      );
+      await deleteDoc(
+        doc(db, 'test_sessions', STORAGE_TEST_SESSION_A, 'membership', STORAGE_TEST_ACTOR_B_ID)
+      );
+    });
+    await expect(
+      authorizeProtectedImage(getAdminFirestore(), STORAGE_TEST_ACTOR_ID, ownAvatar, true)
+    ).resolves.toMatchObject({ sessionId: STORAGE_TEST_SESSION_A });
+    await expect(
+      authorizeProtectedImage(getAdminFirestore(), STORAGE_TEST_ACTOR_B_ID, ownAvatar, false)
+    ).rejects.toMatchObject({ code: 'permission-denied' });
     expect((await request(STORAGE_ADMIN_ID, 'GET', 'chat/booking_test_a/photo.jpg')).status).toBe(
       403
     );
@@ -489,6 +702,10 @@ describe('authorized canonical chat media gateway', () => {
       await setDoc(doc(db, 'test_sessions', STORAGE_TEST_SESSION_A), { status: 'locked' });
     });
     expect((await request(STORAGE_ADMIN_ID, 'GET', testPath)).status).toBe(403);
+    expect((await readAvatar(STORAGE_ADMIN_ID)).status).toBe(403);
+    await expect(
+      authorizeProtectedImage(getAdminFirestore(), STORAGE_TEST_ACTOR_ID, ownAvatar, false)
+    ).rejects.toMatchObject({ code: 'permission-denied' });
   });
 
   it('enforces MIME, exact image limit, bounded chunks and private temporary paths', async () => {

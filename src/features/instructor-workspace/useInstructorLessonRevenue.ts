@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { observeTestActorAssignment } from '../../lib/canonical/scopedClientDocuments';
 import { isInstructorWorkspaceUser } from '../../lib/workspaceRoutes';
 import { useAuthStore } from '../auth/authStore';
 import { useProfileStore } from '../profile/profileStore';
@@ -12,7 +13,33 @@ export function useInstructorLessonRevenue(accountId: string, instructorId: stri
   const authenticated = useAuthStore((state) => state.firebaseUser?.uid === accountId);
   const awaitingAccount = useProfileStore((state) => state.profileLoading);
   const dataScope = useProfileStore((state) => revenueAccountScope(state, accountId, instructorId));
-  const testSessionId = useProfileStore(profileTestSessionId);
+  const profileSessionId = useProfileStore(profileTestSessionId);
+  const [assignment, setAssignment] = useState<{ accountId: string; sessionId: string | null }>();
+  const observedAssignment = useRef<typeof assignment>(undefined);
+  useEffect(() => {
+    if (!authenticated || dataScope !== 'test') return;
+    const stop = observeTestActorAssignment(accountId, (sessionId) => {
+      if (
+        observedAssignment.current?.accountId === accountId &&
+        observedAssignment.current.sessionId === sessionId
+      )
+        return;
+      observedAssignment.current = { accountId, sessionId };
+      setAssignment(observedAssignment.current);
+    });
+    return () => {
+      stop();
+      observedAssignment.current = undefined;
+      setAssignment(undefined);
+    };
+  }, [accountId, authenticated, dataScope]);
+  const assignedSessionId = assignment?.accountId === accountId ? assignment.sessionId : undefined;
+  const testSessionId = dataScope === 'test' ? (assignedSessionId ?? undefined) : undefined;
+  const assignmentRevoked = dataScope === 'test' && assignedSessionId === null;
+  const awaitingTestAssignment =
+    dataScope === 'test' &&
+    (assignedSessionId === undefined ||
+      (profileSessionId !== undefined && profileSessionId !== assignedSessionId));
   const key = JSON.stringify([
     authGeneration,
     accountId,
@@ -25,7 +52,13 @@ export function useInstructorLessonRevenue(accountId: string, instructorId: stri
   const refresh = useRef<{ key: string; run: () => void }>(undefined);
 
   useEffect(() => {
-    if (!authenticated || !instructorId || !dataScope) {
+    if (
+      !authenticated ||
+      !instructorId ||
+      !dataScope ||
+      assignmentRevoked ||
+      awaitingTestAssignment
+    ) {
       setRead(undefined);
       return;
     }
@@ -41,7 +74,10 @@ export function useInstructorLessonRevenue(accountId: string, instructorId: stri
           auth.authGeneration === authGeneration &&
           auth.firebaseUser?.uid === accountId &&
           revenueAccountScope(profile, accountId, instructorId) === dataScope &&
-          profileTestSessionId(profile) === testSessionId
+          profileTestSessionId(profile) === profileSessionId &&
+          (dataScope !== 'test' ||
+            (observedAssignment.current?.accountId === accountId &&
+              observedAssignment.current.sessionId === testSessionId))
         );
       },
       onState: (state) => setRead({ key, state }),
@@ -54,12 +90,23 @@ export function useInstructorLessonRevenue(accountId: string, instructorId: stri
       window.removeEventListener('focus', observer.refresh);
       observer.stop();
     };
-  }, [key, authenticated, authGeneration, accountId, instructorId, dataScope, testSessionId]);
+  }, [
+    key,
+    authenticated,
+    authGeneration,
+    accountId,
+    instructorId,
+    dataScope,
+    testSessionId,
+    profileSessionId,
+    assignmentRevoked,
+    awaitingTestAssignment,
+  ]);
 
   const revenue: InstructorRevenueRead =
-    !authenticated || !instructorId || (!dataScope && !awaitingAccount)
+    !authenticated || !instructorId || assignmentRevoked || (!dataScope && !awaitingAccount)
       ? { status: 'denied' }
-      : dataScope && read?.key === key
+      : dataScope && !awaitingTestAssignment && read?.key === key
         ? read.state
         : { status: 'loading' };
   return {

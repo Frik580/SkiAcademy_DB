@@ -1,23 +1,20 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { FieldPath, Timestamp, type Firestore } from 'firebase-admin/firestore';
 import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
+import { requireActiveAccount } from './activeAccount';
 
 const PAGE_SIZE = 200;
 type Cursor = { seconds: number; nanoseconds: number; after: string };
 
-// Match the existing error_logs Rules boundary, including owner access and
-// profiles created before lifecycle was introduced. Logs are not canonical data.
+// Administrative log access uses the same current Account authority as Rules.
 async function requireAdministrator(
   firestore: Firestore,
   uid: string | undefined
 ): Promise<string> {
   if (!uid) throw new HttpsError('unauthenticated', 'Authentication is required.');
   const profile = (await firestore.collection('users').doc(uid).get()).data();
-  if (
-    !profile ||
-    (profile.role !== 'admin' && profile.systemRole !== 'owner') ||
-    (profile.lifecycle !== undefined && profile.lifecycle?.status !== 'active')
-  ) {
+  requireActiveAccount(uid, profile);
+  if (profile?.role !== 'admin' || (await firestore.doc(`test_actors/${uid}`).get()).exists) {
     throw new HttpsError('permission-denied', 'This action is not permitted.');
   }
   return uid;

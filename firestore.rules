@@ -19,31 +19,101 @@ service cloud.firestore {
         (
           userId.matches('^client_.*') &&
           exists(/databases/$(database)/documents/users/$(userId)) &&
+          isLiveResource(get(/databases/$(database)/documents/users/$(userId)).data) &&
           get(/databases/$(database)/documents/users/$(userId)).data.get('claimedByAccountId', '') == request.auth.uid
         )
       );
     }
 
+    function publicLiveRead(data) {
+      return (data == null || isLiveResource(data)) && (!isAuthenticated() || livePrincipalAllowed() || bootstrapLivePrincipal());
+    }
+    function bootstrapLivePrincipal() {
+      let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return !isRegisteredTestActor() && (profile == null ||
+        (!('lifecycle' in profile) && profile.get('role', '') == 'user' && isLiveResource(profile)));
+    }
+    function ownAccountScopeAllowed() {
+      let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return isRegisteredTestActor()
+        ? profile.dataScope == 'test' && revenueScopeAllowed('test_' +
+          get(/databases/$(database)/documents/test_actor_assignments/$(request.auth.uid)).data.activeTestSessionId)
+        : isLiveResource(profile);
+    }
     function rolePrincipalIsActive() {
       let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return !('lifecycle' in profile) ||
-        (profile.lifecycle is map && profile.lifecycle.status == 'active');
+      return accountAuthorizationFieldsAreActive(profile);
     }
 
-    function isSystemOwner() {
+    // Mirrors parseAccountDocument's active Account projection (profile extras are ignored).
+    function canonicalId(value) {
+      return value is string && value.matches('^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$');
+    }
+
+    function canonicalInteger(value, minimum, maximum) {
+      return value is number && value == math.floor(value) && value >= minimum && value <= maximum;
+    }
+
+    function canonicalTime(value) {
+      return value is timestamp || (value is map &&
+        canonicalInteger(value.seconds, -62135596800, 253402300799) &&
+        canonicalInteger(value.nanoseconds, 0, 999999999));
+    }
+
+    function timeSeconds(value) { return value is timestamp ? value.seconds() : value.seconds; }
+    function timeNanos(value) { return value is timestamp ? value.nanos() : value.nanoseconds; }
+    function timeOrdered(left, right) {
+      return timeSeconds(left) < timeSeconds(right) ||
+        (timeSeconds(left) == timeSeconds(right) && timeNanos(left) <= timeNanos(right));
+    }
+
+    function canonicalActiveAccount(profile) {
+      return profile != null && canonicalId(profile.accountId) &&
+        profile.accountId == request.auth.uid && profile.role in ['user', 'admin'] &&
+        profile.lifecycle is map && profile.lifecycle.keys().hasOnly(['status']) &&
+        profile.lifecycle.status == 'active' &&
+        canonicalInteger(profile.revision, 1, 9007199254740991) &&
+        canonicalTime(profile.createdAt) && canonicalTime(profile.updatedAt) &&
+        timeOrdered(profile.createdAt, profile.updatedAt) &&
+        profile.audit is map && profile.audit.keys().hasOnly([
+          'createdByCommandId', 'lastChangedByCommandId', 'correlationId'
+        ]) && canonicalId(profile.audit.createdByCommandId) &&
+        canonicalId(profile.audit.lastChangedByCommandId) && canonicalId(profile.audit.correlationId) &&
+        (!('dataScope' in profile) || profile.dataScope in ['live', 'test']) &&
+        (!('testSessionId' in profile) || canonicalId(profile.testSessionId));
+    }
+
+    function accountAuthorizationFieldsAreActive(profile) {
+      return canonicalActiveAccount(profile);
+    }
+
+    function isRegisteredTestActor() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/test_actors/$(request.auth.uid));
+    }
+
+    // Preserve the existing legacy LIVE scope contract, but reject malformed scopes.
+    function isLiveResource(data) {
+      return data.get('dataScope', 'live') == 'live' && !('testSessionId' in data);
+    }
+
+    function activePrincipalExists() {
       return isAuthenticated() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        rolePrincipalIsActive() &&
-        ('systemRole' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.systemRole == 'owner';
+        rolePrincipalIsActive();
+    }
+
+    function livePrincipalAllowed() {
+      return activePrincipalExists() && !isRegisteredTestActor() &&
+        isLiveResource(get(/databases/$(database)/documents/users/$(request.auth.uid)).data);
+    }
+
+    function hasAdminRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin';
     }
 
     function isAdmin() {
-      return isSystemOwner() ||
-        (isAuthenticated() &&
-         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         rolePrincipalIsActive() &&
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      return livePrincipalAllowed() && hasAdminRole();
     }
 
     function hasCanonicalProvisioningMarker(course) {
@@ -135,17 +205,11 @@ service cloud.firestore {
     }
 
     // Owner self-service is allowed only when the stored Account is proven active.
-    // Missing lifecycle is the signup/legacy dual-write shape (create forbids
-    // writing lifecycle). disable_account always writes canonical lifecycle.status.
-    // Malformed maps, non-maps, and any status other than 'active' fail closed.
-    // Uses resource.data so the client cannot bypass disable by omitting or
-    // forging lifecycle on the request.
+    // Signup may read its own presentation profile for bootstrap, but protected
+    // operations require server-provisioned Account identity and active lifecycle.
     function accountLifecycleAllowsSelfService() {
-      return !('lifecycle' in resource.data) ||
-        (
-          resource.data.lifecycle is map &&
-          resource.data.lifecycle.status == 'active'
-        );
+      return activePrincipalExists() && resource.data.lifecycle.status == 'active' &&
+        (request.auth.uid == resource.id ? ownAccountScopeAllowed() : livePrincipalAllowed() && isLiveResource(resource.data));
     }
 
     function selfServiceAccountCreateHasNoCanonicalAuthority() {
@@ -165,6 +229,8 @@ service cloud.firestore {
     function validSelfServiceAccountCreate(userId) {
       return request.resource.data.uid == userId &&
         request.auth.uid == userId &&
+        !isRegisteredTestActor() &&
+        explicitlyScopedLiveClientCreate() &&
         request.auth.token.email_verified == true &&
         tokenEmailMatches(request.resource.data.email) &&
         request.resource.data.role == 'user' &&
@@ -205,6 +271,7 @@ service cloud.firestore {
       let assignment = get(/databases/$(database)/documents/test_actor_assignments/$(request.auth.uid)).data;
       let sessionId = assignment.activeTestSessionId;
       return actor.accountId == request.auth.uid && actor.allowed == true &&
+        account.lifecycle.status == 'active' &&
         actor.dataScope == 'test' && assignment.accountId == request.auth.uid &&
         sessionId is string && scopeKey == 'test_' + sessionId &&
         account.get('dataScope', 'test') == 'test' &&
@@ -212,9 +279,22 @@ service cloud.firestore {
         get(/databases/$(database)/documents/test_sessions/$(sessionId)).data.status == 'active';
     }
 
+    function walletScopeAllowed(userId) {
+      let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let walletPath = /databases/$(database)/documents/users/$(userId)/wallet/state;
+      return !isRegisteredTestActor() && isLiveResource(profile)
+        ? (!exists(walletPath) || isLiveResource(resource.data))
+        : (exists(walletPath)
+          ? resource.data.dataScope == 'test' &&
+            resource.data.testSessionId is string &&
+            revenueScopeAllowed('test_' + resource.data.testSessionId)
+          : revenueScopeAllowed('test_' +
+            get(/databases/$(database)/documents/test_actor_assignments/$(request.auth.uid)).data.activeTestSessionId));
+    }
+
     function isAssignedInstructor(booking) {
-      return isInstructor() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.instructorId == booking.instructorId;
+      let instructor = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('instructorId', null);
+      return instructor is string && instructor == booking.instructorId;
     }
 
     function isCourseGroupChatThread(threadId) {
@@ -229,7 +309,7 @@ service cloud.firestore {
     }
 
     function isInstructorForCourse(courseId) {
-      return isInstructor() &&
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('instructorId', null) is string &&
         exists(/databases/$(database)/documents/courses/$(courseId)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.instructorId in
           get(/databases/$(database)/documents/courses/$(courseId)).data.get('instructorRosterIds',
@@ -267,25 +347,19 @@ service cloud.firestore {
     }
 
     function isAssignedCanonicalInstructor(booking) {
-      return isInstructor() &&
-        isCanonicalBooking(booking) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.instructorId ==
-          booking.occurrence.instructorId;
+      // Only called after active-principal and canonical-booking checks.
+      let instructorId = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('instructorId', null);
+      return instructorId is string && instructorId == booking.occurrence.instructorId;
     }
 
     function managesParticipant(participantId) {
-      return participantId is string &&
-        exists(
-          /databases/$(database)/documents/participant_management_active_owner/$(participantId)
-        ) &&
-        get(
-          /databases/$(database)/documents/participant_management_active_owner/$(participantId)
-        ).data.accountId == request.auth.uid;
+      let guard = get(/databases/$(database)/documents/participant_management_active_owner/$(participantId)).data;
+      return guard != null && guard.accountId == request.auth.uid;
     }
 
     function managesCanonicalBookingParticipantAt(booking, index) {
-      return isCanonicalBooking(booking) &&
-        booking.party.participantIds.size() > index &&
+      // Caller has already validated the canonical party shape once.
+      return booking.party.participantIds.size() > index &&
         managesParticipant(booking.party.participantIds[index]);
     }
 
@@ -301,8 +375,11 @@ service cloud.firestore {
     }
 
     function canAccessCanonicalBookingChat(booking) {
+      // Exactly eight owner checks exceed the remaining Rules read budget.
+      // The server supports exactly this fallback case. Preserve the existing
+      // bounded direct checks for larger parties until the server supports them.
       return isAssignedCanonicalInstructor(booking) ||
-        managesAnyCanonicalBookingParticipant(booking);
+        (booking.party.participantIds.size() != 8 && managesAnyCanonicalBookingParticipant(booking));
     }
 
     function canAccessLegacyBookingChat(booking) {
@@ -318,17 +395,18 @@ service cloud.firestore {
     }
 
     function canAccessChatMessages(threadId) {
-      return isAdmin() ||
-        (
-          exists(/databases/$(database)/documents/bookings/$(threadId)) &&
-          canAccessBookingChat(
-            get(/databases/$(database)/documents/bookings/$(threadId)).data
-          )
-        ) ||
-        (
-          isCourseGroupChatThread(threadId) &&
-          (isEnrolledInCourse(threadId) || isInstructorForCourse(threadId))
-        );
+      let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let bookingPath = /databases/$(database)/documents/bookings/$(threadId);
+      let booking = exists(bookingPath) ? get(bookingPath).data : null;
+      let administrator = profile.get('role', '') == 'admin';
+      // The server chat path handles parties that exceed the Rules read budget.
+      return accountAuthorizationFieldsAreActive(profile) && isLiveResource(profile) && !isRegisteredTestActor() && (
+        booking != null
+          ? isLiveResource(booking) && (administrator || canAccessBookingChat(booking))
+          : isCourseGroupChatThread(threadId) &&
+            isLiveResource(get(/databases/$(database)/documents/courses/$(threadId)).data) &&
+            (administrator || isEnrolledInCourse(threadId) || isInstructorForCourse(threadId))
+      );
     }
 
     // Matching an unverified claim is safe only for the caller's own new UID.
@@ -468,8 +546,16 @@ service cloud.firestore {
     // Canonical progress lives on /participant_progress and is Admin SDK only.
     // New Account creates must not write leftover progress or money fields.
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
+      // Exact own-UID bootstrap is needed before provisioning creates Account.
+      // It never grants list/alias/wallet access or administrative capability.
+      allow get: if (isAuthenticated() && request.auth.uid == userId && (
+          !exists(/databases/$(database)/documents/users/$(userId)) ||
+          (!('lifecycle' in resource.data) && resource.data.role == 'user' &&
+            isLiveResource(resource.data))
+        )) || (isAuthenticated() && (request.auth.uid == userId
+          ? activePrincipalExists() && ownAccountScopeAllowed()
+          : livePrincipalAllowed() && isLiveResource(resource.data) && (isOwner(userId) || hasAdminRole())));
+      allow list: if false;
 
       allow create: if isOwner(userId) && validSelfServiceAccountCreate(userId);
 
@@ -497,7 +583,8 @@ service cloud.firestore {
       // own spendable balance for Header/cabinet. Client SDK never writes; Admin finance
       // reads go through callables, not direct browser access to other accounts' wallets.
       match /wallet/{walletDocId} {
-        allow get: if (walletDocId == 'state') && isOwner(userId);
+        allow get: if (walletDocId == 'state') && isOwner(userId) &&
+          activePrincipalExists() && walletScopeAllowed(userId);
         allow list: if false;
         allow create, update, delete: if false;
       }
@@ -506,7 +593,8 @@ service cloud.firestore {
     // Instructor catalog. Review aggregates, admin catalog fields, and phone
     // are server-owned. Self instructor phone is canonical-command-only.
     match /instructors/{instructorId} {
-      allow read: if true;
+      allow get: if publicLiveRead(resource == null ? null : resource.data);
+      allow list: if false;
       allow create: if false;
       allow update: if false;
       allow delete: if false;
@@ -582,10 +670,11 @@ service cloud.firestore {
 
     // Bookings
     match /bookings/{bookingId} {
-      allow read: if isAdmin() ||
+      allow get: if livePrincipalAllowed() && (
         !exists(/databases/$(database)/documents/bookings/$(bookingId)) ||
-        isOwner(resource.data.userId) ||
-        isAssignedInstructor(resource.data);
+        (isLiveResource(resource.data) && (hasAdminRole() || isOwner(resource.data.userId) || isAssignedInstructor(resource.data)))
+      );
+      allow list: if false;
 
       // Booking documents are created by server Callables. Clients cannot insert bookings.
       allow create: if false;
@@ -594,14 +683,14 @@ service cloud.firestore {
       // Canonical lesson feedback lives on /participant_lesson_feedback (callable only).
       // Legacy bookings.recommendations / completedRecommendationIds client writes are closed.
       allow update: if (
-        isAdmin() &&
+        isAdmin() && isLiveResource(resource.data) && isLiveResource(request.resource.data) &&
         bookingStatusUnchanged() &&
         bookingScheduleUnchanged() &&
         request.resource.data.status != 'cancelled'
       );
 
       allow delete: if (
-        isOwner(resource.data.userId) &&
+        livePrincipalAllowed() && isLiveResource(resource.data) && isOwner(resource.data.userId) &&
         isCancelledCourseBooking(resource.data)
       );
 
@@ -611,11 +700,10 @@ service cloud.firestore {
         allow create: if isAuthenticated() &&
           request.resource.data.senderId == request.auth.uid &&
           canAccessChatMessages(bookingId) &&
-          !('homeworkForUserIds' in request.resource.data);
-        allow update: if isAdmin() || (
+          !('homeworkForUserIds' in request.resource.data) && isLiveResource(request.resource.data);
+        allow update: if isAuthenticated() && canAccessChatMessages(bookingId) && (hasAdminRole() || (
           isAuthenticated() &&
           resource.data.senderId == request.auth.uid &&
-          canAccessChatMessages(bookingId) &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isHomework', 'homeworkForParticipantIds']) &&
           !('homeworkForUserIds' in request.resource.data) &&
           (
@@ -626,24 +714,29 @@ service cloud.firestore {
             !('homeworkForParticipantIds' in request.resource.data) ||
             request.resource.data.homeworkForParticipantIds is list
           )
-        );
+        ));
         allow delete: if false;
       }
     }
 
     // Public schedule data without client names, IDs, prices, or notes.
     match /availability_slots/{bookingId} {
-      allow read: if true;
+      allow get: if publicLiveRead(resource == null ? null : resource.data);
+      allow list: if false;
 
-      allow create, update, delete: if isAdmin();
+      allow create: if isAdmin() && isLiveResource(request.resource.data);
+      allow update: if isAdmin() && isLiveResource(resource.data) && isLiveResource(request.resource.data);
+      allow delete: if isAdmin() && isLiveResource(resource.data);
     }
 
     // Hour-level locks used to prevent double-booking the same instructor slot.
     match /availability_hour_locks/{lockId} {
       // Public read: lock docs contain only instructor/date/time/bookingId (no client PII).
-      allow read: if true;
+      allow get: if publicLiveRead(resource == null ? null : resource.data);
+      allow list: if false;
 
-      allow create, delete: if isAdmin();
+      allow create: if isAdmin() && isLiveResource(request.resource.data);
+      allow delete: if isAdmin() && isLiveResource(resource.data);
     }
 
     // Bank configuration, receipt guards and request evidence are callable-only.
@@ -668,49 +761,64 @@ service cloud.firestore {
 
     // Courses
     match /courses/{courseId} {
-      allow read: if true;
+      allow get: if publicLiveRead(resource == null ? null : resource.data);
+      allow list: if false;
       allow create: if isAdmin() &&
         explicitlyScopedLiveClientCreate() &&
         legacyAdminCourseWriteAllowed(request.resource.data);
       allow update, delete: if isAdmin() &&
-        legacyAdminCourseWriteAllowed(resource.data);
+        isLiveResource(resource.data) && legacyAdminCourseWriteAllowed(resource.data) &&
+        (request.method == 'delete' || isLiveResource(request.resource.data));
     }
 
     // Non-authoritative course catalog/presentation content for public UI.
     match /course_catalog_content/{courseId} {
-      allow read: if true;
-      allow create, delete: if isAdmin();
-      allow update: if isAdmin();
+      allow get: if publicLiveRead(resource == null ? null : resource.data);
+      allow list: if false;
+      allow create: if isAdmin() && isLiveResource(request.resource.data);
+      allow delete: if isAdmin() && isLiveResource(resource.data);
+      allow update: if isAdmin() && isLiveResource(resource.data) && isLiveResource(request.resource.data);
     }
 
     // Notifications
+    function notificationOwnerScopeAllowed(data) {
+      return isAuthenticated() && data.userId == request.auth.uid && (
+        isLiveResource(data) ? livePrincipalAllowed() :
+          data.dataScope == 'test' && canonicalId(data.testSessionId) && activePrincipalExists() &&
+          revenueScopeAllowed('test_' + data.testSessionId)
+      );
+    }
+
     match /notifications/{notificationId} {
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow get: if notificationOwnerScopeAllowed(resource.data) || (isLiveResource(resource.data) && isAdmin());
       allow create: if false;
-      allow update: if isAuthenticated() &&
-        resource.data.userId == request.auth.uid &&
+      allow update: if notificationOwnerScopeAllowed(resource.data) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']) &&
         request.resource.data.isRead is bool;
-      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if notificationOwnerScopeAllowed(resource.data) || (isLiveResource(resource.data) && isAdmin());
+      allow list: if false;
     }
 
     match /activity_logs/{logId} {
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow get: if livePrincipalAllowed() && isLiveResource(resource.data) && (resource.data.userId == request.auth.uid || hasAdminRole());
       // Canonical commands write scoped activity logs through the Admin SDK.
       allow create, update, delete: if false;
+      allow list: if false;
     }
 
     // Wallet ledger is a historical read surface only. Clients cannot fabricate finance history.
     match /wallet_ledger/{entryId} {
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow get: if livePrincipalAllowed() && isLiveResource(resource.data) && (resource.data.userId == request.auth.uid || hasAdminRole());
       allow create, update, delete: if false;
+      allow list: if false;
     }
 
     // Canonical course-chat access projection. Written by enrollment commands (Admin SDK).
     match /course_chat_access/{accountId} {
       match /courses/{courseId} {
-        allow read: if isAuthenticated() && (
-          isAdmin() ||
+        allow get: if livePrincipalAllowed() &&
+          isLiveResource(get(/databases/$(database)/documents/courses/$(courseId)).data) && (
+          hasAdminRole() ||
           isInstructorForCourse(courseId) ||
           accountId == request.auth.uid
         );
@@ -740,7 +848,7 @@ service cloud.firestore {
     // Finance, People, and booking change-request invalidation signals.
     // Canonical backend writes only.
     match /admin_runtime/{documentId} {
-      allow read: if isAdmin() && (
+      allow get: if isAdmin() && isLiveResource(resource.data) && (
         documentId == 'admin_issue_inbox' ||
         documentId == 'admin_lesson_bookings' ||
         documentId == 'admin_planner' ||
@@ -750,6 +858,31 @@ service cloud.firestore {
         documentId == 'admin_booking_change_requests'
       );
       allow write: if false;
+    }
+
+    match /test_actor_assignments/{accountId} {
+      allow get: if isAuthenticated() && request.auth.uid == accountId &&
+        activePrincipalExists() &&
+        get(/databases/$(database)/documents/test_actors/$(accountId)).data.allowed == true &&
+        get(/databases/$(database)/documents/test_actors/$(accountId)).data.accountId == accountId &&
+        get(/databases/$(database)/documents/users/$(accountId)).data.dataScope == 'test' &&
+        (resource == null || resource.data.accountId == accountId);
+    }
+
+    match /client_read_runtime/live/collections/{collectionId} {
+      allow get: if (collectionId in ['instructors', 'courses', 'course_catalog_content', 'availability_slots', 'availability_hour_locks'] &&
+        (!isAuthenticated() || livePrincipalAllowed() || bootstrapLivePrincipal())) || (collectionId == 'users' && isAdmin());
+    }
+    match /client_read_runtime/live/accounts/{accountId}/collections/{collectionId} {
+      allow get: if isAuthenticated() && request.auth.uid == accountId && livePrincipalAllowed();
+    }
+    match /client_read_runtime/test/sessions/{sessionId}/collections/{collectionId} {
+      allow get: if activePrincipalExists() && (revenueScopeAllowed('test_' + sessionId) ||
+        (isAdmin() && get(/databases/$(database)/documents/test_sessions/$(sessionId)).data.status == 'active'));
+    }
+    match /client_read_runtime/test/sessions/{sessionId}/accounts/{accountId}/collections/{collectionId} {
+      allow get: if isAuthenticated() && request.auth.uid == accountId && activePrincipalExists() &&
+        (revenueScopeAllowed('test_' + sessionId) || (isAdmin() && get(/databases/$(database)/documents/test_sessions/$(sessionId)).data.status == 'active'));
     }
 
     // Resort Data

@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../../media/ProtectedImage';
 import React, { useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Star, X } from 'lucide-react';
@@ -131,7 +132,7 @@ export const BookInstructorPickerModal: React.FC<BookInstructorPickerModalProps>
                                     : 'border-[var(--border-subtle)] opacity-55 cursor-not-allowed'
                                 }`}
                               >
-                                <img
+                                <ProtectedImage
                                   src={instructor.avatarUrl}
                                   alt=""
                                   className="h-12 w-12 rounded-full object-cover shrink-0 bg-[var(--border-subtle)]"

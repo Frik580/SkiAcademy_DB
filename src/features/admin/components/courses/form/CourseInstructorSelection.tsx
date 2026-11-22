@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../../../media/ProtectedImage';
 import React from 'react';
 import { Instructor } from '../../../../../types';
 import { useLanguage, translateInstructorName } from '../../../../../app/providers/LanguageContext';
@@ -45,7 +46,7 @@ export const CourseInstructorSelection: React.FC<CourseInstructorSelectionProps>
                   : 'border-[var(--border)] hover:border-[var(--ink)] bg-transparent text-[var(--ink)]'
               }`}
             >
-              <img
+              <ProtectedImage
                 src={ins.avatarUrl}
                 referrerPolicy="no-referrer"
                 alt={ins.name}

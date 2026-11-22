@@ -1,13 +1,5 @@
+import { subscribeScopedDocuments } from '../../../lib/canonical/scopedClientDocuments';
 import { useEffect } from 'react';
-import {
-  collection,
-  db,
-  limit,
-  onSnapshot,
-  orderBy,
-  query,
-  where,
-} from '../../../infrastructure/firebase';
 import { toActivityLog } from '../../../infrastructure/firebase';
 import { logger } from '../../../shared';
 import { useAuthStore } from '../../auth/authStore';
@@ -30,14 +22,14 @@ export const useProfileActivitySync = () => {
       return;
     }
 
-    const activityQuery = query(
-      collection(db, 'activity_logs'),
-      where('userId', '==', firebaseUser.uid),
-      orderBy('timestamp', 'desc'),
-      limit(activityLogsPageSize + 1)
-    );
+    const activityQuery = {
+      collection: 'activity_logs' as const,
+      take: activityLogsPageSize + 1,
+      where: [{ field: 'userId' as const, op: '==' as const, value: firebaseUser.uid }],
+      order: [{ field: 'timestamp' as const, direction: 'desc' as const }],
+    };
 
-    return onSnapshot(
+    return subscribeScopedDocuments(
       activityQuery,
       (snapshot) => {
         const activityLogs = snapshot.docs

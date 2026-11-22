@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../media/ProtectedImage';
 import React from 'react';
 import { User, Star } from 'lucide-react';
 import { translateInstructorName } from '../../../app/providers/LanguageContext';
@@ -30,7 +31,7 @@ export const InstructorDashboardHeader: React.FC<InstructorDashboardHeaderProps>
         <div className="flex min-w-0 max-w-full items-center gap-4">
           <div className="w-16 h-16 border border-slate-200/60 dark:border-slate-800/60 rounded-full overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-800 relative">
             {linkedInstructor?.avatarUrl ? (
-              <img
+              <ProtectedImage
                 src={linkedInstructor.avatarUrl}
                 alt={linkedInstructor.name}
                 className="w-full h-full object-cover"

@@ -1,6 +1,8 @@
 import { getAuth } from 'firebase-admin/auth';
 import type { Firestore } from 'firebase-admin/firestore';
 import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
+import { LIVE_CANONICAL_READ_SCOPE, documentMatchesReadScope } from '@ski-academy/shared-domain';
+import { requireActiveAccount } from './activeAccount';
 
 /** Claim compatibility profile access only; canonical identity, money and bookings
  * remain owned by their commands. Never copy roles or arbitrary source fields. */
@@ -34,12 +36,15 @@ export function createClaimGuestProfileHandler(firestore: Firestore, auth = getA
     return firestore.runTransaction(async (tx) => {
       const own = await tx.get(destination);
       const ownData = own.data();
+      if ((await tx.get(firestore.doc(`test_actors/${principal.uid}`))).exists) {
+        throw new HttpsError('permission-denied', 'TEST identities cannot claim LIVE profiles.');
+      }
+      if (ownData && 'accountId' in ownData) requireActiveAccount(principal.uid, ownData);
       if (
         own.exists &&
         (ownData?.email?.toLowerCase() !== email ||
           (ownData?.lifecycle && ownData.lifecycle.status !== 'active') ||
-          ownData?.dataScope === 'test' ||
-          ownData?.testSessionId)
+          !documentMatchesReadScope(LIVE_CANONICAL_READ_SCOPE, ownData))
       ) {
         throw new HttpsError('failed-precondition', 'Account reconciliation is required.');
       }
@@ -63,8 +68,7 @@ export function createClaimGuestProfileHandler(firestore: Firestore, auth = getA
         data.systemRole ||
         data.instructorId ||
         data.isInstructor ||
-        data.dataScope === 'test' ||
-        data.testSessionId ||
+        !documentMatchesReadScope(LIVE_CANONICAL_READ_SCOPE, data) ||
         (data.lifecycle && data.lifecycle.status !== 'active') ||
         (data.claimedByAccountId && data.claimedByAccountId !== principal.uid)
       ) {

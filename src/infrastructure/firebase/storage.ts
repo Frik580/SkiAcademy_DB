@@ -2,6 +2,7 @@ import type { FirebaseStorage } from 'firebase/storage';
 import { app } from './firebase';
 import { firebaseEmulatorConfig } from './firebaseEmulatorConfig';
 import { logger } from '../../shared';
+import { publicImageUrl, serverImageUpload, uploadServerImage } from './protectedImageClient';
 
 type StorageSdk = typeof import('firebase/storage');
 let storageRuntime: Promise<{ sdk: StorageSdk; storage: FirebaseStorage }> | undefined;
@@ -39,6 +40,7 @@ function getStorageRuntime() {
 }
 
 export async function uploadImage(blob: Blob, path: string): Promise<string> {
+  if (serverImageUpload(path)) return uploadServerImage(blob, path);
   const { sdk, storage } = await getStorageRuntime();
   const storageRef = sdk.ref(storage, path);
   await sdk.uploadBytes(storageRef, blob);
@@ -46,6 +48,7 @@ export async function uploadImage(blob: Blob, path: string): Promise<string> {
 }
 
 export async function getImageUrl(path: string): Promise<string> {
+  if (/^participant-avatars\//.test(path)) return publicImageUrl(path);
   const { sdk, storage } = await getStorageRuntime();
   return sdk.getDownloadURL(sdk.ref(storage, path));
 }

@@ -1,16 +1,6 @@
+import { getScopedDocumentPage } from '../../lib/canonical/scopedClientDocuments';
 import { IdempotencyKeySchema } from '@ski-academy/shared-domain/canonical/commands/commandContext';
-import {
-  arrayUnion,
-  collection,
-  db,
-  deleteDoc,
-  doc,
-  getDocs,
-  query,
-  setDoc,
-  updateDoc,
-  where,
-} from '../../infrastructure/firebase';
+import { arrayUnion, db, deleteDoc, doc, setDoc, updateDoc } from '../../infrastructure/firebase';
 import { executeAuthenticatedCanonicalCommand } from '../../lib/canonical/canonicalCommandClient';
 import { mapCanonicalCommandResultError } from '../../lib/canonical/mapCanonicalCommandError';
 import { ParticipantTodayChecklistState, UserProfile } from '../../types';
@@ -102,20 +92,30 @@ export async function dismissReviewService(userId: string, bookingId: string): P
   }
 
   try {
-    const notifQuery = query(collection(db, 'notifications'), where('userId', '==', userId));
-    const snapshot = await getDocs(notifQuery);
-    snapshot.docs.forEach((d) => {
-      const data = d.data();
-      if (
-        data.bookingId === bookingId ||
-        (data.messageEn && data.messageEn.includes(bookingId)) ||
-        (data.messageRu && data.messageRu.includes(bookingId))
-      ) {
-        deleteDoc(doc(db, 'notifications', d.id)).catch((err) =>
-          logger.error('Failed to delete review notification from DB:', err)
-        );
+    let cursor: string | null = null;
+    do {
+      const page = await getScopedDocumentPage(
+        {
+          collection: 'notifications',
+          take: 200,
+          where: [{ field: 'userId', op: '==', value: userId }],
+        },
+        cursor
+      );
+      for (const item of page.docs) {
+        const data = item.data;
+        if (
+          data.bookingId === bookingId ||
+          (typeof data.messageEn === 'string' && data.messageEn.includes(bookingId)) ||
+          (typeof data.messageRu === 'string' && data.messageRu.includes(bookingId))
+        ) {
+          deleteDoc(doc(db, 'notifications', item.id)).catch((err) =>
+            logger.error('Failed to delete review notification from DB:', err)
+          );
+        }
       }
-    });
+      cursor = page.cursor;
+    } while (cursor);
   } catch (err) {
     logger.error('Error removing review notification from notifications collection:', err);
   }

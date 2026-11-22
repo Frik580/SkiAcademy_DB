@@ -25,7 +25,7 @@ export function createQueryCourseCatalogReadModelsHandler(firestore: Firestore) 
 
     try {
       const resolvesProductPrincipal =
-        input.scope === 'authenticated' || input.scope === 'product';
+        !!request.auth?.uid || input.scope === 'authenticated' || input.scope === 'product';
       let accountId: ReturnType<typeof AccountIdSchema.parse> | undefined;
       let isAdministrator = false;
       let accountLifecycleStatus: 'active' | 'disabled' = 'active';

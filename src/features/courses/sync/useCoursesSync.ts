@@ -1,13 +1,6 @@
+import { subscribeScopedDocuments } from '../../../lib/canonical/scopedClientDocuments';
 import { useEffect } from 'react';
-import {
-  collection,
-  db,
-  handleFirestoreError,
-  limit,
-  onSnapshot,
-  OperationType,
-  query,
-} from '../../../infrastructure/firebase';
+import { handleFirestoreError, OperationType } from '../../../infrastructure/firebase';
 import { QUERY_LIMITS } from '../../../shared';
 import { useCourseEnrollmentStore } from '../../course-enrollments/courseEnrollmentStore';
 import { reloadCourseCatalog } from '../../course-enrollments/useCourseEnrollmentReadSync';
@@ -17,7 +10,6 @@ import { useDataSyncScope } from '../../../store/useDataSyncScope';
 import { courseFromProductCatalogItem } from '../courseCatalogProduct';
 import { useCoursesStore } from '../coursesStore';
 import { resolveCourseDocument } from '../courseDisplay';
-import { isLiveCompatibleResource } from '../../../lib/canonical/liveCompatibleClientRead';
 
 export const useCoursesSync = (catalogReadAlreadyOwned = false) => {
   const { catalogueScope } = useDataSyncScope();
@@ -87,9 +79,6 @@ export const useCoursesSync = (catalogReadAlreadyOwned = false) => {
       useCoursesStore.getState().setCourses(
         courseDocs.flatMap((courseDoc) => {
           const data = courseDoc.data;
-          if (!isLiveCompatibleResource(data)) {
-            return [];
-          }
           if (catalogueScope === 'instructor') {
             const roster = (data.instructorRosterIds ?? data.instructorIds) as unknown;
             if (!Array.isArray(roster) || !roster.includes(instructorId)) {
@@ -114,15 +103,14 @@ export const useCoursesSync = (catalogReadAlreadyOwned = false) => {
       }
     };
 
-    const coursesQuery = query(collection(db, 'courses'), limit(QUERY_LIMITS.courses));
-    const contentQuery = query(
-      collection(db, 'course_catalog_content'),
-      limit(QUERY_LIMITS.courses)
-    );
+    const coursesQuery = { collection: 'courses' as const, take: QUERY_LIMITS.courses };
+    const contentQuery = {
+      collection: 'course_catalog_content' as const,
+      take: QUERY_LIMITS.courses,
+    };
 
-    const unsubscribeCourses = onSnapshot(
+    const unsubscribeCourses = subscribeScopedDocuments(
       coursesQuery,
-      { includeMetadataChanges: true },
       (snapshot) => {
         if (!isCurrent()) return;
         if (snapshot.metadata.fromCache && snapshot.docs.length === 0) return;
@@ -137,9 +125,8 @@ export const useCoursesSync = (catalogReadAlreadyOwned = false) => {
       (error) => fail(error, 'courses')
     );
 
-    const unsubscribeContent = onSnapshot(
+    const unsubscribeContent = subscribeScopedDocuments(
       contentQuery,
-      { includeMetadataChanges: true },
       (snapshot) => {
         if (!isCurrent()) return;
         if (snapshot.metadata.fromCache && snapshot.docs.length === 0) return;
@@ -148,7 +135,7 @@ export const useCoursesSync = (catalogReadAlreadyOwned = false) => {
         catalogContentById = new Map(
           snapshot.docs.flatMap((contentDoc) => {
             const data = contentDoc.data() as Record<string, unknown>;
-            return isLiveCompatibleResource(data) ? [[contentDoc.id, data] as const] : [];
+            return [[contentDoc.id, data] as const];
           })
         );
         publishCourses();

@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../../media/ProtectedImage';
 import React from 'react';
 import { X } from 'lucide-react';
 import { Instructor } from '../../../../types';
@@ -20,7 +21,7 @@ export const BookingModalHeader: React.FC<BookingModalHeaderProps> = ({
     <div className="flex shrink-0 items-center justify-between border-b border-[var(--border)] bg-black/5 p-4 dark:bg-white/5">
       <div className="flex min-w-0 items-center gap-2.5">
         <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[var(--border)] bg-black/5 filter grayscale dark:bg-white/5">
-          <img
+          <ProtectedImage
             src={targetInstructor.avatarUrl}
             alt={targetInstructor.name}
             className="w-full h-full object-cover"

@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../../media/ProtectedImage';
 import React from 'react';
 import { Clock, User, MessageSquare, ExternalLink } from 'lucide-react';
 import { Booking, ChatMessage, Course, Instructor, UserProfile } from '../../../../types';
@@ -94,7 +95,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
             >
               <div className="w-8 h-8 rounded-none border border-[var(--border)] bg-black/10 shrink-0 overflow-hidden flex items-center justify-center">
                 {msg.senderAvatar ? (
-                  <img
+                  <ProtectedImage
                     src={msg.senderAvatar}
                     alt={msg.senderName}
                     className="w-full h-full object-cover"

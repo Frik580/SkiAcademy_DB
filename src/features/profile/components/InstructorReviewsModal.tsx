@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../media/ProtectedImage';
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Instructor, Review } from '../../../types';
@@ -70,7 +71,7 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
               <div className="flex items-center justify-between p-5 border-b border-[var(--border)] bg-black/5 dark:bg-white/5 shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 overflow-hidden bg-black/5 dark:bg-white/5 border border-[var(--border)] rounded-full shrink-0 filter grayscale">
-                    <img
+                    <ProtectedImage
                       src={targetInstructor.avatarUrl}
                       alt={targetInstructor.name}
                       className="w-full h-full object-cover"
@@ -176,7 +177,7 @@ export const InstructorReviewsModal: React.FC<InstructorReviewsModalProps> = ({
                             <div className="flex items-center gap-2.5">
                               <div className="w-8 h-8 rounded-none overflow-hidden bg-black/15 border border-[var(--border)] flex items-center justify-center shrink-0">
                                 {rev.userAvatar ? (
-                                  <img
+                                  <ProtectedImage
                                     src={rev.userAvatar}
                                     alt={rev.userName}
                                     className="w-full h-full object-cover filter grayscale"

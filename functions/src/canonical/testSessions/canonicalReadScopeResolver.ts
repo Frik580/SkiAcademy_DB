@@ -14,6 +14,7 @@ import {
   resolveCanonicalExecutionScope,
   type CanonicalExecutionScopeStore,
 } from './canonicalExecutionScopeResolver';
+import { requireActiveAccount } from '../../security/activeAccount';
 
 export type CanonicalReadScopePurposeKind = 'product' | 'maintenance';
 
@@ -79,12 +80,35 @@ export async function resolveCanonicalReadScope(
 ): Promise<CanonicalReadScope> {
   const purpose = input.purpose ?? 'product';
   const requestedTestSessionId = parseRequestedTestSessionId(input.requestedTestSessionId);
+  let accountProfile: Record<string, unknown> | undefined;
+  let actorProfile: Record<string, unknown> | undefined;
 
   if (!input.accountId) {
     if (requestedTestSessionId !== undefined) {
       throw new CanonicalExecutionScopeError('TEST_SESSION_FORBIDDEN');
     }
     return LIVE_CANONICAL_READ_SCOPE;
+  }
+  const accountId = input.accountId;
+
+  // Firestore-backed readers validate the actual record, never a caller-supplied
+  // 'active' hint. Bootstrap commands use the execution resolver separately.
+  if (store.readAccount) {
+    accountProfile = await store.readAccount(input.accountId);
+    const account = requireActiveAccount(input.accountId, accountProfile);
+    actorProfile = await store.readTestActor(input.accountId);
+    store = { ...store, readTestActor: async () => actorProfile };
+    input = {
+      ...input,
+      accountLifecycleStatus: account.lifecycle.status,
+      isAdministrator: input.isAdministrator && accountProfile?.role === 'admin',
+    };
+    if (
+      !actorProfile &&
+      (accountProfile?.dataScope === 'test' || accountProfile?.testSessionId !== undefined)
+    ) {
+      throw new CanonicalExecutionScopeError('TEST_SESSION_FORBIDDEN');
+    }
   }
 
   if (purpose === 'maintenance') {
@@ -95,11 +119,21 @@ export async function resolveCanonicalReadScope(
   }
 
   const executionScope = await resolveCanonicalExecutionScope(store, {
-    accountId: input.accountId,
+    accountId,
     accountLifecycleStatus: input.accountLifecycleStatus,
     isAdministrator: input.isAdministrator,
     requestedTestSessionId: input.requestedTestSessionId,
   });
+  if (
+    accountProfile &&
+    actorProfile &&
+    (accountProfile.dataScope !== 'test' ||
+      (accountProfile.testSessionId !== undefined &&
+        accountProfile.testSessionId !==
+          (executionScope.dataScope === 'test' ? executionScope.testSessionId : undefined)))
+  ) {
+    throw new CanonicalExecutionScopeError('TEST_SESSION_FORBIDDEN');
+  }
   return canonicalReadScopeFromExecution(executionScope);
 }
 

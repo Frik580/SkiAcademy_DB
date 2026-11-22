@@ -32,6 +32,13 @@ export const userProfile = (
   role,
   avatarUrl: '',
   balanceUSD: 100,
+  revision: 1,
+  createdAt: { seconds: 1700000000, nanoseconds: 0 },
+  updatedAt: { seconds: 1700000000, nanoseconds: 0 },
+  audit: { createdByCommandId: 'seed', lastChangedByCommandId: 'seed', correlationId: 'fixture' },
+  accountId: uid,
+  lifecycle: { status: 'active' },
+  dataScope: 'live',
   ...extra,
 });
 

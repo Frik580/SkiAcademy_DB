@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../media/ProtectedImage';
 import React from 'react';
 import {
   firstNameOf,
@@ -17,7 +18,7 @@ export function ParticipantAvatarFace({
 }) {
   if (url) {
     return (
-      <img
+      <ProtectedImage
         src={url}
         alt=""
         draggable={false}

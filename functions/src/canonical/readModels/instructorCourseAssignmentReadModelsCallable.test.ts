@@ -14,8 +14,12 @@ import {
   missingTestScopeCollection,
 } from '../testSessions/missingTestScopeCollection';
 
-const rosterInstructorAccountId = AccountIdSchema.parse('account_assignment_read_roster_instructor');
-const courseDayInstructorAccountId = AccountIdSchema.parse('account_assignment_read_day_instructor');
+const rosterInstructorAccountId = AccountIdSchema.parse(
+  'account_assignment_read_roster_instructor'
+);
+const courseDayInstructorAccountId = AccountIdSchema.parse(
+  'account_assignment_read_day_instructor'
+);
 const strangerAccountId = AccountIdSchema.parse('account_assignment_read_stranger');
 const rosterInstructorId = InstructorIdSchema.parse('instructor_assignment_read_roster');
 const courseDayInstructorId = InstructorIdSchema.parse('instructor_assignment_read_day_only');
@@ -33,9 +37,7 @@ type InstructorFixture = {
     | typeof courseDayInstructorAccountId
     | typeof strangerAccountId;
   readonly instructorId:
-    | typeof rosterInstructorId
-    | typeof courseDayInstructorId
-    | typeof strangerInstructorId;
+    typeof rosterInstructorId | typeof courseDayInstructorId | typeof strangerInstructorId;
 };
 
 function createFirestore(
@@ -93,10 +95,21 @@ function createFirestore(
     collection: (name: string) => {
       if (name === 'users') {
         return {
-          doc: () => ({
+          doc: (id: string) => ({
             get: async () => ({
               exists: true,
               data: () => ({
+                accountId: id,
+                role: 'user',
+                lifecycle: { status: 'active' },
+                revision: 1,
+                createdAt: { seconds: 1, nanoseconds: 0 },
+                updatedAt: { seconds: 1, nanoseconds: 0 },
+                audit: {
+                  createdByCommandId: 'seed',
+                  lastChangedByCommandId: 'seed',
+                  correlationId: 'fixture',
+                },
                 instructorId: instructor.instructorId,
                 isInstructor: true,
               }),
@@ -177,10 +190,7 @@ function createFirestore(
             startAfter: () => chain,
             limit: () => ({
               get: async () => {
-                if (
-                  dayDiscoveryDocsReturned ||
-                  instructor.instructorId !== courseDayInstructorId
-                ) {
+                if (dayDiscoveryDocsReturned || instructor.instructorId !== courseDayInstructorId) {
                   return { docs: [] };
                 }
                 dayDiscoveryDocsReturned = true;

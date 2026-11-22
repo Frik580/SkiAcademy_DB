@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../media/ProtectedImage';
 import {
   INSTRUCTOR_SPOKEN_LANGUAGE_CODES,
   normalizeInstructorSpokenLanguage,
@@ -224,7 +225,7 @@ export function AdminInstructorProfileEditor({
           </label>
         ) : null}
         {draft.avatarUrl ? (
-          <img src={draft.avatarUrl} alt="" className="mt-2 h-16 w-16 object-cover" />
+          <ProtectedImage src={draft.avatarUrl} alt="" className="mt-2 h-16 w-16 object-cover" />
         ) : null}
       </div>
       <div className="flex gap-2">

@@ -51,6 +51,7 @@ function createInstructorPanelFirestore(
                       instructorId,
                       isInstructor: true,
                       accountId: instructorAccountId,
+                      role: 'user',
                       lifecycle:
                         lifecycleStatus === 'active'
                           ? { status: 'active' }
@@ -95,6 +96,7 @@ function createAdminFirestore(
         return {
           doc: (accountId: string) => ({
             get: async () => ({
+              exists: true,
               data: () => ({
                 role,
                 accountId,
@@ -330,6 +332,7 @@ function scopeAccount(
 ): Record<string, unknown> {
   return {
     accountId,
+    role: 'user',
     lifecycle: { status: 'active' },
     revision: 1,
     createdAt: scopeAt,
@@ -355,7 +358,9 @@ function scopeBooking(input: {
     },
     party: { kind: 'individual', participantIds: [input.participantId] },
     occurrence: {
-      occurrenceId: OccurrenceIdSchema.parse(`occurrence_${input.bookingId.replace(/^booking_/, '')}`),
+      occurrenceId: OccurrenceIdSchema.parse(
+        `occurrence_${input.bookingId.replace(/^booking_/, '')}`
+      ),
       instructorId: instructorIdForScope,
       interval: { startsAt: futureStart, endsAt: futureEnd },
       timeZone: 'Asia/Almaty',
@@ -379,10 +384,7 @@ function createTestActorReadFirestore(input: {
   const docs = new Map<string, Record<string, unknown>>();
   const put = (path: string, data: Record<string, unknown>) => docs.set(path, data);
   put(`users/${liveAccountId}`, scopeAccount(liveAccountId));
-  put(
-    `users/${testAccountId}`,
-    scopeAccount(testAccountId, { dataScope: 'test' })
-  );
+  put(`users/${testAccountId}`, scopeAccount(testAccountId, { dataScope: 'test' }));
   put(`users/${adminAccountId}`, scopeAccount(adminAccountId, { role: 'admin' }));
   put(`test_actors/${testAccountId}`, {
     accountId: testAccountId,
@@ -499,7 +501,11 @@ function createTestActorReadFirestore(input: {
     }
     return current;
   };
-  const query = (name: string, rows: Array<{ id: string; data: Record<string, unknown> }>, maximum?: number) => ({
+  const query = (
+    name: string,
+    rows: Array<{ id: string; data: Record<string, unknown> }>,
+    maximum?: number
+  ) => ({
     where: (field: string, op: string, value: unknown) =>
       query(
         name,

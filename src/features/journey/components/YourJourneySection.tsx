@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../media/ProtectedImage';
 import { ParticipantLevelPanel } from '../../participant-progress/ParticipantLevelPanel';
 import { calculateParticipantStage } from '@ski-academy/shared-domain/canonical/participantLevelProgression';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -418,7 +419,7 @@ export const YourJourneySection: React.FC<YourJourneySectionProps> = ({
       } ${effectiveFillViewport ? 'cabinet-journey-fill' : ''}`}
     >
       {!isCabinet && (
-        <img
+        <ProtectedImage
           src={bgUrl}
           alt=""
           loading="lazy"

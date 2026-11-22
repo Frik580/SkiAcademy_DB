@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../media/ProtectedImage';
 import React, { useMemo, useRef, useState } from 'react';
 import { Camera, Loader2, Pencil, Plus, UserRound } from 'lucide-react';
 import { useLanguage } from '../../../app/providers/LanguageContext';
@@ -272,7 +273,7 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
                   <div className="flex min-w-0 items-center gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--profile-bg)] text-[var(--ink-dim)]">
                       {avatarUrl ? (
-                        <img
+                        <ProtectedImage
                           src={avatarUrl}
                           alt={participant.displayName}
                           className="h-full w-full object-cover"
@@ -342,7 +343,7 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
                   </div>
                 )}
                 {editorAvatarUrl ? (
-                  <img
+                  <ProtectedImage
                     src={editorAvatarUrl}
                     alt={editForm?.displayName ?? ''}
                     className="h-full w-full object-cover"

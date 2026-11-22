@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../../media/ProtectedImage';
 import React from 'react';
 import { Calendar, Clock, Coffee, X } from 'lucide-react';
 import { formatLessonDifficultyOrUnspecified } from '../../../../app/providers/LanguageContext';
@@ -110,7 +111,7 @@ export const ScheduleBookingCell: React.FC<ScheduleBookingCellProps> = ({
           className={`font-bold min-w-0 ${expanded ? 'flex-wrap' : 'truncate'} flex items-center gap-1.5 ${titleColorClasses}`}
         >
           {client?.avatarUrl && (
-            <img
+            <ProtectedImage
               src={client.avatarUrl}
               alt={client.displayName}
               className="w-4 h-4 rounded-none border border-black/10 shrink-0"

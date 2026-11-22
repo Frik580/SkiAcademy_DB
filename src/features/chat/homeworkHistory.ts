@@ -11,6 +11,7 @@ import {
 } from '../../infrastructure/firebase';
 import type { Firestore } from 'firebase/firestore';
 import type { ChatMessage } from '../../types';
+import { callFunction } from '../../lib/functions/functionsClient';
 
 export const HOMEWORK_PAGE_SIZE = 20;
 export type HomeworkCursor = { timestamp: string; id: string };
@@ -27,16 +28,26 @@ export async function getHomeworkPage(
   firestore: Firestore = db,
   pageSize = HOMEWORK_PAGE_SIZE
 ): Promise<HomeworkPage> {
-  const snapshot = await getDocs(
-    query(
-      collection(firestore, 'bookings', threadId, 'messages'),
-      where('isHomework', '==', true),
-      orderBy('timestamp', 'desc'),
-      orderBy(documentId(), 'desc'),
-      ...(cursor ? [startAfter(cursor.timestamp, cursor.id)] : []),
-      limit(pageSize)
-    )
-  );
+  let snapshot;
+  try {
+    snapshot = await getDocs(
+      query(
+        collection(firestore, 'bookings', threadId, 'messages'),
+        where('isHomework', '==', true),
+        orderBy('timestamp', 'desc'),
+        orderBy(documentId(), 'desc'),
+        ...(cursor ? [startAfter(cursor.timestamp, cursor.id)] : []),
+        limit(pageSize)
+      )
+    );
+  } catch (error) {
+    if (firestore !== db || (error as { code?: string }).code !== 'permission-denied') throw error;
+    return callFunction(
+      'queryChatMessages',
+      { threadId, take: pageSize, homeworkOnly: true, ...(cursor ? { cursor } : {}) },
+      { idempotencyKey: `read:chat-homework:${Date.now()}`, maxAttempts: 1 }
+    );
+  }
   const messages = snapshot.docs.map((item) => ({ ...item.data(), id: item.id }) as ChatMessage);
   const last = messages.at(-1);
   return {

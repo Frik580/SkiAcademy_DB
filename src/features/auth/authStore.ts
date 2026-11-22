@@ -1,9 +1,10 @@
 import { create } from 'zustand';
 import { User } from 'firebase/auth';
 import { logger } from '../../shared';
-import { resetUserScopedStores } from '../../store/resetDataStores';
+import { resetAuthScopedCatalogues, resetUserScopedStores } from '../../store/resetDataStores';
 import { useProfileStore } from '../profile/profileStore';
-import { signOutService } from './authService';
+import { useUiStore } from '../shell/uiStore';
+import { getCurrentAuthenticatedUser, signOutService } from './authService';
 
 export interface AuthState {
   firebaseUser: User | null;
@@ -29,6 +30,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Invalidate the old principal synchronously. Store subscribers must never
       // observe account B together with account A's participant or read-model state.
       resetUserScopedStores();
+      resetAuthScopedCatalogues();
+      if (previousUid) useUiStore.getState().closeAllModals();
     }
     if (!user) {
       useProfileStore.getState().setProfileLoading(false);
@@ -45,14 +48,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setAuthLoading: (loading) => set({ authLoading: loading }),
 
   handleSignOut: async () => {
+    // Do not start anonymous reads until Firebase has actually dropped its UID.
+    set({ authLoading: true });
     try {
       // Drop the local principal before Firebase sign-out so in-flight
       // participant reads cannot continue after the ID token is gone.
       get().setFirebaseUser(null);
       await signOutService();
     } catch (err) {
+      get().setFirebaseUser(getCurrentAuthenticatedUser());
       logger.error('Auth sign out failed:', err);
       throw err;
+    } finally {
+      set({ authLoading: false });
     }
   },
 }));

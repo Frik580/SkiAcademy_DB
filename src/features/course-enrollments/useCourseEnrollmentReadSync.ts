@@ -333,17 +333,18 @@ export function useGuestCourseEnrollmentReadSync(enabled: boolean) {
 
 /** Sole mount-time owner of the course catalog read for `/` and `/cabinet*`. */
 export function useCourseCatalogReadSync(enabled: boolean) {
+  const authLoading = useAuthStore((state) => state.authLoading);
   const firebaseUserId = useAuthStore((state) => state.firebaseUser?.uid);
   const authGeneration = useAuthStore((state) => state.authGeneration);
 
   const loadCatalog = useCallback(async () => {
-    if (enabled) await reloadCourseCatalog();
+    if (enabled && !useAuthStore.getState().authLoading) await reloadCourseCatalog();
   }, [enabled]);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || authLoading) return;
     void loadCatalog();
-  }, [authGeneration, enabled, firebaseUserId, loadCatalog]);
+  }, [authGeneration, authLoading, enabled, firebaseUserId, loadCatalog]);
 
   return { reloadCatalog: loadCatalog };
 }

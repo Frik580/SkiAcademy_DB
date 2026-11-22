@@ -43,11 +43,14 @@ export const useBookingsSync = () => {
   const { catalogueScope, shouldSyncReviews } = useDataSyncScope();
   const firebaseUser = useAuthStore((s) => s.firebaseUser);
   const authGeneration = useAuthStore((s) => s.authGeneration);
+  const authLoading = useAuthStore((s) => s.authLoading);
   const userProfile = useProfileStore((s) => s.userProfile);
   const firebaseUserId = firebaseUser?.uid;
   const userRole = userProfile?.role;
   const instructorId = userProfile?.instructorId;
+  const catalogueInstructorId = catalogueScope === 'instructor' ? instructorId : undefined;
   const reviewsInstructorId = useUiStore((s) => s.reviewsInstructor?.id);
+  const retryNonce = useBookingsStore((s) => s.instructorCatalogueRetryNonce);
   const reviewSyncRequest = useBookingsStore((s) => s.reviewSyncRequest);
   const lessonBookingItems = useLessonBookingStore((state) => state.items);
 
@@ -55,58 +58,71 @@ export const useBookingsSync = () => {
     useBookingsStore.getState().resetBookingsPagination();
   }, [firebaseUser?.uid, userProfile?.instructorId, userProfile?.role]);
 
-  // Guest booking keeps the direct LIVE-compatible listener. Authenticated booking
+  // Guest booking keeps the LIVE-compatible scoped subscription. Authenticated booking
   // uses the scoped catalogue callable so a TestActor is not stuck on that filter.
   // The instructor workspace still reads only its own linked profile.
   useEffect(() => {
-    if (catalogueScope === 'instructor' && !instructorId) {
-      useBookingsStore.getState().setInstructors([]);
-      return;
-    }
-
+    if (authLoading) return;
+    let active = true;
+    const isCurrent = () =>
+      active &&
+      !useAuthStore.getState().authLoading &&
+      useAuthStore.getState().authGeneration === authGeneration &&
+      useAuthStore.getState().firebaseUser?.uid === firebaseUserId;
     if (catalogueScope === 'instructor') {
-      return subscribeScopedDocuments(
+      useBookingsStore.getState().setInstructors([]);
+      if (!catalogueInstructorId) return;
+      const unsubscribe = subscribeScopedDocuments(
         {
           collection: 'instructors',
           take: 1,
-          where: [{ field: '__name__', op: '==', value: instructorId! }],
+          where: [{ field: '__name__', op: '==', value: catalogueInstructorId }],
         },
         (snapshot) => {
+          if (!isCurrent()) return;
           useBookingsStore
             .getState()
             .setInstructors(snapshot.docs.map((item) => toInstructor(item.id, item.data())));
         },
-        (error) => handleFirestoreError(error, OperationType.GET, 'instructors')
+        (error) => {
+          if (isCurrent()) handleFirestoreError(error, OperationType.GET, 'instructors');
+        }
       );
+      return () => {
+        active = false;
+        unsubscribe();
+      };
     }
 
+    useBookingsStore.setState({ instructorCatalogueStatus: 'loading' });
     if (firebaseUserId) {
-      let cancelled = false;
       useBookingsStore.getState().setInstructors([]);
       void queryBookingInstructorCatalogueReadModels()
         .then((result) => {
-          if (cancelled || useAuthStore.getState().firebaseUser?.uid !== firebaseUserId) return;
+          if (!isCurrent()) return;
           useBookingsStore
             .getState()
             .setInstructors(result.items.map((item) => toBookingCatalogueInstructor(item)));
+          useBookingsStore.setState({ instructorCatalogueStatus: 'ready' });
         })
         .catch((error) => {
           logger.error('Booking instructor catalogue read failed', error);
-          if (!cancelled && useAuthStore.getState().firebaseUser?.uid === firebaseUserId) {
+          if (isCurrent()) {
             useBookingsStore.getState().setInstructors([]);
+            useBookingsStore.setState({ instructorCatalogueStatus: 'error' });
           }
         });
       return () => {
-        cancelled = true;
+        active = false;
       };
     }
 
     const instructorsQuery = { collection: 'instructors' as const, take: QUERY_LIMITS.instructors };
 
-    return subscribeScopedDocuments(
+    const unsubscribe = subscribeScopedDocuments(
       instructorsQuery,
       (snapshot) => {
-        if (useAuthStore.getState().firebaseUser?.uid) return;
+        if (!isCurrent()) return;
         useBookingsStore.getState().setInstructors(
           liveCatalogueInstructors(
             snapshot.docs.map((instructorDoc) => ({
@@ -115,13 +131,30 @@ export const useBookingsSync = () => {
             }))
           )
         );
+        useBookingsStore.setState({ instructorCatalogueStatus: 'ready' });
       },
-      (error) => handleFirestoreError(error, OperationType.LIST, 'instructors')
+      (error) => {
+        if (!isCurrent()) return;
+        useBookingsStore.setState({ instructorCatalogueStatus: 'error' });
+        handleFirestoreError(error, OperationType.LIST, 'instructors');
+      }
     );
-  }, [authGeneration, catalogueScope, firebaseUserId, instructorId]);
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [
+    authGeneration,
+    authLoading,
+    catalogueInstructorId,
+    catalogueScope,
+    firebaseUserId,
+    retryNonce,
+  ]);
 
   // Canonical review read models are the only product review/rating authority.
   useEffect(() => {
+    if (authLoading) return;
     let cancelled = false;
     const load = async () => {
       try {
@@ -144,7 +177,13 @@ export const useBookingsSync = () => {
           ...(reviewsInstructorId ? [loadInstructorReviewPage(reviewsInstructorId)] : []),
         ];
         const results = await Promise.allSettled(requests);
-        if (cancelled) return;
+        if (
+          cancelled ||
+          useAuthStore.getState().authLoading ||
+          useAuthStore.getState().authGeneration !== authGeneration ||
+          useAuthStore.getState().firebaseUser?.uid !== firebaseUserId
+        )
+          return;
         const settled = results.flatMap((result) =>
           result.status === 'fulfilled' ? [result.value] : []
         );
@@ -204,6 +243,8 @@ export const useBookingsSync = () => {
       cancelled = true;
     };
   }, [
+    authGeneration,
+    authLoading,
     firebaseUserId,
     instructorId,
     lessonBookingItems,

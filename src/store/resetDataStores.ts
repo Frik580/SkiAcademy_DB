@@ -24,14 +24,12 @@ export function resetUserScopedStores(): void {
     bookingsHasMore: false,
     bookingHistoryRequest: 0,
     bookingHistoryLoading: false,
-    instructors: [],
     reviews: [],
     reviewBookingStates: [],
     ratingSummaries: {},
     reviewPaginationByInstructor: {},
     reviewSyncRequest: 0,
   });
-  useCoursesStore.setState({ courses: [], publicCoursesStatus: 'loading' });
   useProfileStore.setState({
     userProfile: null,
     profileLoading: false,
@@ -64,4 +62,11 @@ export function resetUserScopedStores(): void {
   useCabinetProgressParticipantSelectionStore.getState().reset();
   // Participant-access query cache is session-scoped; wipe on logout/account end.
   useBookingCollaborationStore.getState().reset();
+}
+
+/** Catalogues can contain authenticated TEST/workspace data. Invalidate them on
+ * principal changes, independently of private account cache resets. */
+export function resetAuthScopedCatalogues(): void {
+  useCoursesStore.setState({ courses: [], publicCoursesStatus: 'loading' });
+  useBookingsStore.setState({ instructors: [], instructorCatalogueStatus: 'loading' });
 }

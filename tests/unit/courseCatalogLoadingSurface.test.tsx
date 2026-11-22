@@ -88,7 +88,7 @@ const operational = mapCourseCatalogReadModelToOperationalState(catalogReadModel
 beforeEach(() => {
   useCourseEnrollmentStore.getState().reset();
   useCoursesStore.setState({ publicCoursesStatus: 'loading' });
-  useAuthStore.setState({ firebaseUser: null, authGeneration: 0 });
+  useAuthStore.setState({ firebaseUser: null, authLoading: false, authGeneration: 0 });
   mocks.query.mockReset();
 });
 

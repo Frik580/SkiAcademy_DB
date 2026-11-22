@@ -18,10 +18,13 @@ export const useCoursesSync = (catalogReadAlreadyOwned = false) => {
   );
   const firebaseUserId = useAuthStore((state) => state.firebaseUser?.uid);
   const authGeneration = useAuthStore((state) => state.authGeneration);
+  const authLoading = useAuthStore((state) => state.authLoading);
   const retryNonce = useCoursesStore((state) => state.publicCoursesRetryNonce);
 
   useEffect(() => {
+    if (authLoading) return;
     const isCurrentPrincipal = () =>
+      !useAuthStore.getState().authLoading &&
       useAuthStore.getState().authGeneration === authGeneration &&
       useAuthStore.getState().firebaseUser?.uid === firebaseUserId;
     if (useCoursesStore.getState().catalogueScope !== catalogueScope) {
@@ -150,6 +153,7 @@ export const useCoursesSync = (catalogReadAlreadyOwned = false) => {
     };
   }, [
     authGeneration,
+    authLoading,
     catalogReadAlreadyOwned,
     catalogueScope,
     firebaseUserId,

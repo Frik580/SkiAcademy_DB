@@ -17,6 +17,7 @@ import { useCoursesStore } from '../../features/courses';
 import { useSettingsStore } from '../../features/settings';
 import { useUiStore } from '../../features/shell';
 import { useAuthStore } from '../../features/auth/authStore';
+import { useBookingsStore } from '../../features/bookings/bookingsStore';
 import {
   selectAllCourseCatalogOperationalStates,
   selectCourseEnrollmentItems,
@@ -39,6 +40,8 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
   const firebaseUser = useAuthStore((state) => state.firebaseUser);
   const courses = useCoursesStore((state) => state.courses);
   const catalogueScope = useCoursesStore((state) => state.catalogueScope);
+  const instructorStatus = useBookingsStore((state) => state.instructorCatalogueStatus);
+  const retryInstructors = useBookingsStore((state) => state.retryInstructorCatalogue);
   const courseEnrollments = useCourseEnrollmentStore(selectCourseEnrollmentItems);
   const catalogByCourseId = useCourseEnrollmentStore(selectAllCourseCatalogOperationalStates);
   const { participants } = useManagedParticipants(userProfile?.uid);
@@ -181,7 +184,22 @@ export const HomeRouteContainer: React.FC<AppRoutesProps> = ({ resortData, setIs
                 />
               )}
 
-              {filteredInstructors.length === 0 ? (
+              {instructorStatus === 'loading' ? (
+                <p role="status" className="ui-empty-state py-16">
+                  {t('loading')}
+                </p>
+              ) : instructorStatus === 'error' ? (
+                <div role="alert" className="ui-empty-state py-16">
+                  <p>{t('instructorCatalogueLoadError')}</p>
+                  <button
+                    type="button"
+                    onClick={retryInstructors}
+                    className="btn-secondary px-3 py-2"
+                  >
+                    {t('retry')}
+                  </button>
+                </div>
+              ) : filteredInstructors.length === 0 ? (
                 <div className="ui-empty-state py-16">
                   <Compass className="w-10 h-10 text-[var(--ink-dim)] mx-auto mb-3" />
 

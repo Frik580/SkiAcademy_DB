@@ -14,6 +14,8 @@ export interface BookingsState {
   bookingHistoryRequest: number;
   bookingHistoryLoading: boolean;
   instructors: Instructor[];
+  instructorCatalogueStatus: 'loading' | 'ready' | 'error';
+  instructorCatalogueRetryNonce: number;
   reviews: Review[];
   reviewBookingStates: AccountReviewBookingState[];
   reviewSyncRequest: number;
@@ -30,6 +32,7 @@ export interface BookingsState {
   loadMoreBookings: () => void;
   resetBookingsPagination: () => void;
   setInstructors: (instructors: Instructor[]) => void;
+  retryInstructorCatalogue: () => void;
   setCanonicalReviewData: (data: {
     reviews: InstructorReviewReadModel[];
     summaries: InstructorRatingSummaryReadModel[];
@@ -87,6 +90,8 @@ export const useBookingsStore = create<BookingsState>((set) => ({
   bookingHistoryRequest: 0,
   bookingHistoryLoading: false,
   instructors: [],
+  instructorCatalogueStatus: 'loading',
+  instructorCatalogueRetryNonce: 0,
   reviews: [],
   reviewBookingStates: [],
   reviewSyncRequest: 0,
@@ -114,6 +119,11 @@ export const useBookingsStore = create<BookingsState>((set) => ({
     set((state) => ({
       instructors: applyCanonicalRatings(instructors, state.ratingSummaries),
       reviewSyncRequest: state.reviewSyncRequest + 1,
+    })),
+  retryInstructorCatalogue: () =>
+    set((state) => ({
+      instructorCatalogueStatus: 'loading',
+      instructorCatalogueRetryNonce: state.instructorCatalogueRetryNonce + 1,
     })),
   setCanonicalReviewData: ({ reviews, summaries, bookingStates, reviewPages = [] }) =>
     set((state) => {

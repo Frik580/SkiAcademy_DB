@@ -1086,6 +1086,7 @@ export const translations = {
     scProfileParticipants: 'Participants',
     scProfileParticipantsSub: 'Edit personal info, avatars, and dependent participants.',
     courseCatalogLoadError: 'Could not load course availability.',
+    instructorCatalogueLoadError: 'Could not load instructors.',
     retry: 'Retry',
     bookingBalanceTooLow: 'Your account balance is too low. Contact the resort admin to top up.',
     instructorUnavailable: 'Instructor Unavailable',
@@ -3806,6 +3807,7 @@ export const translations = {
     scProfileParticipants: 'Участники',
     scProfileParticipantsSub: 'Редактирование личных данных, аватаров и участников.',
     courseCatalogLoadError: 'Не удалось загрузить доступность курса.',
+    instructorCatalogueLoadError: 'Не удалось загрузить инструкторов.',
     retry: 'Повторить',
     bookingBalanceTooLow:
       'Недостаточно средств. Обратитесь к администратору курорта для пополнения баланса.',

@@ -19,6 +19,7 @@ import {
   queryPublicInstructorRatingSummaries,
 } from '../../lib/canonical/canonicalReadModelClient';
 import { useBookingsStore } from '../bookings/bookingsStore';
+import { useAuthStore } from '../auth/authStore';
 import { useLessonBookingStore } from '../lesson-bookings';
 import { logger } from '../../shared';
 import { mergeAccountReviewBookingStates } from './mergeAccountReviewBookingStates';
@@ -30,6 +31,7 @@ export function deriveCreateReviewIdempotencyKey(bookingId: string): Idempotency
 }
 
 export async function loadMoreCanonicalInstructorReviews(instructorId: string): Promise<void> {
+  const { authGeneration } = useAuthStore.getState();
   const parsedInstructorId = InstructorIdSchema.parse(instructorId);
   const pagination = useBookingsStore.getState().reviewPaginationByInstructor[instructorId];
   if (!pagination?.hasMore || !pagination.nextCursor || pagination.loadingMore) return;
@@ -42,6 +44,7 @@ export async function loadMoreCanonicalInstructorReviews(instructorId: string): 
       pageSize: 25,
       cursor: pagination.nextCursor,
     });
+    if (useAuthStore.getState().authGeneration !== authGeneration) return;
     if (result.scope !== 'instructor_reviews') {
       throw new Error('Canonical instructor review scope mismatch.');
     }
@@ -53,11 +56,14 @@ export async function loadMoreCanonicalInstructorReviews(instructorId: string): 
       ...(result.nextCursor ? { nextCursor: result.nextCursor } : {}),
     });
   } finally {
-    useBookingsStore.getState().setInstructorReviewPageLoading(instructorId, false);
+    if (useAuthStore.getState().authGeneration === authGeneration) {
+      useBookingsStore.getState().setInstructorReviewPageLoading(instructorId, false);
+    }
   }
 }
 
 export async function refreshCanonicalReviewData(bookingIds?: readonly string[]): Promise<void> {
+  const { authGeneration } = useAuthStore.getState();
   const visibleBookingIds = [
     ...useLessonBookingStore.getState().items.keys(),
     ...(bookingIds ?? []),
@@ -65,6 +71,7 @@ export async function refreshCanonicalReviewData(bookingIds?: readonly string[])
   const accountResult = await queryAccountInstructorReviewReadModels(
     [...new Set(visibleBookingIds)].map((bookingId) => BookingIdSchema.parse(bookingId))
   );
+  if (useAuthStore.getState().authGeneration !== authGeneration) return;
   const instructorIds = [
     ...new Set([
       ...useBookingsStore.getState().instructors.map((instructor) => instructor.id),
@@ -74,6 +81,7 @@ export async function refreshCanonicalReviewData(bookingIds?: readonly string[])
   const summaries = await queryPublicInstructorRatingSummaries(
     instructorIds.map((instructorId) => instructorId as never)
   );
+  if (useAuthStore.getState().authGeneration !== authGeneration) return;
   const previousState = useBookingsStore.getState();
   const requestedBookingIds = [...new Set(visibleBookingIds)].map((bookingId) =>
     BookingIdSchema.parse(bookingId)
@@ -96,6 +104,7 @@ export async function createCanonicalInstructorReview(input: {
   readonly comment?: string;
   readonly exercisedCapability: ClientCallableCapability;
 }): Promise<'created' | 'already_exists'> {
+  const { authGeneration } = useAuthStore.getState();
   const comment = normalizeInstructorReviewComment(input.comment);
   const result = await executeAuthenticatedCanonicalCommand(input.accountId, {
     kind: 'create_instructor_review',
@@ -116,13 +125,16 @@ export async function createCanonicalInstructorReview(input: {
   if (!payload.success) {
     throw new Error('Review command returned an invalid payload.');
   }
+  if (useAuthStore.getState().authGeneration !== authGeneration) return payload.data.outcome;
 
   try {
     await refreshCanonicalReviewData([input.bookingId]);
   } catch (refreshError) {
     // Mutation success remains success; the route-scoped sync will retry separately.
     logger.error('Review created but canonical review refresh failed:', refreshError);
-    useBookingsStore.getState().requestReviewRefresh();
+    if (useAuthStore.getState().authGeneration === authGeneration) {
+      useBookingsStore.getState().requestReviewRefresh();
+    }
   }
   return payload.data.outcome;
 }

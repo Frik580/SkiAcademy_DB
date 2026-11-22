@@ -132,17 +132,28 @@ export function validateReleaseMapping(releases = releaseSuites, groups = releas
     throw new Error('Required contracts/Hosting release stage missing');
 }
 
-export function validateManifest({
+export const inventoryPath = 'scripts/testManifest.inventory.json';
+
+export function parseInventory(source) {
+  const inventory = JSON.parse(source);
+  const keys = new Set();
+  // Inventory is a flat JSON object. Consume complete string tokens, including escaped quotes.
+  for (const [, token, colon] of source.matchAll(/("(?:[^"\\]|\\.)*")(\s*:)?/g)) {
+    if (!colon) continue;
+    const key = JSON.parse(token);
+    if (keys.has(key)) throw new Error(`Duplicate test inventory key: ${key}`);
+    keys.add(key);
+  }
+  return inventory;
+}
+
+export function classifyManifest({
   root = ROOT,
   manifest = suites,
   groups = executionGroups,
   deferred = deferredSuites,
-  inventory,
   files = discoverTests(root),
 } = {}) {
-  inventory ??= JSON.parse(
-    readFileSync(resolve(root, 'scripts/testManifest.inventory.json'), 'utf8')
-  );
   const ids = new Set();
   const selected = new Map();
   const assignments = new Map();
@@ -181,7 +192,8 @@ export function validateManifest({
       if (!files.some((file) => matches(file, pattern)))
         throw new Error(`Unresolved test path: ${pattern}`);
     for (const file of selection) {
-      if (assignments.has(file)) throw new Error(`Duplicate execution: ${file}`);
+      if (assignments.has(file))
+        throw new Error(`Duplicate execution: ${file} (${assignments.get(file)}, ${suite.id})`);
       assignments.set(file, suite.id);
     }
     selected.set(suite.id, selection);
@@ -189,21 +201,16 @@ export function validateManifest({
   for (const gap of deferred) {
     if (!gap.reason || !gap.proposedGroup) throw new Error(`Unexplained deferred suite: ${gap.id}`);
     for (const file of selectFiles(gap, files)) {
-      if (assignments.has(file)) throw new Error(`Duplicate inventory classification: ${file}`);
+      if (assignments.has(file))
+        throw new Error(
+          `Duplicate inventory classification: ${file} (${assignments.get(file)}, deferred:${gap.id})`
+        );
       assignments.set(file, `deferred:${gap.id}`);
     }
   }
   for (const file of files) {
     if (!assignments.has(file)) throw new Error(`Unknown test file: ${file}`);
-    if (inventory[file] !== assignments.get(file))
-      throw new Error(
-        `Inventory assignment changed: ${file} (${inventory[file]} -> ${assignments.get(file)})`
-      );
   }
-  for (const file of Object.keys(inventory))
-    if (!files.includes(file)) throw new Error(`Inventory test missing: ${file}`);
-  for (const id of new Set(Object.values(inventory).filter((id) => !id.startsWith('deferred:'))))
-    if (!selected.has(id)) throw new Error(`Required suite removed: ${id}`);
   if (manifest === suites && deferred === deferredSuites) {
     validateReleaseMapping();
     const releaseFiles = new Set();
@@ -234,6 +241,35 @@ export function validateManifest({
     );
   }
   return { files, selected, assignments };
+}
+
+export function findInventoryAdditions({ assignments, selected }, inventory) {
+  if (!inventory || typeof inventory !== 'object' || Array.isArray(inventory))
+    throw new Error(`Expected a JSON object in ${inventoryPath}`);
+  const additions = new Map();
+  for (const file of [...assignments.keys()].sort()) {
+    const owner = assignments.get(file);
+    if (!Object.hasOwn(inventory, file)) additions.set(file, owner);
+    else if (inventory[file] !== owner)
+      throw new Error(`Inventory assignment changed: ${file} (${inventory[file]} -> ${owner})`);
+  }
+  for (const file of Object.keys(inventory))
+    if (!assignments.has(file)) throw new Error(`Inventory test missing: ${file}`);
+  for (const id of new Set(Object.values(inventory).filter((id) => !id.startsWith('deferred:'))))
+    if (!selected.has(id)) throw new Error(`Required suite removed: ${id}`);
+  return additions;
+}
+
+export function validateManifest({ inventory, ...options } = {}) {
+  inventory ??= parseInventory(readFileSync(resolve(options.root ?? ROOT, inventoryPath), 'utf8'));
+  const result = classifyManifest(options);
+  const additions = findInventoryAdditions(result, inventory);
+  const [missing] = additions;
+  if (missing) {
+    const [file, owner] = missing;
+    throw new Error(`Inventory assignment changed: ${file} (undefined -> ${owner})`);
+  }
+  return result;
 }
 export function assertRequiredSuites(report, kind) {
   kind = kind === 'functions' ? 'backend' : kind;

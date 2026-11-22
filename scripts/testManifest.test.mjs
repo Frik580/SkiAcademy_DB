@@ -1,9 +1,18 @@
-import { execFileSync } from 'node:child_process';
-import { describe, it } from 'node:test';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { relative, resolve } from 'node:path';
+import { dirname, relative, resolve } from 'node:path';
 import {
   ROOT,
   suites,
@@ -18,6 +27,7 @@ import {
 } from './testManifest.mjs';
 import {
   discoverTests,
+  inventoryPath,
   matches,
   selectFiles,
   selectProfileFiles,
@@ -25,6 +35,7 @@ import {
   validateResults,
   validateReleaseMapping,
 } from './validateTestManifest.mjs';
+import { syncTestManifest } from './syncTestManifest.mjs';
 import { runGroup, runProcess, vitestArgs } from './runManifestTests.mjs';
 const copy = (value) => structuredClone(value);
 const inventory = JSON.parse(
@@ -45,6 +56,155 @@ const report = (status) => ({
       ],
     },
   ],
+});
+
+describe('canonical inventory synchronization', () => {
+  const browser = 'tests/browser/admin-issue-attendance/center.spec.ts';
+  const unit = 'tests/unit/inventory-sync-example.test.ts';
+  const unknown = 'tests/inventory-sync-unknown.test.ts';
+  let root;
+  let lock;
+  const serialize = (entries) => `${JSON.stringify(entries, null, 2)}\n`;
+  const save = (entries) => writeFileSync(lock, serialize(entries));
+  const read = () => readFileSync(lock, 'utf8');
+  const absolute = (file) => resolve(root, file);
+  function createTest(file) {
+    mkdirSync(dirname(absolute(file)), { recursive: true });
+    writeFileSync(absolute(file), '');
+  }
+  function run(script, ...args) {
+    const result = spawnSync(process.execPath, [absolute(`scripts/${script}.mjs`), ...args], {
+      encoding: 'utf8',
+      cwd: tmpdir(),
+    });
+    assert.ifError(result.error);
+    return result;
+  }
+  function rejectWithoutWriting(pattern, options = {}) {
+    const original = read();
+    for (const mode of ['--check', '--write']) {
+      assert.throws(() => syncTestManifest(mode, { root, ...options }), pattern);
+      assert.equal(read(), original);
+    }
+  }
+
+  before(() => {
+    root = mkdtempSync(resolve(tmpdir(), 'carve-test-inventory-'));
+    lock = absolute(inventoryPath);
+    for (const file of files) createTest(file);
+    for (const script of ['syncTestManifest', 'validateTestManifest', 'testManifest'])
+      copyFileSync(resolve(ROOT, `scripts/${script}.mjs`), absolute(`scripts/${script}.mjs`));
+    save(inventory);
+  });
+  after(() => {
+    if (root) rmSync(root, { recursive: true, force: true });
+  });
+
+  it('repairs the browser fixture regression and adds a unit test with stable JSON', (t) => {
+    t.after(() => {
+      rmSync(absolute(unit), { force: true });
+      save(inventory);
+    });
+    const baseline = { ...inventory };
+    delete baseline[browser];
+    save(baseline);
+    createTest(unit);
+    const original = read();
+    const strict = run('validateTestManifest');
+    assert.equal(strict.status, 1);
+    assert.match(
+      strict.stderr,
+      /Inventory assignment changed: .*center\.spec\.ts \(undefined -> deferred:browser-fixtures\)/
+    );
+    const check = run('syncTestManifest', '--check');
+    assert.equal(check.status, 1);
+    assert.ok(check.stderr.includes(`${browser} -> deferred:browser-fixtures`));
+    assert.ok(check.stderr.includes(`${unit} -> app-unit`));
+    assert.equal(read(), original);
+
+    const write = run('syncTestManifest', '--write');
+    assert.equal(write.status, 0, write.stderr);
+    const expected = { ...baseline, [browser]: 'deferred:browser-fixtures', [unit]: 'app-unit' };
+    assert.deepEqual(JSON.parse(read()), expected);
+    assert.equal(read(), serialize(expected));
+    assert.equal(run('validateTestManifest').status, 0);
+    assert.equal(run('syncTestManifest', '--check').status, 0);
+
+    const mtime = statSync(lock).mtimeMs;
+    const repeat = run('syncTestManifest', '--write');
+    assert.equal(repeat.status, 0, repeat.stderr);
+    assert.match(repeat.stdout, /up to date/);
+    assert.equal(statSync(lock).mtimeMs, mtime);
+    assert.equal(read(), serialize(expected));
+  });
+
+  it('rejects an unowned path without adding a valid new test alongside it', (t) => {
+    t.after(() => {
+      rmSync(absolute(unit), { force: true });
+      rmSync(absolute(unknown), { force: true });
+    });
+    createTest(unit);
+    createTest(unknown);
+    rejectWithoutWriting(/Unknown test file: tests\/inventory-sync-unknown\.test\.ts/);
+  });
+
+  it('rejects a new test with both required and deferred owners', (t) => {
+    t.after(() => rmSync(absolute(unit), { force: true }));
+    createTest(unit);
+    const deferred = [
+      ...deferredSuites,
+      { id: 'overlap', files: [unit], reason: 'Regression fixture', proposedGroup: 'app' },
+    ];
+    rejectWithoutWriting(/Duplicate inventory classification: .* \(app-unit, deferred:overlap\)/, {
+      deferred,
+    });
+  });
+
+  it('rejects a missing registered file without removing its entry', (t) => {
+    t.after(() => createTest(browser));
+    rmSync(absolute(browser));
+    rejectWithoutWriting(/Inventory test missing: .*center\.spec\.ts/);
+  });
+
+  it('rejects an existing assignment change even when there is a valid addition', (t) => {
+    t.after(() => {
+      rmSync(absolute(unit), { force: true });
+      save(inventory);
+    });
+    createTest(unit);
+    save({ ...inventory, [browser]: 'playwright' });
+    rejectWithoutWriting(
+      /Inventory assignment changed: .* \(playwright -> deferred:browser-fixtures\)/
+    );
+  });
+
+  it('rejects a duplicate persisted key without normalizing it away', (t) => {
+    t.after(() => {
+      rmSync(absolute(unit), { force: true });
+      save(inventory);
+    });
+    createTest(unit);
+    const original = read().replace('{\n', `{\n  "${browser}": "playwright",\n`);
+    writeFileSync(lock, original);
+    rejectWithoutWriting(/Duplicate test inventory key: .*center\.spec\.ts/);
+    const strict = run('validateTestManifest');
+    assert.equal(strict.status, 1);
+    assert.match(strict.stderr, /Duplicate test inventory key/);
+  });
+
+  it('preflight rejects an ignored test that Git would skip when staging', (t) => {
+    t.after(() => {
+      rmSync(absolute(unit), { force: true });
+      rmSync(absolute('.gitignore'), { force: true });
+    });
+    execFileSync('git', ['init', '--quiet'], { cwd: root });
+    createTest(unit);
+    writeFileSync(absolute('.gitignore'), `/${unit}\n`);
+    rejectWithoutWriting(
+      /Canonical test files excluded by Git ignore rules:[\s\S]*inventory-sync-example\.test\.ts/,
+      { requireTrackable: true }
+    );
+  });
 });
 
 describe('canonical manifest integrity', () => {

@@ -20,6 +20,7 @@ export const optimizeImage = onRequest(
     // Only successful image bodies may be cached; quota/validation/upstream
     // failures must recover immediately instead of being retained by the CDN.
     res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     if (req.method === 'OPTIONS') {
       res.status(204).send('');
       return;

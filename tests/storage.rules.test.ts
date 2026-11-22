@@ -250,29 +250,57 @@ describe('storage Kaspi immutable QR', () => {
 });
 
 describe('storage avatars', () => {
-  it('allows public reads and owner uploads under 5 MB', async () => {
+  beforeEach(async () => {
     await seedStorageFirestore(testEnv, async (db) => {
       await setDoc(
         doc(db, 'users', STORAGE_USER_ID),
         userProfile(STORAGE_USER_ID, 'user@example.com')
       );
+      await setDoc(
+        doc(db, 'users', STORAGE_OTHER_USER_ID),
+        userProfile(STORAGE_OTHER_USER_ID, 'other@example.com')
+      );
     });
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await uploadImage(context.storage(), `avatars/${STORAGE_USER_ID}`);
+    });
+  });
 
-    const ownerStorage = testEnv.authenticatedContext(STORAGE_USER_ID).storage();
-    const otherStorage = testEnv.authenticatedContext(STORAGE_OTHER_USER_ID).storage();
+  it('keeps historical public reads', async () => {
     const anonymousStorage = testEnv.unauthenticatedContext().storage();
-
-    await expect(
-      uploadImage(ownerStorage, `avatars/${STORAGE_USER_ID}`, 5 * 1024 * 1024 - 1)
-    ).resolves.toBeDefined();
     await assertSucceeds(getBytes(ref(anonymousStorage, `avatars/${STORAGE_USER_ID}`)));
-    await assertFails(uploadImage(otherStorage, `avatars/${STORAGE_USER_ID}`));
-    await assertFails(uploadImage(ownerStorage, `avatars/${STORAGE_USER_ID}`, 5 * 1024 * 1024));
+    await assertSucceeds(getDownloadURL(ref(anonymousStorage, `avatars/${STORAGE_USER_ID}`)));
+  });
+
+  // CA-SEC-06A: Rules can only see the declared contentType, so this public path
+  // no longer accepts any write (see storage.rules). Byte classification for
+  // every LIVE image now happens in the protectedImages Function.
+  it.each([
+    ['owner', STORAGE_USER_ID],
+    ['other user', STORAGE_OTHER_USER_ID],
+    [null, null],
+  ])('denies every write by %s on the legacy avatar path', async (_label, uid) => {
+    const storage = uid
+      ? testEnv.authenticatedContext(uid).storage()
+      : testEnv.unauthenticatedContext().storage();
+    for (const contentType of [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/svg+xml',
+      'image/gif',
+      'image/heic',
+      'text/html',
+      'application/octet-stream',
+    ]) {
+      await assertFails(
+        uploadBytes(ref(storage, `avatars/${STORAGE_USER_ID}`), imageBytes(64), { contentType })
+      );
+    }
     await assertFails(
-      uploadBytes(ref(ownerStorage, `avatars/${STORAGE_USER_ID}`), imageBytes(1024), {
-        contentType: 'application/pdf',
-      })
+      updateMetadata(ref(storage, `avatars/${STORAGE_USER_ID}`), { contentType: 'image/png' })
     );
+    await assertFails(deleteObject(ref(storage, `avatars/${STORAGE_USER_ID}`)));
   });
 });
 

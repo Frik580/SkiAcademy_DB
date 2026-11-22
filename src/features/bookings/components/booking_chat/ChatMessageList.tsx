@@ -5,6 +5,7 @@ import { Booking, ChatMessage, Course, Instructor, UserProfile } from '../../../
 import { Skeleton } from '../../../../ui/Skeleton';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { resolveChatSenderRole } from '../../../../domain/chat';
+import { safeChatLink } from '../../../chat/safeChatLink';
 import { ChatMedia } from './ChatMedia';
 
 export type ChatMessageRow = ChatMessage & { threadId?: string };
@@ -176,10 +177,10 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                     </div>
                   )}
 
-                  {msg.attachmentType === 'link' && msg.attachmentUrl && (
+                  {msg.attachmentType === 'link' && safeChatLink(msg.attachmentUrl) && (
                     <div className={msg.text ? 'mt-2.5' : ''}>
                       <a
-                        href={msg.attachmentUrl}
+                        href={safeChatLink(msg.attachmentUrl)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className={`flex items-center gap-2 p-2 border type-button uppercase transition-all duration-300 ${

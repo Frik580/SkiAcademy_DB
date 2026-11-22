@@ -73,8 +73,12 @@ export const compressImage = (file: File): Promise<{ blob: Blob; name: string; s
   });
 };
 
+/** Containers the media gateway re-verifies; anything else is re-encoded first. */
+const PASSTHROUGH_VIDEO_TYPES = new Set(['video/mp4', 'video/webm']);
+
 export const compressVideo = (file: File): Promise<{ blob: Blob; name: string; size: number }> => {
-  if (file.size < 400 * 1024) {
+  const passthrough = PASSTHROUGH_VIDEO_TYPES.has(file.type);
+  if (passthrough && file.size < 400 * 1024) {
     return Promise.resolve({ blob: file, name: file.name, size: file.size });
   }
 
@@ -82,7 +86,7 @@ export const compressVideo = (file: File): Promise<{ blob: Blob; name: string; s
     'captureStream' in HTMLCanvasElement.prototype ||
     'mozCaptureStream' in HTMLCanvasElement.prototype;
   if (!window.MediaRecorder || !hasCapture) {
-    if (file.size < 900 * 1024) {
+    if (passthrough && file.size < 900 * 1024) {
       return Promise.resolve({ blob: file, name: file.name, size: file.size });
     }
     return Promise.reject(new LocalizedCompressionError('chatCompressionUnsupported'));

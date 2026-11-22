@@ -718,5 +718,8 @@
   "tests/unit/verifiedProfileClaim.test.ts": "app-unit",
   "tests/unit/walletLedger.test.ts": "app-unit",
   "tests/unit/webAppCheck.test.ts": "app-unit",
-  "tests/unit/studentHomeworkScope.test.tsx": "app-unit"
+  "tests/unit/studentHomeworkScope.test.tsx": "app-unit",
+  "tests/unit/chatCompression.test.ts": "app-unit",
+  "tests/unit/safeChatLink.test.ts": "app-unit",
+  "functions/src/security/mediaTypePolicy.test.ts": "functions-unit"
 }

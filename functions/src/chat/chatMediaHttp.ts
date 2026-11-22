@@ -4,6 +4,11 @@ import { HttpsError, onRequest } from 'firebase-functions/v2/https';
 import { getOrInitApp } from '../adminApp';
 import { getAdminFirestore } from '../adminFirestore';
 import { admitRequest } from '../security/requestAdmission';
+import {
+  assertChatMediaContentMatchesType,
+  assertSupportedChatMediaUploadType,
+  chatMediaUploadLimit,
+} from '../security/mediaTypePolicy';
 import { authorizeChatMedia, mediaSizeLimit } from './chatMediaAccess';
 
 const CHUNK_SIZE = 8 * 1024 * 1024;
@@ -48,6 +53,10 @@ export const handleBookingChatMedia: Parameters<typeof onRequest>[0] = async (re
       res.set('X-Media-Size', String(size));
       res.set('Access-Control-Expose-Headers', 'X-Media-Size');
       res.set('Content-Type', contentType);
+      // The bytes are rendered from a local Blob, so an explicit attachment
+      // disposition keeps any legacy active payload from being opened as a
+      // document on the Functions origin.
+      res.set('Content-Disposition', 'attachment');
       res.status(200).send(bytes);
       return;
     }
@@ -111,7 +120,6 @@ export const handleBookingChatMedia: Parameters<typeof onRequest>[0] = async (re
     if (req.query.op !== 'finish') throw new HttpsError('invalid-argument', 'Invalid operation');
     const count = Number(req.query.count);
     const type = String(req.query.type ?? '');
-    const limit = mediaSizeLimit(type);
     if (!Number.isInteger(count) || count < 1 || count > PARTS)
       throw new HttpsError('invalid-argument', 'Invalid chunk count');
     const completed = async () => {
@@ -131,6 +139,11 @@ export const handleBookingChatMedia: Parameters<typeof onRequest>[0] = async (re
       }
     };
     try {
+      // Deny-by-default allowlist: the declared type is client supplied. Checked
+      // before any chunk is read so the temporary parts are not re-used for an
+      // unsupported upload.
+      assertSupportedChatMediaUploadType(type);
+      const limit = chatMediaUploadLimit(type);
       // A lost finish response must be recoverable after temporary parts are gone.
       if (await completed()) {
         res.status(201).json({ path: path.path });
@@ -159,8 +172,11 @@ export const handleBookingChatMedia: Parameters<typeof onRequest>[0] = async (re
       }
       // Recheck after reading chunks: revocation during upload must prevent publish.
       await authorizeChatMedia(db, uid, path.path);
+      const bytes = Buffer.concat(buffers);
+      // Fail closed on re-labelled payloads (SVG/HTML/other) before publishing.
+      await assertChatMediaContentMatchesType(bytes, type);
       try {
-        await file.save(Buffer.concat(buffers), {
+        await file.save(bytes, {
           resumable: false,
           preconditionOpts: { ifGenerationMatch: 0 },
           metadata: {

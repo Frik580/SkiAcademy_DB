@@ -5,6 +5,10 @@ import { getOrInitApp } from '../adminApp';
 import { getAdminFirestore } from '../adminFirestore';
 import { admitRequest } from './requestAdmission';
 import { authorizeProtectedImage } from './protectedImageAccess';
+import {
+  assertImageContentMatchesType,
+  isAllowedProtectedImageType,
+} from './mediaTypePolicy';
 
 const MAX_BYTES = 5 * 1024 * 1024;
 export const handleProtectedImages: Parameters<typeof onRequest>[0] = async (req, res) => {
@@ -45,9 +49,7 @@ export const handleProtectedImages: Parameters<typeof onRequest>[0] = async (req
       }
       const length = Number(metadata.size);
       if (
-        !['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(
-          metadata.contentType ?? ''
-        ) ||
+        !isAllowedProtectedImageType(access.path, metadata.contentType ?? '') ||
         !Number.isSafeInteger(length) ||
         length < 1 ||
         length >= MAX_BYTES
@@ -75,12 +77,14 @@ export const handleProtectedImages: Parameters<typeof onRequest>[0] = async (req
     const type = req.get('Content-Type')?.split(';')[0];
     if (
       !type ||
-      !['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(type) ||
+      !isAllowedProtectedImageType(access.path, type) ||
       !req.rawBody.length ||
       req.rawBody.length >= MAX_BYTES
     ) {
       throw new HttpsError('invalid-argument', 'Invalid image.');
     }
+    // The declared Content-Type is client controlled: classify the bytes first.
+    await assertImageContentMatchesType(req.rawBody, type);
     let generation = 0;
     try {
       const [old] = await file.getMetadata();

@@ -59,6 +59,7 @@ import {
   MessageSquareText,
   Video,
 } from 'lucide-react';
+import { safeChatLink } from '../../../chat/safeChatLink';
 
 type CoachSubView = 'chat' | 'videos' | 'comments' | 'homework' | 'recommendations';
 type CoachView = 'list' | CoachSubView;
@@ -584,9 +585,9 @@ export const StudentCoachPanel: React.FC<StudentCoachPanelProps> = ({
                       className="w-full rounded-lg max-h-64 bg-black/20"
                     />
                   )}
-                  {msg.attachmentType === 'link' && msg.attachmentUrl && (
+                  {msg.attachmentType === 'link' && safeChatLink(msg.attachmentUrl) && (
                     <a
-                      href={msg.attachmentUrl}
+                      href={safeChatLink(msg.attachmentUrl)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 type-button text-[var(--accent)] hover:underline"

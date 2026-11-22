@@ -40,7 +40,7 @@ import {
 import { LazySkillRadarChart } from './LazySkillRadarChart';
 import { StudentCoachSkillCommentsSection } from './StudentCoachSkillCommentsSection';
 import { StudentHomeworkDashboardSection } from './StudentHomeworkDashboardSection';
-import { getStudentHomeworkSources } from './studentHomeworkSources';
+import { useStudentHomeworkSources } from './useStudentHomeworkSources';
 import { useAccountParticipantLessonStatsStore } from '../../../lesson-bookings/accountParticipantLessonStatsStore';
 import { mapLessonBookingReadModelToCabinetItem } from '../../../lesson-bookings/lessonBookingViewModel';
 import { useLessonBookingStore } from '../../../lesson-bookings/lessonBookingStore';
@@ -170,14 +170,11 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
       recommendationsParticipantId,
     ]
   );
-  const homeworkSources = useMemo(
-    () =>
-      getStudentHomeworkSources(
-        nextSessionItems,
-        recommendationsParticipantId,
-        historicalHomeworkLessons
-      ),
-    [nextSessionItems, recommendationsParticipantId, historicalHomeworkLessons]
+  const homework = useStudentHomeworkSources(
+    nextSessionItems,
+    recommendationsParticipantId,
+    historicalHomeworkLessons,
+    userProfile.uid
   );
   const schoolTimeZone = useSchoolTimeZone();
   const confirmedTimeZone = schoolTimeZone.ready ? schoolTimeZone.timeZone : undefined;
@@ -506,7 +503,8 @@ export const StudentCabinetHome: React.FC<StudentCabinetHomeProps> = (props) => 
           accountId={userProfile.uid}
           participantId={recommendationsParticipantId}
           scopeParticipant={scopeParticipant}
-          sources={homeworkSources}
+          sources={homework.sources}
+          sourceFeedback={homework.feedback}
         />
       </StudentDashboardTile>
     ),

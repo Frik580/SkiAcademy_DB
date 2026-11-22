@@ -136,6 +136,46 @@ afterAll(async () => {
 });
 
 describe('authorized canonical chat media gateway', () => {
+  it('rejects enrollment-only homework threads while preserving existing legacy and course chats', async () => {
+    await seedLegacyBookingChatFixtures(env);
+    await seedCourseGroupChatFixtures(env);
+    await seedStorageFirestore(env, async (db) => {
+      await setDoc(doc(db, 'course_enrollments', 'enrollment-only'), {
+        courseId: 'course-group-1', participantId: 'child', lifecycleStatus: 'active',
+      });
+      for (const id of ['enrollment-only', 'booking-chat-1', 'course-group-1']) {
+        await setDoc(doc(db, 'bookings', id, 'messages', 'homework'), {
+          text: id, timestamp: '2026-11-21T10:00:00Z', isHomework: true,
+        });
+        await setDoc(doc(db, 'bookings', id, 'messages', 'ordinary'), {
+          text: 'ordinary', timestamp: '2026-11-22T10:00:00Z', isHomework: false,
+        });
+      }
+    });
+    const query = createQueryChatMessages(getAdminFirestore());
+    const read = (threadId: string) => query({
+      auth: { uid: STORAGE_USER_ID }, data: { threadId, homeworkOnly: true, take: 1 },
+    } as never);
+    await expect(read('enrollment-only')).rejects.toMatchObject({
+      code: 'permission-denied', message: 'Invalid media scope',
+    });
+    for (const id of ['booking-chat-1', 'course-group-1']) {
+      await expect(read(id)).resolves.toMatchObject({
+        messages: [{ id: 'homework', text: id }], hasMore: false,
+      });
+    }
+    await seedStorageFirestore(env, async (db) => {
+      await deleteDoc(doc(db, 'course_chat_access', STORAGE_USER_ID, 'courses', 'course-group-1'));
+      await deleteDoc(doc(db, 'bookings', 'booking-chat-1'));
+    });
+    await expect(read('course-group-1')).rejects.toMatchObject({
+      code: 'permission-denied', message: 'Not a current chat participant',
+    });
+    await expect(read('booking-chat-1')).rejects.toMatchObject({
+      code: 'permission-denied', message: 'Invalid media scope',
+    });
+  });
+
   it('keeps chat readable for the eighth participant through server authorization', async () => {
     const ids = Array.from({ length: 8 }, (_, index) => `chat_budget_participant_${index}`);
     const threadId = canonicalStorageBooking.bookingId;
@@ -516,6 +556,17 @@ describe('authorized canonical chat media gateway', () => {
         metadata: { contentType: 'image/jpeg' },
       });
     expect((await request(STORAGE_TEST_ACTOR_ID, 'GET', testPath)).status).toBe(200);
+    // Homework fallback uses a LIVE path and must not make TEST messages reachable.
+    const homeworkQuery = createQueryChatMessages(getAdminFirestore());
+    for (const uid of [STORAGE_TEST_ACTOR_ID, STORAGE_USER_ID, STORAGE_ADMIN_ID]) {
+      await expect(homeworkQuery({
+        auth: { uid }, data: { threadId: 'booking_test_a', homeworkOnly: true },
+      } as never)).rejects.toMatchObject({ code: 'permission-denied' });
+    }
+    await expect(homeworkQuery({
+      auth: { uid: STORAGE_TEST_ACTOR_ID },
+      data: { threadId: canonicalStorageBooking.bookingId, homeworkOnly: true },
+    } as never)).rejects.toMatchObject({ code: 'permission-denied' });
     expect((await request(STORAGE_ADMIN_ID, 'GET', testPath)).status).toBe(200);
     expect((await request(STORAGE_TEST_ACTOR_B_ID, 'GET', testPath)).status).toBe(403);
     expect((await request(STORAGE_USER_ID, 'GET', testPath)).status).toBe(403);

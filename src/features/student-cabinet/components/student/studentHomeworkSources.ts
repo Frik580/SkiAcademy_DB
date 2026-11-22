@@ -32,10 +32,10 @@ export function getStudentHomeworkSources(
       continue;
     }
     if (entry.participantId !== participantId || entry.lifecycleStatus === 'cancelled') continue;
-    // Shared course chat and legacy per-enrollment chat; same source model as the
-    // instructor's lesson card, deduplicated by the canonical thread ID.
+    // Enrollment identity does not establish a Booking/chat of the same ID.
+    // Legacy enrollment candidates are confirmed separately before being added;
+    // current chat authorization still decides whether any source is readable.
     add(entry.courseId, entry.courseTitle);
-    add(entry.enrollmentId, entry.courseTitle);
   }
   for (const lesson of historicalLessons) addLesson(lesson);
   return [...sources.values()];

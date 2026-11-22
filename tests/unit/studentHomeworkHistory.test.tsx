@@ -20,6 +20,7 @@ const fixture = vi.hoisted(() => ({
   chat: vi.fn((_ids: string[]) => ({ messages: [], loading: false })),
   dashboardHistory: {
     items: [] as unknown[],
+    denied: [] as string[],
     loading: false,
     error: false,
     hasMore: false,
@@ -86,6 +87,7 @@ afterEach(() => {
   fixture.history.hasMore = true;
   fixture.history.loadMore.mockClear();
   fixture.dashboardHistory.items = [];
+  fixture.dashboardHistory.denied = [];
   fixture.dashboardHistory.hasMore = false;
   fixture.dashboardHistory.loading = false;
   fixture.dashboardHistory.error = false;
@@ -230,6 +232,28 @@ describe('student homework dashboard tile', () => {
     expect(screen.queryByText('Coach')).toBeNull();
   });
 
+  it('reports denied sources alongside accessible homework instead of claiming history is empty', () => {
+    fixture.dashboardHistory.denied = ['revoked'];
+    const view = render(tile());
+    expect(screen.getByRole('alert')).toHaveTextContent(translations.en.lessonContextDenied);
+    expect(screen.queryByText(translations.en.scCoachNoHomework)).toBeNull();
+    fixture.dashboardHistory.items = [item(1)];
+    view.rerender(tile());
+    expect(screen.getByText('Assignment 1')).toBeVisible();
+    expect(screen.getByRole('alert')).toBeVisible();
+  });
+
+  it('exposes confirmation failures and retries them without retrying a denied source', () => {
+    const retry = vi.fn();
+    render(<StudentHomeworkDashboardSection accountId="account" participantId="child"
+      sources={source} sourceFeedback={{ loading: false, error: true, denied: ['legacy'], retry }} />);
+    expect(screen.queryByText(translations.en.scCoachNoHomework)).toBeNull();
+    expect(screen.getByText(translations.en.lessonContextDenied)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: translations.en.retry }));
+    expect(retry).toHaveBeenCalledOnce();
+    expect(fixture.dashboardHistory.loadMore).not.toHaveBeenCalled();
+  });
+
   it('resets pagination when switching participants and does not leak old assignments', () => {
     fixture.dashboardHistory.items = Array.from({ length: 11 }, (_, i) => item(10 - i));
     const view = render(tile());
@@ -258,12 +282,14 @@ describe('student homework dashboard tile', () => {
       { kind: 'lesson', session: { id: 'lesson', instructorName: 'Coach', participantIds: ['child'], status: 'completed' } },
       { kind: 'lesson', session: { id: 'foreign', instructorName: 'Coach', participantIds: ['other'], status: 'completed' } },
       { kind: 'course_day', courseId: 'course', enrollmentId: 'enrollment', courseTitle: 'Carving', participantId: 'child', lifecycleStatus: 'active' },
+      { kind: 'course_day', courseId: 'cancelled-course', enrollmentId: 'cancelled-enrollment', courseTitle: 'Cancelled', participantId: 'child', lifecycleStatus: 'cancelled' },
+      { kind: 'course_day', courseId: 'foreign-course', enrollmentId: 'foreign-enrollment', courseTitle: 'Foreign', participantId: 'other', lifecycleStatus: 'active' },
       { kind: 'course_day', courseId: 'course', enrollmentId: 'enrollment', courseTitle: 'Carving', participantId: 'child', lifecycleStatus: 'active' },
     ] as unknown as CabinetSessionItem[];
     expect(getStudentHomeworkSources(sessions, 'child').map((source) => source.threadId)).toEqual([
-      'lesson', 'course', 'enrollment',
+      'lesson', 'course',
     ]);
-    expect(getStudentHomeworkSources(sessions, 'other').map((source) => source.threadId)).toEqual(['foreign']);
+    expect(getStudentHomeworkSources(sessions, 'other').map((source) => source.threadId)).toEqual(['foreign', 'foreign-course']);
     expect(getStudentHomeworkSources(sessions, undefined)).toEqual([]);
   });
 

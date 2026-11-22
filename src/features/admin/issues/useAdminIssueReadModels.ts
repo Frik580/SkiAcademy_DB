@@ -222,6 +222,7 @@ export function useAdminIssueReadModels(
     list,
     detail,
     retryList: () => loadList(),
+    refreshList: () => loadList(undefined, false, true),
     retryDetail: loadDetail,
     loadMore: () =>
       list.hasMore && !list.loadingMore ? loadList(list.cursor, true) : Promise.resolve(),

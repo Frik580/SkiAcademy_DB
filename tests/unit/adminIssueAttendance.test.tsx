@@ -85,7 +85,10 @@ function setup() {
     locale: 'en-US',
     refreshIssues,
   };
-  const hook = renderHook((props) => useAdminIssueAttendance(props), { initialProps: input });
+  const hook = renderHook(
+    (props: Parameters<typeof useAdminIssueAttendance>[0]) => useAdminIssueAttendance(props),
+    { initialProps: input }
+  );
   return { ...hook, input, refreshIssues };
 }
 
@@ -223,6 +226,35 @@ describe('Attention Center bulk attendance', () => {
     refreshIssues.mockResolvedValue({ status: 'failure' });
     await act(() => result.current.submit());
     expect(result.current.notice).toMatchObject({
+      key: 'adminIssueAttendanceSaved',
+      refreshFailed: true,
+    });
+  });
+
+  it('releases the close guard after acknowledgement while the inbox refresh is blocked', async () => {
+    const { result, rerender, input, refreshIssues } = setup();
+    const refresh = deferred<{ status: 'failure' }>();
+    refreshIssues.mockReturnValue(refresh.promise);
+    await waitFor(() => expect(result.current.panel).toBeDefined());
+    let saving!: Promise<void>;
+    act(() => {
+      saving = result.current.submit();
+    });
+    await waitFor(() => expect(result.current.notice?.refreshing).toBe(true));
+    expect(result.current.pending).toBe(false);
+    await act(() => result.current.submit());
+    expect(executeMock).toHaveBeenCalledTimes(1);
+
+    // The inbox's confirmed local patch can remove the actionable booking immediately.
+    rerender({ ...input, bookingId: undefined });
+    expect(result.current.pending).toBe(false);
+    expect(result.current.notice?.key).toBe('adminIssueAttendanceSaved');
+    rerender({ ...input, bookingId: undefined, selectedIssueId: undefined });
+    await act(async () => {
+      refresh.resolve({ status: 'failure' });
+      await saving;
+    });
+    expect(result.current.outcome).toMatchObject({
       key: 'adminIssueAttendanceSaved',
       refreshFailed: true,
     });

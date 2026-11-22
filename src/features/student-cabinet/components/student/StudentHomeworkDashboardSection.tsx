@@ -16,6 +16,7 @@ interface Props {
   participantId?: string;
   scopeParticipant?: SessionParticipantInput;
   sources: readonly InstructorHomeworkSourceInput[];
+  sourceFeedback?: { loading: boolean; denied: readonly string[]; error: boolean; retry: () => void };
 }
 
 function safeHomeworkLink(value: string): string | undefined {
@@ -33,6 +34,7 @@ export function StudentHomeworkDashboardSection({
   participantId,
   scopeParticipant,
   sources,
+  sourceFeedback,
 }: Props) {
   const { lang, t } = useStudentCabinetTranslations();
   const [pageIndex, setPageIndex] = useState(0);
@@ -88,10 +90,12 @@ export function StudentHomeworkDashboardSection({
     }
   }, [history.loading, history.hasMore, history.items.length, visibleItems.length, pageIndex]);
 
-  const pendingPage =
+  const pendingPage = sourceFeedback?.loading || (
     history.loading &&
     history.items.length <= pageIndex * STUDENT_HOMEWORK_TILE_PAGE_SIZE &&
-    Boolean(threadIds.length);
+    Boolean(threadIds.length));
+  const hasDeniedSources = history.denied.length > 0 || Boolean(sourceFeedback?.denied.length);
+  const hasError = history.error || sourceFeedback?.error;
 
   return (
     <section className="sc-latest-recommendation" aria-label={t('scCoachHomework')}>
@@ -109,7 +113,7 @@ export function StudentHomeworkDashboardSection({
           <p role="status" className="sc-latest-recommendation-state">{t('lessonContextDenied')}</p>
         ) : pendingPage ? (
           <p role="status" className="sc-latest-recommendation-state">{t('loading')}</p>
-        ) : visibleItems.length === 0 && !history.hasMore && !history.error ? (
+        ) : visibleItems.length === 0 && !history.hasMore && !hasError && !hasDeniedSources ? (
           <p className="sc-latest-recommendation-state">{t('scCoachNoHomework')}</p>
         ) : (
           <ul className="sc-latest-recommendation-list">
@@ -160,10 +164,14 @@ export function StudentHomeworkDashboardSection({
             })}
           </ul>
         )}
-        {history.error && (
+        {hasDeniedSources && <p role="alert">{t('lessonContextDenied')}</p>}
+        {hasError && (
           <div role="alert">
             <p className="sc-latest-recommendation-state">{t('requestFailed')}</p>
-            <ScTextButton onClick={history.loadMore}>{t('retry')}</ScTextButton>
+            <ScTextButton onClick={() => {
+              if (history.error) history.loadMore();
+              if (sourceFeedback?.error) sourceFeedback.retry();
+            }}>{t('retry')}</ScTextButton>
           </div>
         )}
         {history.signedIn && (hasPrevious || hasNext) && (

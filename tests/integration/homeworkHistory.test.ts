@@ -2,6 +2,9 @@ import { doc, writeBatch } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { assertFails } from '@firebase/rules-unit-testing';
 import { createHomeworkHistory, getHomeworkPage } from '../../src/features/chat/homeworkHistory';
+import { getStudentHomeworkSources } from '../../src/features/student-cabinet/components/student/studentHomeworkSources';
+import type { CabinetSessionItem } from '../../src/features/course-enrollments';
+import { confirmLegacyHomeworkSources, getLegacyHomeworkCandidates } from '../../src/features/student-cabinet/components/student/useStudentHomeworkSources';
 import {
   clearIntegrationFirestore,
   integrationTestEnv,
@@ -55,6 +58,59 @@ describe('homework Firestore query and authorization contracts', () => {
     });
   });
   afterAll(teardownIntegrationTestEnvironment);
+
+  it('reads only participant-scoped course sources, never an enrollment-only orphan chat', async () => {
+    await seedData(async (context) => {
+      const firestore = context.firestore();
+      const batch = writeBatch(firestore);
+      for (const id of ['course-a', 'course-b']) {
+        batch.set(doc(firestore, 'courses', id), { instructorRosterIds: ['coach'] });
+        batch.set(doc(firestore, 'course_chat_access', 'account', 'courses', id), { activeCount: 1 });
+        batch.set(doc(firestore, 'bookings', id, 'messages', 'homework'), {
+          isHomework: true, timestamp: '2026-11-01T00:00:00Z', text: id,
+        });
+      }
+      batch.set(doc(firestore, 'bookings', 'enrollment-a', 'messages', 'orphan'), {
+        isHomework: true, timestamp: '2026-11-02T00:00:00Z', text: 'Must not be read',
+      });
+      await batch.commit();
+    });
+    const sessions = [
+      { kind: 'course_day', participantId: 'a', courseId: 'course-a', enrollmentId: 'enrollment-a', lifecycleStatus: 'active' },
+      { kind: 'course_day', participantId: 'b', courseId: 'course-b', enrollmentId: 'enrollment-b', lifecycleStatus: 'active' },
+      { kind: 'course_day', participantId: 'a', courseId: 'cancelled-course', enrollmentId: 'cancelled-enrollment', lifecycleStatus: 'cancelled' },
+    ] as CabinetSessionItem[];
+    const firestore = integrationTestEnv().authenticatedContext('account').firestore();
+    for (const participant of ['a', 'b', 'a']) {
+      const ids = getStudentHomeworkSources(sessions, participant).map((source) => source.threadId);
+      expect(ids).toEqual([`course-${participant}`]);
+      const page = await createHomeworkHistory(ids, (id, cursor, size) =>
+        getHomeworkPage(id, cursor, firestore, size)
+      ).next();
+      expect(page.messages.map((item) => item.text)).toEqual([`course-${participant}`]);
+    }
+    await assertFails(getHomeworkPage('enrollment-a', null, firestore));
+    const candidates = getLegacyHomeworkCandidates(sessions, 'a');
+    expect((await confirmLegacyHomeworkSources(candidates, 'account', firestore)).sources).toEqual([]);
+    await seedData(async (context) => {
+      const batch = writeBatch(context.firestore());
+      batch.set(doc(context.firestore(), 'bookings', 'enrollment-a'), {
+        userId: 'account', courseId: 'course-a', instructorId: 'course_course-a', status: 'completed',
+      });
+      await batch.commit();
+    });
+    const confirmed = await confirmLegacyHomeworkSources(candidates, 'account', firestore);
+    expect(confirmed.sources.map((source) => source.threadId)).toEqual(['enrollment-a']);
+    expect((await getHomeworkPage(confirmed.sources[0].threadId, null, firestore)).messages[0].text).toBe('Must not be read');
+    await seedData(async (context) => {
+      const batch = writeBatch(context.firestore());
+      batch.update(doc(context.firestore(), 'bookings', 'enrollment-a'), { userId: 'stranger' });
+      await batch.commit();
+    });
+    await expect(confirmLegacyHomeworkSources(candidates, 'account', firestore)).resolves.toMatchObject({
+      sources: [], denied: ['enrollment-a'],
+    });
+  });
 
   it.each([1, 5, 20, 21, 50])(
     'globally merges %i real Firestore sources with cursors, ties and empty streams',

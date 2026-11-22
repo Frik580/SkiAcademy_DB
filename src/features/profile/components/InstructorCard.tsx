@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../media/ProtectedImage';
 import React from 'react';
 import { m, useReducedMotion } from 'framer-motion';
 import { normalizeInstructorSpokenLanguage } from '@ski-academy/shared-domain/canonical/instructorSpokenLanguage';
@@ -157,7 +158,7 @@ export const InstructorCard = React.forwardRef<HTMLDivElement, InstructorCardPro
         className={`ui-list-row relative w-full flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-8 group ${!isAvailable && !blocked ? 'opacity-70' : ''}`}
       >
         <div className="relative w-24 h-24 md:w-32 md:h-32 shrink-0">
-          <img
+          <ProtectedImage
             src={instructor.avatarUrl}
             alt={instructor.name}
             style={{

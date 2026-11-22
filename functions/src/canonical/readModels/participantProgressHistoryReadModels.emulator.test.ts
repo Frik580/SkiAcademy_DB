@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { initializeApp, deleteApp, type App } from 'firebase-admin/app';
-import { getFirestore, type Firestore } from 'firebase-admin/firestore';
+import { FieldValue, getFirestore, type Firestore } from 'firebase-admin/firestore';
 import {
   ParticipantIdSchema,
   InstructorIdSchema,
@@ -242,7 +242,7 @@ describeEmulator('progress history canonical Firestore integration', () => {
       if (state === 'account')
         await db
           .doc('users/revenue_coach')
-          .update({ lifecycle: { status: 'disabled', disabledAt: revenueAt, reason: 'test' } });
+          .update({ lifecycle: { status: 'disabled', disabledAt: revenueAt } });
       if (state === 'participant')
         await db
           .doc(`participants/${participantId}`)
@@ -261,6 +261,34 @@ describeEmulator('progress history canonical Firestore integration', () => {
       ).rejects.toMatchObject({ code: 'permission-denied' });
     }
   );
+  it.each([
+    'missing_account',
+    'missing_role',
+    'invalid_role',
+    'mismatched_account',
+    'wrong_uid',
+    'disabled',
+    'test_without_actor',
+  ])('rechecks Account authority before decoding continuation cursors: %s', async (state) => {
+    const first = await call();
+    expect(first.nextCursor).toBeDefined();
+    const accountRef = db.doc('users/revenue_coach');
+    let uid = 'revenue_coach';
+    if (state === 'missing_account') await accountRef.delete();
+    if (state === 'missing_role') await accountRef.update({ role: FieldValue.delete() });
+    if (state === 'invalid_role') await accountRef.update({ role: 'instructor' });
+    if (state === 'mismatched_account') await accountRef.update({ accountId: 'other_account' });
+    if (state === 'wrong_uid') uid = 'unrelated_uid';
+    if (state === 'disabled')
+      await accountRef.update({ lifecycle: { status: 'disabled', disabledAt: revenueAt } });
+    if (state === 'test_without_actor') await accountRef.update({ dataScope: 'test' });
+    for (const data of [input, { ...input, cursor: first.nextCursor }, { ...input, cursor: 'invalid' }])
+      await expect(call(data, uid)).rejects.toMatchObject({ code: 'permission-denied' });
+    // Strict request-shape validation precedes Account authority checks.
+    await expect(call({ ...input, accountId: 'other_account' }, uid)).rejects.toMatchObject({
+      code: 'invalid-argument',
+    });
+  });
   it('denies unauthenticated calls and rejects scope/identity injection', async () => {
     await expect(
       createQueryParticipantProgressHistoryReadModelsHandler(

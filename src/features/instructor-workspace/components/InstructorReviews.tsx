@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../media/ProtectedImage';
 import React from 'react';
 import { Star } from 'lucide-react';
 import { useInstructorWorkspace } from './useInstructorWorkspace';
@@ -35,7 +36,7 @@ export const InstructorReviews: React.FC<InstructorReviewsProps> = ({ workspace 
             >
               <div className="flex justify-between items-start gap-4">
                 <div className="flex items-center gap-2.5">
-                  <img
+                  <ProtectedImage
                     src={rev.userAvatar}
                     alt={rev.userName}
                     className="w-8 h-8 rounded-full border border-slate-200/60 dark:border-slate-800/60 object-cover bg-slate-100 dark:bg-slate-800"

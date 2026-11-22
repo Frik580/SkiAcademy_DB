@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../../media/ProtectedImage';
 import React from 'react';
 import { Lock } from 'lucide-react';
 import type { Language, TranslationKey } from '../../../../app/providers/LanguageContext';
@@ -26,7 +27,7 @@ export const ScheduleInstructorCell: React.FC<ScheduleInstructorCellProps> = ({
     >
       <div className="flex items-center gap-2 min-w-0">
         <div className="relative">
-          <img
+          <ProtectedImage
             src={instructor.avatarUrl}
             alt={instructor.name}
             className={`w-7 h-7 rounded-none border border-[var(--border)] object-cover shrink-0 ${!instructor.isAvailable ? 'grayscale opacity-60' : ''}`}

@@ -21,10 +21,17 @@ import { assertTestSessionMaintenanceActor } from './canonicalReadScopeResolver'
 import { createFirebaseTestSessionStorageStore } from './deleteTestSessionStorage';
 import { executeTestSessionLifecycle } from './testSessionLifecycleEngine';
 
-function httpsCode(code: TestSessionMaintenanceError['code']): 'failed-precondition' | 'not-found' | 'invalid-argument' | 'permission-denied' {
+function httpsCode(
+  code: TestSessionMaintenanceError['code']
+): 'failed-precondition' | 'not-found' | 'invalid-argument' | 'permission-denied' {
   if (code === 'TEST_SESSION_NOT_FOUND') return 'not-found';
-  if (code === 'LIFECYCLE_FORBIDDEN' || code === 'TEST_MAINTENANCE_CONFIRMATION_INVALID') return 'invalid-argument';
-  if (code === 'TEST_ACTOR_INVALID' || code === 'TEST_INSTRUCTOR_INVALID' || code === 'TEST_ACTOR_ASSIGNMENT_CONFLICT') {
+  if (code === 'LIFECYCLE_FORBIDDEN' || code === 'TEST_MAINTENANCE_CONFIRMATION_INVALID')
+    return 'invalid-argument';
+  if (
+    code === 'TEST_ACTOR_INVALID' ||
+    code === 'TEST_INSTRUCTOR_INVALID' ||
+    code === 'TEST_ACTOR_ASSIGNMENT_CONFLICT'
+  ) {
     return 'permission-denied';
   }
   return 'failed-precondition';
@@ -89,16 +96,24 @@ export function createExecuteTestSessionLifecycleHandler(firestore: Firestore) {
         input
       );
       if (result.outcome !== 'preview' && result.outcome !== 'already_completed') {
-        logSecurityCommandEvent({ actor: actorLog, commandKind, resultCode: result.outcome, scope: 'TEST' });
+        logSecurityCommandEvent({
+          actor: actorLog,
+          commandKind,
+          resultCode: result.outcome,
+          scope: 'TEST',
+        });
       }
       return result;
     } catch (error) {
       const resultCode =
-        error instanceof HttpsError ||
-        error instanceof CanonicalExecutionScopeError ||
-        error instanceof TestSessionMaintenanceError
-          ? error.code
-          : 'TEST_MAINTENANCE_FAILED';
+        error instanceof HttpsError &&
+        (error.details as { code?: string } | undefined)?.code === 'TEST_ACTOR_REQUEST_FORBIDDEN'
+          ? 'TEST_ACTOR_REQUEST_FORBIDDEN'
+          : error instanceof HttpsError ||
+              error instanceof CanonicalExecutionScopeError ||
+              error instanceof TestSessionMaintenanceError
+            ? error.code
+            : 'TEST_MAINTENANCE_FAILED';
       logSecurityCommandEvent({ actor: actorLog, commandKind, resultCode, scope: 'TEST' });
       if (error instanceof HttpsError) throw error;
       if (error instanceof CanonicalExecutionScopeError) {

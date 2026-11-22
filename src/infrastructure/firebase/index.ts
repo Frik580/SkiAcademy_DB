@@ -3,4 +3,5 @@ export * from './firebase';
 export { firebaseEmulatorConfig } from './firebaseEmulatorConfig';
 export * from './firestoreMappers';
 export * from './omitLegacyAccountProgressFields';
+export * from './protectedImageClient';
 export * from './storage';

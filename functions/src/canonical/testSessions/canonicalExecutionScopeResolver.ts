@@ -39,6 +39,7 @@ export class CanonicalExecutionScopeError extends Error {
 }
 
 export interface CanonicalExecutionScopeStore {
+  readAccount?(accountId: AccountId): Promise<Record<string, unknown> | undefined>;
   readTestActor(accountId: AccountId): Promise<Record<string, unknown> | undefined>;
   readTestActorAssignment(accountId: AccountId): Promise<Record<string, unknown> | undefined>;
   readTestSession(testSessionId: TestSessionId): Promise<Record<string, unknown> | undefined>;
@@ -66,6 +67,9 @@ export function createFirestoreCanonicalExecutionScopeStore(
   firestore: Firestore
 ): CanonicalExecutionScopeStore {
   return {
+    readAccount(accountId) {
+      return readCanonicalDocument(firestore, canonicalPaths.account(accountId));
+    },
     readTestActor(accountId) {
       return readCanonicalDocument(firestore, canonicalPaths.testActor(accountId));
     },

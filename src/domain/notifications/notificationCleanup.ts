@@ -1,14 +1,5 @@
-import {
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  limit,
-  orderBy,
-  query,
-  where,
-  type Firestore,
-} from 'firebase/firestore';
+import { getScopedDocumentPage } from '../../lib/canonical/scopedClientDocuments';
+import { deleteDoc, doc, type Firestore } from 'firebase/firestore';
 import { getNotificationRetentionMs } from './notificationConfig';
 import { logger } from '../../shared';
 import { notificationEligibleForUserPurge } from '@ski-academy/shared-domain/canonical/testSideEffectPolicy';
@@ -53,18 +44,24 @@ export async function purgeExpiredNotificationsForUser(
   const retentionMs = getNotificationRetentionMs(retentionDays);
   const cutoffIso = new Date(Date.now() - retentionMs).toISOString();
   let deleted = 0;
+  let cursor: string | null = null;
 
   while (true) {
-    const expiredQuery = query(
-      collection(db, 'notifications'),
-      where('userId', '==', userId),
-      where('timestamp', '<', cutoffIso),
-      orderBy('timestamp', 'asc'),
-      limit(CLEANUP_BATCH_SIZE)
+    const page = await getScopedDocumentPage(
+      {
+        collection: 'notifications',
+        take: CLEANUP_BATCH_SIZE,
+        where: [
+          { field: 'userId', op: '==', value: userId },
+          { field: 'timestamp', op: '<', value: cutoffIso },
+        ],
+        order: [{ field: 'timestamp', direction: 'asc' }],
+      },
+      cursor
     );
-
-    const snapshot = await getDocs(expiredQuery);
-    if (snapshot.empty) break;
+    cursor = page.cursor;
+    const snapshot = { docs: page.docs.map((item) => ({ id: item.id, data: () => item.data })) };
+    if (!snapshot.docs.length) break;
 
     await Promise.all(
       snapshot.docs
@@ -79,7 +76,7 @@ export async function purgeExpiredNotificationsForUser(
     );
 
     deleted += snapshot.docs.length;
-    if (snapshot.docs.length < CLEANUP_BATCH_SIZE) break;
+    if (!cursor) break;
   }
 
   return deleted;

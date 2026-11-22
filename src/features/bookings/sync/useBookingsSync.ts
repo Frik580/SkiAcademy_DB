@@ -1,13 +1,9 @@
+import { subscribeScopedDocuments } from '../../../lib/canonical/scopedClientDocuments';
 import { useEffect } from 'react';
 import {
-  collection,
-  db,
-  doc,
   handleFirestoreError,
-  limit,
-  onSnapshot,
   OperationType,
-  query,
+  toInstructor,
 } from '../../../infrastructure/firebase';
 import { QUERY_LIMITS } from '../../../shared';
 import { logger } from '../../../shared';
@@ -69,16 +65,16 @@ export const useBookingsSync = () => {
     }
 
     if (catalogueScope === 'instructor') {
-      return onSnapshot(
-        doc(db, 'instructors', instructorId!),
+      return subscribeScopedDocuments(
+        {
+          collection: 'instructors',
+          take: 1,
+          where: [{ field: '__name__', op: '==', value: instructorId! }],
+        },
         (snapshot) => {
           useBookingsStore
             .getState()
-            .setInstructors(
-              liveCatalogueInstructors(
-                snapshot.exists() ? [{ id: snapshot.id, data: snapshot.data() }] : []
-              )
-            );
+            .setInstructors(snapshot.docs.map((item) => toInstructor(item.id, item.data())));
         },
         (error) => handleFirestoreError(error, OperationType.GET, 'instructors')
       );
@@ -105,9 +101,9 @@ export const useBookingsSync = () => {
       };
     }
 
-    const instructorsQuery = query(collection(db, 'instructors'), limit(QUERY_LIMITS.instructors));
+    const instructorsQuery = { collection: 'instructors' as const, take: QUERY_LIMITS.instructors };
 
-    return onSnapshot(
+    return subscribeScopedDocuments(
       instructorsQuery,
       (snapshot) => {
         if (useAuthStore.getState().firebaseUser?.uid) return;

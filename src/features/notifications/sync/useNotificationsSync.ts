@@ -1,13 +1,6 @@
+import { subscribeScopedDocuments } from '../../../lib/canonical/scopedClientDocuments';
 import { useEffect } from 'react';
-import {
-  collection,
-  db,
-  limit,
-  onSnapshot,
-  orderBy,
-  query,
-  where,
-} from '../../../infrastructure/firebase';
+import { db } from '../../../infrastructure/firebase';
 import { logger } from '../../../shared';
 import {
   isNotificationExpired,
@@ -53,14 +46,14 @@ export const useNotificationsSync = () => {
       return;
     }
 
-    const notificationsQuery = query(
-      collection(db, 'notifications'),
-      where('userId', '==', firebaseUser.uid),
-      orderBy('timestamp', 'desc'),
-      limit(notificationsPageSize + 1)
-    );
+    const notificationsQuery = {
+      collection: 'notifications' as const,
+      take: notificationsPageSize + 1,
+      where: [{ field: 'userId' as const, op: '==' as const, value: firebaseUser.uid }],
+      order: [{ field: 'timestamp' as const, direction: 'desc' as const }],
+    };
 
-    return onSnapshot(
+    return subscribeScopedDocuments(
       notificationsQuery,
       (snapshot) => {
         const validNotifications = snapshot.docs

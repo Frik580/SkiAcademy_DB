@@ -10,6 +10,7 @@
   "e2e/admin-smoke.spec.ts": "playwright",
   "e2e/auth-smoke.spec.ts": "playwright",
   "e2e/booking-chat-media.spec.ts": "playwright",
+  "e2e/booking-chat-subscription.spec.ts": "playwright",
   "e2e/booking-calendar-month-timezone.spec.ts": "playwright",
   "e2e/booking-flow.spec.ts": "playwright",
   "e2e/booking-invariants.spec.ts": "playwright",

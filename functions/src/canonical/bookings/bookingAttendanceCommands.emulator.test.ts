@@ -388,6 +388,7 @@ async function seedSharedFixture(walletBalance = WALLET_START_KZT): Promise<void
         correlationId,
       },
     }),
+    role: 'user',
     instructorId,
   });
 }

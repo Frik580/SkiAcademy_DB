@@ -23,6 +23,7 @@ export function revenueAccount(accountId = 'revenue_coach', instructorId = 'reve
       updatedAt: revenueAt,
       audit: revenueAudit,
     }),
+    role: 'user',
     instructorId,
     isInstructor: true,
   };

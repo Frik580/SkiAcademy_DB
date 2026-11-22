@@ -410,7 +410,7 @@ describe('Admin CourseEnrollment read-model callable', () => {
     } as never);
     expect(roster.scope).toBe('admin_course_roster');
     expect(reads.get(`doc:courses/${canonicalCourseDeliveryFixtures.course.courseId}`)).toBe(1);
-    expect(reads.get(`doc:users/${adminId}`)).toBe(1);
+    expect(reads.get(`doc:users/${adminId}`)).toBe(2);
 
     reads.clear();
     await handler({
@@ -423,7 +423,7 @@ describe('Admin CourseEnrollment read-model callable', () => {
     expect(reads.get(`query:courses/${canonicalCourseDeliveryFixtures.course.courseId}/days`)).toBe(
       1
     );
-    expect(reads.get(`doc:users/${adminId}`)).toBe(1);
+    expect(reads.get(`doc:users/${adminId}`)).toBe(2);
   });
 
   it('returns canonical roster/detail with server actions and finance/capacity linkage', async () => {
@@ -537,31 +537,34 @@ describe('Admin CourseEnrollment read-model callable', () => {
     { at: '2026-11-14T23:59:59.999Z', allowed: true },
     { at: '2026-11-15T00:00:00.000Z', allowed: false },
     { at: '2026-11-15T00:00:00.001Z', allowed: false },
-  ])('gates pending guest linking and payment at reservation expiry ($at)', async ({ at, allowed }) => {
-    vi.setSystemTime(new Date(at));
-    const handler = createQueryAdminCourseEnrollmentReadModelsHandler(fakeFirestore(seed()));
-    const response = await handler({
-      auth: { uid: adminId },
-      data: { scope: 'admin_pending_guest' },
-    } as never);
+  ])(
+    'gates pending guest linking and payment at reservation expiry ($at)',
+    async ({ at, allowed }) => {
+      vi.setSystemTime(new Date(at));
+      const handler = createQueryAdminCourseEnrollmentReadModelsHandler(fakeFirestore(seed()));
+      const response = await handler({
+        auth: { uid: adminId },
+        data: { scope: 'admin_pending_guest' },
+      } as never);
 
-    expect(response.scope).toBe('admin_pending_guest');
-    if (response.scope !== 'admin_pending_guest') throw new Error('Unexpected scope');
-    expect(response.items).toHaveLength(1);
-    expect(response.items[0]).toMatchObject({
-      guestState: 'pending_unlinked',
-      lifecycleStatus: 'pending',
-      authorizedActions: {
-        canApproveGuest: false,
-        canCancelUnpaidGuest: false,
-        canLinkGuest: allowed,
-        canRecordPayment: allowed,
-      },
-    });
-    expect(response.items[0]?.guestIdentityLinkUnavailableReason).toBe(
-      allowed ? undefined : 'expired_reservation'
-    );
-  });
+      expect(response.scope).toBe('admin_pending_guest');
+      if (response.scope !== 'admin_pending_guest') throw new Error('Unexpected scope');
+      expect(response.items).toHaveLength(1);
+      expect(response.items[0]).toMatchObject({
+        guestState: 'pending_unlinked',
+        lifecycleStatus: 'pending',
+        authorizedActions: {
+          canApproveGuest: false,
+          canCancelUnpaidGuest: false,
+          canLinkGuest: allowed,
+          canRecordPayment: allowed,
+        },
+      });
+      expect(response.items[0]?.guestIdentityLinkUnavailableReason).toBe(
+        allowed ? undefined : 'expired_reservation'
+      );
+    }
+  );
 
   it('paginates 63 equal-timestamp enrollments without duplicate or missing rows', async () => {
     const data = seed();

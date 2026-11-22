@@ -12,7 +12,17 @@ const describeEmulator = process.env.FIRESTORE_EMULATOR_HOST ? describe : descri
 let env: RulesTestEnvironment;
 const ownPath = 'instructor_lesson_revenue/live/instructors/coach_1';
 const testPath = 'instructor_lesson_revenue/test_test_revenue/instructors/coach_1';
-const profile = { instructorId: 'coach_1', lifecycle: { status: 'active' }, dataScope: 'live' };
+const profile = {
+  accountId: 'coach_account',
+  role: 'user',
+  instructorId: 'coach_1',
+  lifecycle: { status: 'active' },
+  dataScope: 'live',
+  revision: 1,
+  createdAt: { seconds: 1700000000, nanoseconds: 0 },
+  updatedAt: { seconds: 1700000000, nanoseconds: 0 },
+  audit: { createdByCommandId: 'seed', lastChangedByCommandId: 'seed', correlationId: 'fixture' },
+};
 
 describeEmulator('instructor revenue sanitized exact-document permissions', () => {
   beforeAll(async () => {

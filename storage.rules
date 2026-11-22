@@ -7,22 +7,57 @@ service firebase.storage {
     }
 
     function isOwner(uid) {
-      return isAuthenticated() && request.auth.uid == uid;
+      return isAuthenticated() && request.auth.uid == uid && isLivePrincipal();
     }
 
-    function rolePrincipalIsActive() {
+    // Mirrors parseAccountDocument's active Account projection (profile extras are ignored).
+    function canonicalId(value) {
+      return value is string && value.matches('^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$');
+    }
+
+    function canonicalInteger(value, minimum, maximum) {
+      return value is number && value == math.floor(value) && value >= minimum && value <= maximum;
+    }
+
+    function canonicalTime(value) {
+      return value is timestamp || (value is map &&
+        canonicalInteger(value.seconds, -62135596800, 253402300799) &&
+        canonicalInteger(value.nanoseconds, 0, 999999999));
+    }
+
+    function timeSeconds(value) { return value is timestamp ? value.seconds() : value.seconds; }
+    function timeNanos(value) { return value is timestamp ? value.nanos() : value.nanoseconds; }
+    function timeOrdered(left, right) {
+      return timeSeconds(left) < timeSeconds(right) ||
+        (timeSeconds(left) == timeSeconds(right) && timeNanos(left) <= timeNanos(right));
+    }
+
+    function canonicalActiveAccount(profile) {
+      return profile != null && canonicalId(profile.accountId) &&
+        profile.accountId == request.auth.uid && profile.role in ['user', 'admin'] &&
+        profile.lifecycle is map && profile.lifecycle.keys().hasOnly(['status']) &&
+        profile.lifecycle.status == 'active' &&
+        canonicalInteger(profile.revision, 1, 9007199254740991) &&
+        canonicalTime(profile.createdAt) && canonicalTime(profile.updatedAt) &&
+        timeOrdered(profile.createdAt, profile.updatedAt) &&
+        profile.audit is map && profile.audit.keys().hasOnly([
+          'createdByCommandId', 'lastChangedByCommandId', 'correlationId'
+        ]) && canonicalId(profile.audit.createdByCommandId) &&
+        canonicalId(profile.audit.lastChangedByCommandId) && canonicalId(profile.audit.correlationId) &&
+        (!('dataScope' in profile) || profile.dataScope in ['live', 'test']) &&
+        (!('testSessionId' in profile) || canonicalId(profile.testSessionId));
+    }
+
+    function isLivePrincipal() {
       let profile = firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
-      return !('lifecycle' in profile) ||
-        (profile.lifecycle is map && profile.lifecycle.status == 'active');
+      return canonicalActiveAccount(profile) && profile.get('dataScope', 'live') == 'live' &&
+        !('testSessionId' in profile);
     }
 
     function isAdmin() {
-      return isAuthenticated() &&
-        firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
-        rolePrincipalIsActive() && (
-          firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin' ||
-          firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('systemRole', '') == 'owner'
-        );
+      return isAuthenticated() && isLivePrincipal() &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin' &&
+        !isRegisteredTestActor();
     }
 
     function isValidImageUpload() {
@@ -30,67 +65,31 @@ service firebase.storage {
         request.resource.size < 5 * 1024 * 1024;
     }
 
-    function isAllowedTestActor() {
+    function isRegisteredTestActor() {
       return isAuthenticated() &&
-        firestore.exists(/databases/(default)/documents/test_actors/$(request.auth.uid)) &&
-        firestore.get(/databases/(default)/documents/test_actors/$(request.auth.uid)).data.allowed == true;
-    }
-
-    function isActiveTestSession(testSessionId) {
-      return firestore.exists(/databases/(default)/documents/test_sessions/$(testSessionId)) &&
-        firestore.get(/databases/(default)/documents/test_sessions/$(testSessionId)).data.status == 'active';
-    }
-
-    function isTestSessionMember(testSessionId) {
-      return isAuthenticated() &&
-        firestore.exists(
-          /databases/(default)/documents/test_sessions/$(testSessionId)/membership/$(request.auth.uid)
-        );
-    }
-
-    function canAccessTestSessionStorage(testSessionId) {
-      return isActiveTestSession(testSessionId) &&
-        isTestSessionMember(testSessionId) &&
-        (isAllowedTestActor() || isAdmin());
-    }
-
-    function isTestCourseInSession(courseId, testSessionId) {
-      return firestore.exists(/databases/(default)/documents/courses/$(courseId)) &&
-        firestore.get(/databases/(default)/documents/courses/$(courseId)).data.dataScope == 'test' &&
-        firestore.get(/databases/(default)/documents/courses/$(courseId)).data.testSessionId == testSessionId;
+        firestore.exists(/databases/(default)/documents/test_actors/$(request.auth.uid));
     }
 
     match /avatars/{uid} {
       allow read: if true;
-      allow write: if !isAllowedTestActor() && isOwner(uid) && isValidImageUpload();
+      allow write: if isOwner(uid) && !isRegisteredTestActor() && isValidImageUpload();
     }
 
-    // Participant-scoped avatars. Write authorization uses the active owner
-    // guard so only the managing account can upload for that participantId.
-    function canManageParticipantAvatar(participantId) {
-      return isAuthenticated() &&
-        firestore.exists(
-          /databases/(default)/documents/participant_management_active_owner/$(participantId)
-        ) &&
-        firestore.get(
-          /databases/(default)/documents/participant_management_active_owner/$(participantId)
-        ).data.accountId == request.auth.uid;
-    }
-
+    // Public LIVE images, with writes authorized by protectedImages.
     match /participant-avatars/{participantId}/avatar.jpg {
       allow read: if true;
-      allow write: if !isAllowedTestActor() && canManageParticipantAvatar(participantId) && isValidImageUpload();
+      allow write: if false;
     }
 
     match /courses/{courseId} {
       allow read: if true;
-      allow write: if !isAllowedTestActor() && isAdmin() && isValidImageUpload();
+      allow write: if false;
     }
 
     // Immutable QR artifacts. Only the configured artifact is publicly readable;
     // draft previews use local browser URLs. No list, overwrite, metadata edit or deletion.
     match /kaspi-qr/{uploaderId}/{assetId} {
-      allow create: if resource == null && !isAllowedTestActor() && isOwner(uploaderId) && isAdmin() &&
+      allow create: if resource == null && isOwner(uploaderId) && isAdmin() &&
         assetId.matches('[0-9a-f-]{36}') && request.resource.size > 0 &&
         request.resource.size < 5 * 1024 * 1024 &&
         request.resource.contentType in ['image/png', 'image/jpeg', 'image/webp'];
@@ -107,7 +106,7 @@ service firebase.storage {
     // clients cannot delete an object referenced by an in-flight command.
     match /lesson-levels/{levelId}/{uploaderId}/{assetId} {
       allow get: if true;
-      allow create: if resource == null && !isAllowedTestActor() && isOwner(uploaderId) && isAdmin() &&
+      allow create: if resource == null && isOwner(uploaderId) && isAdmin() &&
         levelId.matches('[a-z][a-z0-9_-]{0,79}') &&
         assetId.matches('[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}') &&
         request.resource.size > 0 && request.resource.size <= 2 * 1024 * 1024 &&
@@ -117,7 +116,7 @@ service firebase.storage {
 
     match /instructors/{instructorId} {
       allow read: if true;
-      allow write: if !isAllowedTestActor() && isAdmin() && isValidImageUpload();
+      allow write: if false;
     }
 
     match /chat/{bookingId}/{allPaths=**} {
@@ -126,35 +125,9 @@ service firebase.storage {
       allow read, write: if false;
     }
 
-    match /test-sessions/{testSessionId}/booking-chat/{bookingId}/{allPaths=**} {
-      allow read, write: if false;
-    }
-
-    match /test-sessions/{testSessionId}/course-assets/{courseId}/{allPaths=**} {
-      allow read: if canAccessTestSessionStorage(testSessionId) && isTestCourseInSession(courseId, testSessionId);
-      allow write: if canAccessTestSessionStorage(testSessionId) &&
-        isAdmin() &&
-        isTestCourseInSession(courseId, testSessionId) &&
-        isValidImageUpload();
-    }
-
-    match /test-sessions/{testSessionId}/misc/{allPaths=**} {
-      allow read: if canAccessTestSessionStorage(testSessionId);
-      allow write: if canAccessTestSessionStorage(testSessionId) && isValidImageUpload();
-    }
-
-    match /test-actors/{actorOrParticipantId}/{allPaths=**} {
-      allow read: if isAuthenticated() && (
-        isAdmin() ||
-        isOwner(actorOrParticipantId) ||
-        canManageParticipantAvatar(actorOrParticipantId) ||
-        isAllowedTestActor()
-      );
-      allow write: if isValidImageUpload() && (
-        (isAllowedTestActor() && (isOwner(actorOrParticipantId) || canManageParticipantAvatar(actorOrParticipantId))) ||
-        isAdmin()
-      );
-    }
+    // TEST images are served only by protectedImages with fresh canonical checks.
+    match /test-sessions/{allPaths=**} { allow read, write: if false; }
+    match /test-actors/{allPaths=**} { allow read, write: if false; }
 
     match /image-cache/{fileName} {
       allow read: if true;

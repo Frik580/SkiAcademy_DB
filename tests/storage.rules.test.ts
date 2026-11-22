@@ -44,6 +44,48 @@ import {
 let testEnv: RulesTestEnvironment;
 let restoreSetupFetch: (() => void) | undefined;
 
+describe('CA-SEC-05B Account role consistency', () => {
+  const path = () => `lesson-levels/security/${STORAGE_ADMIN_ID}/${randomUUID()}`;
+  it.each([
+    ['owner-only', { role: 'user', systemRole: 'owner' }],
+    ['legacy administrator', { role: 'admin' }],
+    [
+      'disabled administrator',
+      { accountId: STORAGE_ADMIN_ID, role: 'admin', lifecycle: { status: 'disabled' } },
+    ],
+    [
+      'unknown role',
+      { accountId: STORAGE_ADMIN_ID, role: 'operator', lifecycle: { status: 'active' } },
+    ],
+    [
+      'unknown status',
+      { accountId: STORAGE_ADMIN_ID, role: 'admin', lifecycle: { status: 'unknown' } },
+    ],
+  ])('denies privileged upload for %s', async (_label, profile) => {
+    await seedStorageFirestore(testEnv, async (db) =>
+      setDoc(doc(db, 'users', STORAGE_ADMIN_ID), profile)
+    );
+    await assertFails(
+      uploadImage(testEnv.authenticatedContext(STORAGE_ADMIN_ID, { admin: true }).storage(), path())
+    );
+  });
+
+  it('allows admin without owner and revokes upload after role demotion', async () => {
+    await seedStorageFirestore(testEnv, async (db) =>
+      setDoc(
+        doc(db, 'users', STORAGE_ADMIN_ID),
+        userProfile(STORAGE_ADMIN_ID, 'admin@example.com', 'admin')
+      )
+    );
+    const storage = testEnv.authenticatedContext(STORAGE_ADMIN_ID).storage();
+    await assertSucceeds(uploadImage(storage, path()));
+    await seedStorageFirestore(testEnv, async (db) =>
+      setDoc(doc(db, 'users', STORAGE_ADMIN_ID), userProfile(STORAGE_ADMIN_ID, 'admin@example.com'))
+    );
+    await assertFails(uploadImage(storage, path()));
+  });
+});
+
 beforeAll(async () => {
   // initializeTestEnvironment awaits these administrative HTTP requests before
   // creating the environment. Record their boundaries to locate a hook timeout.
@@ -182,6 +224,16 @@ describe('storage Kaspi immutable QR', () => {
     });
     await assertFails(getBytes(ref(anonymous, path)));
   });
+  it('denies private LIVE QR reads after registration as a TEST actor', async () => {
+    const path = newPath();
+    const admin = await adminStorage();
+    await assertSucceeds(uploadImage(admin, path));
+    await assertSucceeds(getBytes(ref(admin, path)));
+    await seedStorageFirestore(testEnv, async (db) => {
+      await setDoc(doc(db, 'test_actors', STORAGE_ADMIN_ID), { allowed: true });
+    });
+    await assertFails(getBytes(ref(admin, path)));
+  });
   it('denies disabled administrator uploads', async () => {
     const path = newPath();
     const admin = await adminStorage();
@@ -225,7 +277,7 @@ describe('storage avatars', () => {
 });
 
 describe('storage courses and instructors', () => {
-  it('preserves active Owner authority and denies ordinary and disabled accounts', async () => {
+  it('requires admin role for an owner and denies ordinary and disabled accounts', async () => {
     await seedStorageFirestore(testEnv, async (db) => {
       await setDoc(
         doc(db, 'users', 'owner-only'),
@@ -237,7 +289,14 @@ describe('storage courses and instructors', () => {
       await setDoc(doc(db, 'users', 'ordinary'), userProfile('ordinary', 'user@example.com'));
     });
     const owner = testEnv.authenticatedContext('owner-only').storage();
-    await assertSucceeds(uploadImage(owner, 'courses/owner-security-test'));
+    await assertFails(uploadImage(owner, 'courses/owner-security-test'));
+    await seedStorageFirestore(testEnv, async (db) => {
+      await setDoc(
+        doc(db, 'users', 'owner-only'),
+        userProfile('owner-only', 'owner@example.com', 'admin', { systemRole: 'owner' })
+      );
+    });
+    await assertFails(uploadImage(owner, 'courses/owner-admin-security-test'));
     await assertFails(
       uploadImage(
         testEnv.authenticatedContext('ordinary').storage(),
@@ -279,12 +338,12 @@ describe('storage courses and instructors', () => {
     await assertSucceeds(getBytes(ref(anonymousStorage, 'instructors/instructor-1')));
   });
 
-  it('allows admins to upload course and instructor images', async () => {
+  it('routes catalog image uploads through server authorization', async () => {
     const adminStorage = testEnv.authenticatedContext(STORAGE_ADMIN_ID).storage();
     const userStorage = testEnv.authenticatedContext(STORAGE_USER_ID).storage();
 
-    await assertSucceeds(uploadImage(adminStorage, 'courses/course-2'));
-    await assertSucceeds(uploadImage(adminStorage, 'instructors/instructor-2'));
+    await assertFails(uploadImage(adminStorage, 'courses/course-2'));
+    await assertFails(uploadImage(adminStorage, 'instructors/instructor-2'));
     await assertFails(uploadImage(userStorage, 'courses/course-2'));
     await assertFails(uploadImage(userStorage, 'instructors/instructor-2'));
     await assertFails(
@@ -381,16 +440,19 @@ describe('storage participant avatars', () => {
     });
   });
 
-  it('allows owner upload for self and dependent participant avatars', async () => {
+  it('keeps LIVE avatars public and requires server authorization for uploads', async () => {
     const ownerStorage = testEnv.authenticatedContext(STORAGE_USER_ID).storage();
     const anonymousStorage = testEnv.unauthenticatedContext().storage();
 
-    await expect(
+    await assertFails(
       uploadImage(ownerStorage, `participant-avatars/${selfParticipantId}/avatar.jpg`)
-    ).resolves.toBeDefined();
-    await expect(
+    );
+    await assertFails(
       uploadImage(ownerStorage, `participant-avatars/${dependentParticipantId}/avatar.jpg`)
-    ).resolves.toBeDefined();
+    );
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await uploadImage(context.storage(), `participant-avatars/${selfParticipantId}/avatar.jpg`);
+    });
     await assertSucceeds(
       getBytes(ref(anonymousStorage, `participant-avatars/${selfParticipantId}/avatar.jpg`))
     );
@@ -438,8 +500,8 @@ describe('storage TEST namespace isolation', () => {
     await assertFails(uploadImage(actorA, testChatA));
     await assertFails(getBytes(ref(actorA, testChatA)));
     await assertFails(uploadImage(adminWithContext, testChatA));
-    await assertSucceeds(uploadImage(adminWithContext, testCover));
-    await assertSucceeds(uploadImage(actorA, actorAvatar));
+    await assertFails(uploadImage(adminWithContext, testCover));
+    await assertFails(uploadImage(actorA, actorAvatar));
 
     await assertFails(uploadImage(actorB, testChatA));
     await assertFails(getBytes(ref(actorB, testChatA)));

@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../media/ProtectedImage';
 import React, { useMemo } from 'react';
 import type { CabinetSessionItem } from '../../../features/course-enrollments';
 import {
@@ -134,7 +135,7 @@ export const UpcomingSessionsStrip: React.FC<UpcomingSessionsStripProps> = ({
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full overflow-hidden bg-slate-200 dark:bg-slate-800 shrink-0">
                       {item.kind === 'lesson' ? (
-                        <img
+                        <ProtectedImage
                           src={item.session.instructorAvatar}
                           alt={item.session.instructorName}
                           className="w-full h-full object-cover filter grayscale"

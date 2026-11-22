@@ -10,6 +10,14 @@ import { admitRequest, requestPrincipalKey } from './security/requestAdmission';
 import { createClaimGuestProfileHandler } from './security/claimGuestProfile';
 import { createReportClientErrorsHandler } from './security/reportClientErrors';
 import {
+  createQueryScopedClientDocuments,
+  invalidateScopedClientDocuments,
+  PUBLIC_CLIENT_COLLECTIONS,
+  PRIVATE_CLIENT_COLLECTIONS,
+} from './security/scopedClientReads';
+import { createQueryChatMessages } from './chat/chatMessagesRead';
+import { createMutateChatMessage } from './chat/chatMessagesWrite';
+import {
   createClearErrorLogsHandler,
   createDeleteErrorLogHandler,
 } from './security/manageErrorLogs';
@@ -72,6 +80,8 @@ import { syncCourseEnrollmentOutcomeWorkForEnrollmentWrite } from './canonical/c
 
 export { optimizeImage } from './images/optimizeImageHttp';
 export { bookingChatMedia } from './chat/chatMediaHttp';
+export { protectedImages } from './security/protectedImagesHttp';
+export { chatMessagesStream } from './chat/chatMessagesStream';
 
 const guestActionTokenSecret = defineSecret('GUEST_ACTION_TOKEN_SECRET');
 
@@ -123,6 +133,51 @@ const GUEST_SECRET_CALLABLE_OPTIONS = {
   ...CANONICAL_CALLABLE_OPTIONS,
   secrets: [guestActionTokenSecret],
 };
+
+export const queryScopedClientDocuments = onCall(
+  'queryScopedClientDocuments',
+  CANONICAL_CALLABLE_OPTIONS,
+  (request) =>
+    createQueryScopedClientDocuments(getAdminFirestore(), guestActionTokenSecret.value())(request)
+);
+export const queryChatMessages = onCall(
+  'queryChatMessages',
+  CANONICAL_CALLABLE_OPTIONS,
+  (request) => createQueryChatMessages(getAdminFirestore())(request)
+);
+export const mutateChatMessage = onCall(
+  'mutateChatMessage',
+  CANONICAL_CALLABLE_OPTIONS,
+  (request) => createMutateChatMessage(getAdminFirestore())(request)
+);
+
+// Only an invalidation signal is projected; document/identity authority stays in
+// the existing collections and is rechecked by queryScopedClientDocuments.
+const clientSignal = (collection: string) =>
+  onDocumentWritten(
+    {
+      document: `${collection}/{id}`,
+      region: 'us-central1',
+      maxInstances: 10,
+      memory: '256MiB',
+      cpu: 1,
+      retry: true,
+    },
+    (event) =>
+      invalidateScopedClientDocuments(
+        getAdminFirestore(),
+        collection,
+        event.data?.before.data(),
+        event.data?.after.data(),
+        event.id
+      )
+  );
+export const syncClientInstructorSignal = clientSignal(PUBLIC_CLIENT_COLLECTIONS[0]);
+export const syncClientCourseSignal = clientSignal(PUBLIC_CLIENT_COLLECTIONS[1]);
+export const syncClientCourseContentSignal = clientSignal(PUBLIC_CLIENT_COLLECTIONS[2]);
+export const syncClientUserSignal = clientSignal(PRIVATE_CLIENT_COLLECTIONS[0]);
+export const syncClientNotificationSignal = clientSignal(PRIVATE_CLIENT_COLLECTIONS[2]);
+export const syncClientActivitySignal = clientSignal(PRIVATE_CLIENT_COLLECTIONS[3]);
 
 export const claimGuestProfile = onCall(
   'claimGuestProfile',

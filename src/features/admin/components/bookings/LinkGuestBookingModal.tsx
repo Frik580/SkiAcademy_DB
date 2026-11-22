@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../../media/ProtectedImage';
 import React, { useState, useMemo } from 'react';
 import { Search, UserCheck, Check, User, AlertCircle } from 'lucide-react';
 import { Booking, UserProfile } from '../../../../types';
@@ -212,7 +213,7 @@ export const LinkGuestBookingModal: React.FC<LinkGuestBookingModalProps> = ({
                       <div className="flex items-center gap-2.5 min-w-0">
                         <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 border border-[var(--border)] flex items-center justify-center shrink-0 overflow-hidden type-caption">
                           {user.avatarUrl ? (
-                            <img
+                            <ProtectedImage
                               src={user.avatarUrl}
                               alt=""
                               className="w-full h-full object-cover"

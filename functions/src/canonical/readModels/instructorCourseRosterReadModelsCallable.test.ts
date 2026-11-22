@@ -61,10 +61,21 @@ function createFirestore(instructor: InstructorFixture): Firestore {
     collection: (name: string) => {
       if (name === 'users') {
         return {
-          doc: () => ({
+          doc: (id: string) => ({
             get: async () => ({
               exists: true,
               data: () => ({
+                accountId: id,
+                role: 'user',
+                lifecycle: { status: 'active' },
+                revision: 1,
+                createdAt: { seconds: 1, nanoseconds: 0 },
+                updatedAt: { seconds: 1, nanoseconds: 0 },
+                audit: {
+                  createdByCommandId: 'seed',
+                  lastChangedByCommandId: 'seed',
+                  correlationId: 'fixture',
+                },
                 instructorId: instructor.instructorId,
                 isInstructor: true,
               }),

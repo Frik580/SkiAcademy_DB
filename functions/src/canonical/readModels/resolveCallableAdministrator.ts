@@ -3,7 +3,7 @@ import type { Firestore } from 'firebase-admin/firestore';
 import { AccountIdSchema, type ReadModelAdministratorActor } from '@ski-academy/shared-domain';
 import { isAdministratorProfile } from '../commands/resolveCallableAccountContext';
 import { readCallableAccountProfile } from './resolveCallableInstructorId';
-import { parseAccount } from '../participantAccess/participantAccessStore';
+import { requireActiveAccount } from '../../security/activeAccount';
 import {
   createReadModelRequestContext,
   type ReadModelRequestContext,
@@ -26,13 +26,18 @@ export async function resolveCallableAdministratorActor(
   const profileSnapshot = await readContext.account(accountId.data);
   const profileData = profileSnapshot.data() as Record<string, unknown> | undefined;
   const profile = readCallableAccountProfile(profileData);
-  const account = parseAccount(profileData);
-  if (
-    !isAdministratorProfile(profile) ||
-    !account ||
-    account.lifecycle.status !== 'active'
-  ) {
+  requireActiveAccount(accountId.data, profileData);
+  if (!isAdministratorProfile(profile)) {
     throw new HttpsError('permission-denied', 'This action is not permitted.');
+  }
+  // LIVE administrative surfaces must not ignore a registered TEST identity.
+  if (
+    readContext.readScope.dataScope === 'live' &&
+    (await firestore.collection('test_actors').doc(accountId.data).get()).exists
+  ) {
+    throw new HttpsError('permission-denied', 'TEST actors cannot enter LIVE administration.', {
+      code: 'TEST_ACTOR_REQUEST_FORBIDDEN',
+    });
   }
 
   return {

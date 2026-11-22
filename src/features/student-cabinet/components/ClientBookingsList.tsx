@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../media/ProtectedImage';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Clock, MessageSquare } from 'lucide-react';
 import { Course, Instructor, UserProfile } from '../../../types';
@@ -441,7 +442,7 @@ export const ClientBookingsList: React.FC<ClientBookingsListProps> = ({
                     >
                       <div className="flex flex-1 items-start gap-4 min-w-0 w-full">
                         <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 bg-[var(--border-subtle)]">
-                          <img
+                          <ProtectedImage
                             src={b.instructorAvatar}
                             alt={b.instructorName}
                             className="w-full h-full object-cover"

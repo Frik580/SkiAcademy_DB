@@ -251,18 +251,32 @@ describe('homework history', () => {
   });
 });
 
-it('reports denied sources and keeps them revoked if a parallel network read rolls back', async () => {
-  const read = vi.fn(async (id: string) => {
-    if (id === 'denied') throw { code: 'permission-denied' };
-    throw new Error('offline');
-  });
-  const denied = vi.fn();
-  const pager = createHomeworkHistory(['denied', 'offline'], read, denied);
-  await expect(pager.next()).rejects.toThrow('offline');
-  await expect(pager.next()).rejects.toThrow('offline');
-  expect(read.mock.calls.filter(([id]) => id === 'denied')).toHaveLength(1);
-  expect(denied).toHaveBeenCalledWith('denied');
-});
+it.each(['permission-denied', 'functions/permission-denied'])(
+  'keeps %s sources revoked if a parallel network read rolls back',
+  async (code) => {
+    const read = vi.fn(async (id: string) => {
+      if (id === 'denied') throw { code };
+      throw new Error('offline');
+    });
+    const denied = vi.fn();
+    const pager = createHomeworkHistory(['denied', 'offline'], read, denied);
+    await expect(pager.next()).rejects.toThrow('offline');
+    await expect(pager.next()).rejects.toThrow('offline');
+    expect(read.mock.calls.filter(([id]) => id === 'denied')).toHaveLength(1);
+    expect(denied).toHaveBeenCalledWith('denied');
+  }
+);
+
+it.each(['unauthenticated', 'functions/unauthenticated'])(
+  'prioritizes %s over a parallel network error',
+  async (code) => {
+    const read = vi.fn(async (id: string) => {
+      if (id === 'a') throw new Error('offline');
+      throw { code };
+    });
+    await expect(createHomeworkHistory(['a', 'b'], read).next()).rejects.toMatchObject({ code });
+  }
+);
 
 it('settles all in-flight reads before exposing a retryable failure', async () => {
   let finish!: () => void;

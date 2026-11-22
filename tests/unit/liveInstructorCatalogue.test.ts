@@ -15,7 +15,7 @@ import { useLessonBookingStore } from '../../src/features/lesson-bookings/lesson
 import { getInstructorPickerGroups } from '../../src/features/student-cabinet/components/student/studentCabinetUtils';
 import type { UserProfile } from '../../src/types';
 
-const onSnapshot = vi.hoisted(() =>
+const subscribeScopedDocuments = vi.hoisted(() =>
   vi.fn(
     (
       _query: unknown,
@@ -54,27 +54,14 @@ const onSnapshot = vi.hoisted(() =>
           },
         ],
       });
-      return () => undefined;
+      return vi.fn();
     }
   )
 );
 
 const queryBookingInstructorCatalogueReadModels = vi.hoisted(() => vi.fn());
 
-vi.mock('../../src/infrastructure/firebase', async () => {
-  const { toInstructor } = await import('../../src/infrastructure/firebase/firestoreMappers');
-  return {
-    collection: () => ({}),
-    db: {},
-    doc: () => ({}),
-    handleFirestoreError: () => undefined,
-    limit: () => ({}),
-    onSnapshot,
-    OperationType: { GET: 'GET', LIST: 'LIST' },
-    query: () => ({}),
-    toInstructor,
-  };
-});
+vi.mock('../../src/lib/canonical/scopedClientDocuments', () => ({ subscribeScopedDocuments }));
 
 vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryAccountInstructorReviewReadModels: vi.fn(async () => ({
@@ -204,14 +191,14 @@ describe('LIVE instructor catalogue for the signed-in coach picker', () => {
 
 describe('booking picker catalogue source', () => {
   beforeEach(() => {
-    onSnapshot.mockClear();
+    subscribeScopedDocuments.mockClear();
     queryBookingInstructorCatalogueReadModels.mockReset();
     useAuthStore.setState({ firebaseUser: null, authLoading: false, authGeneration: 0 });
     useLessonBookingStore.getState().reset();
     useBookingsStore.setState({ instructors: [], reviewSyncRequest: 0 });
   });
 
-  it('keeps the guest picker on the LIVE listener and hides TEST instructors', () => {
+  it('keeps the guest picker on the scoped LIVE subscription and hides TEST instructors', () => {
     renderHook(() => useBookingsSync(), {
       wrapper: ({ children }) =>
         createElement(MemoryRouter, { initialEntries: ['/cabinet'] }, children),
@@ -241,18 +228,20 @@ describe('booking picker catalogue source', () => {
     });
     expect(pickerNamesFromStore()).toEqual(['E2E Test Coach']);
 
+    const guestCallback = subscribeScopedDocuments.mock.calls.at(-1)![1];
+    const guestUnsubscribe = subscribeScopedDocuments.mock.results.at(-1)!.value;
+
     await act(async () => {
       useAuthStore.getState().setFirebaseUser({ uid: 'account_test_actor' } as never);
     });
 
     expect(queryBookingInstructorCatalogueReadModels).toHaveBeenCalledWith();
+    expect(guestUnsubscribe).toHaveBeenCalledTimes(1);
     expect(pickerNamesFromStore()).toEqual(['Test Coach']);
     expect(
       useBookingsStore.getState().instructors.map((instructor) => instructor.name)
     ).not.toContain('E2E Test Coach');
 
-    const guestCallback = onSnapshot.mock.calls.at(-1)?.[1] as
-      ((snapshot: { docs: Array<{ id: string; data: () => unknown }> }) => void) | undefined;
     guestCallback?.({
       docs: [
         {

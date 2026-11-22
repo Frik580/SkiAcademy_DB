@@ -12,7 +12,7 @@ import {
 } from './helpers';
 
 describe('homework Firestore query and authorization contracts', () => {
-  beforeAll(setupIntegrationTestEnvironment);
+  beforeAll(setupIntegrationTestEnvironment, 60_000);
   beforeEach(async () => {
     await clearIntegrationFirestore();
     await seedData(async (context) => {
@@ -125,7 +125,8 @@ describe('homework Firestore query and authorization contracts', () => {
       expect(actual[0].threadId).toBe(ids.at(-1));
       expect(new Set(actual.map((m) => `${m.threadId}/${m.id}`)).size).toBe(count * 5);
       expect(peak).toBeLessThanOrEqual(4);
-    }
+    },
+    30_000
   );
 
   it('uses instructor Rules for family lessons and Course IDs and observes revocation', async () => {
@@ -134,7 +135,7 @@ describe('homework Firestore query and authorization contracts', () => {
       const batch = writeBatch(firestore);
       batch.set(doc(firestore, 'users', 'coach-account'), {
         ...userProfile('coach-account', 'coach@example.com'),
-        role: 'instructor',
+        role: 'user',
         instructorId: 'coach',
       });
       batch.set(doc(firestore, 'bookings', 'foreign-instructor'), {

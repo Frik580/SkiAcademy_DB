@@ -26,6 +26,8 @@ import {
   type PendingAttachment,
 } from './booking_chat/chatCompression';
 
+const EMPTY_CHAT: ChatMessageRow[] = [];
+
 type CourseChatClient = { participantId: string; name: string; bookingId: string };
 
 interface BookingChatModalProps {
@@ -62,7 +64,9 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
 }) => {
   const { t } = useLanguage();
   const { alert: alertAdminDialog, dialog: adminDialog } = useAdminDialog();
-  const [messages, setMessages] = useState<ChatMessageRow[]>([]);
+  const threadKey = JSON.stringify([currentUserProfile.uid, getCourseChatThreadIds(booking)]);
+  const [chatHistory, setChatHistory] = useState<{ key: string; rows: ChatMessageRow[] }>();
+  const messages = chatHistory?.key === threadKey ? chatHistory.rows : EMPTY_CHAT;
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -130,6 +134,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
 
   useEffect(() => {
     const chatIds = getCourseChatThreadIds(booking);
+    setChatHistory(undefined);
     setIsLoading(true);
 
     const messageMap = new Map<string, ChatMessageRow>();
@@ -154,7 +159,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
           loadedThreads.add(threadId);
           const list = Array.from(messageMap.values());
           list.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-          setMessages(list);
+          setChatHistory({ key: threadKey, rows: list });
           if (loadedThreads.size >= chatIds.length) setIsLoading(false);
         },
         () => {
@@ -166,6 +171,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
 
     return () => unsubscribes.forEach((unsub) => unsub());
   }, [
+    threadKey,
     booking.id,
     booking.instructorId,
     booking.chatId,

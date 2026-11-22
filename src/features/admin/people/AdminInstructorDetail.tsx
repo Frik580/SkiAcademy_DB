@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../media/ProtectedImage';
 import type { AccountId } from '@ski-academy/shared-domain';
 import { useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
@@ -110,7 +111,11 @@ export function AdminInstructorDetail({
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
             {detail.avatarUrl ? (
-              <img src={detail.avatarUrl} alt="" className="h-14 w-14 shrink-0 object-cover" />
+              <ProtectedImage
+                src={detail.avatarUrl}
+                alt=""
+                className="h-14 w-14 shrink-0 object-cover"
+              />
             ) : null}
             <div className="min-w-0">
               <h3 className="type-card-title">{detail.name}</h3>

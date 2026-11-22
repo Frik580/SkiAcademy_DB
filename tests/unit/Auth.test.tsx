@@ -23,11 +23,12 @@ const mockToUserProfile = vi.fn((data: any) => data);
 const mockReadUserProfile = vi.fn();
 const mockLanguage = vi.hoisted(() => ({ current: 'en' as 'en' | 'ru' }));
 
-vi.mock('../../src/infrastructure/firebase', async () => {
+vi.mock('../../src/infrastructure/firebase', async (importOriginal) => {
   const { omitLegacyAccountProgressFields } =
     await import('../../src/infrastructure/firebase/omitLegacyAccountProgressFields');
 
   return {
+    ...(await importOriginal<typeof import('../../src/infrastructure/firebase')>()),
     auth: {},
     db: {},
     googleProvider: {},
@@ -44,7 +45,8 @@ vi.mock('../../src/infrastructure/firebase', async () => {
   };
 });
 
-vi.mock('firebase/auth', () => ({
+vi.mock('firebase/auth', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('firebase/auth')>()),
   signInWithEmailAndPassword: (...args: any[]) => mockSignInWithEmailAndPassword(...args),
   createUserWithEmailAndPassword: (...args: any[]) => mockCreateUserWithEmailAndPassword(...args),
   sendPasswordResetEmail: (...args: any[]) => mockSendPasswordResetEmail(...args),

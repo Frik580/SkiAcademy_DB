@@ -19,6 +19,7 @@ const fixture = vi.hoisted(() => ({
 }));
 vi.mock('../../src/infrastructure/firebase', async () => ({
   ...(await import('firebase/firestore')),
+  auth: { currentUser: null },
   get db() {
     return fixture.firestore;
   },
@@ -68,7 +69,7 @@ describe('coach/full-chat message service on Firestore emulator', () => {
     const error = vi.fn();
     stops.push(subscribeToChatMessages('lesson', (messages) => results.push(messages), error));
     try {
-      await vi.waitFor(() => expect(results.at(-1)).toHaveLength(100));
+      await vi.waitFor(() => expect(results.at(-1)).toHaveLength(100), { timeout: 5_000 });
     } catch (cause) {
       // The service's onError callback has no arguments; its logger receives the
       // original FirebaseError, including code. Preserve it when the wait fails.

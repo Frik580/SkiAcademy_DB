@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../media/ProtectedImage';
 import { useLevelProgressionTranslations } from '../../participant-progress/useLevelProgressionTranslations';
 import { calculateParticipantStage } from '@ski-academy/shared-domain/canonical/participantLevelProgression';
 import { DEFAULT_SKILL_CONFIG } from '../../../domain/achievements';
@@ -52,7 +53,7 @@ export const InstructorStudents: React.FC<InstructorStudentsProps> = ({ workspac
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-800">
                     {student.avatar ? (
-                      <img
+                      <ProtectedImage
                         src={student.avatar}
                         alt={student.name}
                         className="w-full h-full object-cover"
@@ -75,7 +76,7 @@ export const InstructorStudents: React.FC<InstructorStudentsProps> = ({ workspac
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <img
+                  <ProtectedImage
                     key={`${theme}-${studentLevel}`}
                     src={`https://storage.yandexcloud.net/carve/level/${theme === 'light' ? 'b' : 'w'}/${studentLevel}.png`}
                     alt={`Level ${studentLevel}`}

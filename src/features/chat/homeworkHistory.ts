@@ -11,6 +11,7 @@ import {
 } from '../../infrastructure/firebase';
 import type { Firestore } from 'firebase/firestore';
 import type { ChatMessage } from '../../types';
+import { callFunction } from '../../lib/functions/functionsClient';
 
 export const HOMEWORK_PAGE_SIZE = 20;
 export type HomeworkCursor = { timestamp: string; id: string };
@@ -27,16 +28,26 @@ export async function getHomeworkPage(
   firestore: Firestore = db,
   pageSize = HOMEWORK_PAGE_SIZE
 ): Promise<HomeworkPage> {
-  const snapshot = await getDocs(
-    query(
-      collection(firestore, 'bookings', threadId, 'messages'),
-      where('isHomework', '==', true),
-      orderBy('timestamp', 'desc'),
-      orderBy(documentId(), 'desc'),
-      ...(cursor ? [startAfter(cursor.timestamp, cursor.id)] : []),
-      limit(pageSize)
-    )
-  );
+  let snapshot;
+  try {
+    snapshot = await getDocs(
+      query(
+        collection(firestore, 'bookings', threadId, 'messages'),
+        where('isHomework', '==', true),
+        orderBy('timestamp', 'desc'),
+        orderBy(documentId(), 'desc'),
+        ...(cursor ? [startAfter(cursor.timestamp, cursor.id)] : []),
+        limit(pageSize)
+      )
+    );
+  } catch (error) {
+    if (firestore !== db || (error as { code?: string }).code !== 'permission-denied') throw error;
+    return callFunction(
+      'queryChatMessages',
+      { threadId, take: pageSize, homeworkOnly: true, ...(cursor ? { cursor } : {}) },
+      { idempotencyKey: `read:chat-homework:${Date.now()}`, maxAttempts: 1 }
+    );
+  }
   const messages = snapshot.docs.map((item) => ({ ...item.data(), id: item.id }) as ChatMessage);
   const last = messages.at(-1);
   return {
@@ -120,7 +131,9 @@ export function createHomeworkHistory(
                 thread.hasMore = page.hasMore;
               } catch (error) {
                 // A revoked/deleted chat must not prevent access to the other authorized chats.
-                if ((error as { code?: string }).code !== 'permission-denied') throw error;
+                const code = (error as { code?: string }).code;
+                if (code !== 'permission-denied' && code !== 'functions/permission-denied')
+                  throw error;
                 denied.add(thread.id);
                 // Revocation survives a concurrent network failure and cursor rollback.
                 const original = threads.find((item) => item.id === thread.id)!;
@@ -132,8 +145,15 @@ export function createHomeworkHistory(
               }
             })
           );
-          const failed = results.find((result) => result.status === 'rejected');
-          if (failed?.status === 'rejected') throw failed.reason;
+          const failures = results.filter((result) => result.status === 'rejected');
+          // Expired authentication invalidates all loaded history, even when
+          // another source fails with a retryable network error in the same batch.
+          const failed =
+            failures.find(({ reason }) => {
+              const code = (reason as { code?: string })?.code;
+              return code === 'unauthenticated' || code === 'functions/unauthenticated';
+            }) ?? failures[0];
+          if (failed) throw failed.reason;
         }
         const heads = draft
           .flatMap((thread) =>

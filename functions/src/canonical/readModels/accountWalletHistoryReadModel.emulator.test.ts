@@ -12,15 +12,15 @@ import { createQueryAccountWalletHistoryHandler } from './queryAccountWalletHist
 
 const describeEmulator = process.env.FIRESTORE_EMULATOR_HOST ? describe : describe.skip;
 const accountId = 'account_wallet_history_integration';
+const at = timestampFromDate(new Date('2026-08-01T00:00:00Z'));
 let app: App;
 let db: Firestore;
 describeEmulator('account wallet history Firestore integration', () => {
   beforeAll(async () => {
     app = initializeApp({ projectId: 'demo-ski-school-e2e' }, 'wallet-history-integration');
     db = getFirestore(app);
-    const at = timestampFromDate(new Date('2026-08-01T00:00:00Z'));
-    await db.doc(`users/${accountId}`).set(
-      AccountSchema.parse({
+    await db.doc(`users/${accountId}`).set({
+      ...AccountSchema.parse({
         accountId,
         lifecycle: { status: 'active' },
         revision: 1,
@@ -31,8 +31,9 @@ describeEmulator('account wallet history Firestore integration', () => {
           lastChangedByCommandId: 'seed_history',
           correlationId: 'correlation_history',
         },
-      })
-    );
+      }),
+      role: 'user',
+    });
     const batch = db.batch();
     for (let i = 0; i < 65; i++) {
       const eventId = `event_history_${String(i).padStart(3, '0')}`;
@@ -106,7 +107,7 @@ describeEmulator('account wallet history Firestore integration', () => {
     await expect(
       handler({ auth: { uid: accountId }, data: { accountId: 'other_account' } } as never)
     ).rejects.toMatchObject({ code: 'invalid-argument' });
-    await db.doc(`users/${accountId}`).update({ 'lifecycle.status': 'disabled' });
+    await db.doc(`users/${accountId}`).update({ lifecycle: { status: 'disabled', disabledAt: at } });
     await expect(handler({ auth: { uid: accountId }, data: {} } as never)).rejects.toMatchObject({
       code: 'permission-denied',
     });

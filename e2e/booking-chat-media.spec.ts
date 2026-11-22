@@ -68,6 +68,47 @@ async function browserRead(page: Page, token: string, path: string) {
   );
 }
 
+async function openBrowserChatStream(page: Page, token: string, threadId: string) {
+  const state = await page.evaluateHandle(
+    async ({ token, url }) => {
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (!response.ok || !response.body) throw new Error(`Chat stream failed: ${response.status}`);
+      return {
+        reader: response.body.getReader(),
+        decoder: new TextDecoder(),
+        pending: '',
+      };
+    },
+    {
+      token,
+      url: `${functionsCallableUrl('chatMessagesStream')}?${new URLSearchParams({ threadId })}`,
+    }
+  );
+  return {
+    read: () =>
+      state.evaluate(async (stream) => {
+        for (;;) {
+          const boundary = stream.pending.indexOf('\n\n');
+          if (boundary >= 0) {
+            const frame = stream.pending.slice(0, boundary);
+            stream.pending = stream.pending.slice(boundary + 2);
+            return frame;
+          }
+          const chunk = await stream.reader.read();
+          if (chunk.done) throw new Error('Chat stream ended before the next frame.');
+          stream.pending += stream.decoder.decode(chunk.value, { stream: true });
+        }
+      }),
+    close: async () => {
+      await state.evaluate(({ reader }) => reader.cancel()).catch(() => undefined);
+      await state.dispose();
+    },
+  };
+}
+
 async function expectBlobImage(scope: Page | Locator, name: string) {
   const image = scope.getByRole('img', { name, exact: true });
   await expect(image).toBeVisible();
@@ -308,7 +349,7 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
 
   const rolePages: Page[] = [];
   const testDocumentsBefore: DocumentSnapshot[] = [];
-  let testMediaPath: string | undefined;
+  const testStoragePaths: string[] = [];
   const livePath = mediaPath;
   try {
     const login = async (
@@ -550,11 +591,15 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
     const db = getFirestore();
     const owner = db.doc(`participant_management_active_owner/${runtime.studentParticipantId}`);
     const originalOwner = (await owner.get()).data()!;
-    await owner.update({ accountId: runtime.studentBUid });
+    const stream = await openBrowserChatStream(page, studentToken, booking.bookingId);
     try {
+      expect(await stream.read()).toContain('private-photo.jpg');
+      await owner.update({ accountId: runtime.studentBUid });
+      expect(await stream.read()).toMatch(/^event: denied/);
       expect((await browserRead(page, studentToken, mediaPath)).status).toBe(403);
       expect((await browserRead(outsider.page, outsider.token, mediaPath)).status).toBe(200);
     } finally {
+      await stream.close();
       await owner.set(originalOwner);
     }
     const record = db.doc(`bookings/${booking.bookingId}`);
@@ -583,6 +628,8 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
     testDocumentsBefore.push(
       ...(await db.getAll(
         db.doc(`test_sessions/${testSessionId}`),
+        db.doc(`users/${runtime.studentBUid}`),
+        db.doc(`participants/${runtime.studentBParticipantId}`),
         db.doc(`test_actors/${runtime.studentBUid}`),
         db.doc(`test_actor_assignments/${runtime.studentBUid}`),
         db.doc(`test_sessions/${testSessionId}/membership/${runtime.studentBUid}`),
@@ -643,7 +690,11 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
       })
     );
     const testPath = `test-sessions/${testSessionId}/booking-chat/${testBookingId}/test.jpg`;
-    testMediaPath = testPath;
+    const transformedAccount = db.doc(`users/${runtime.studentBUid}`);
+    const transformedParticipant = db.doc(`participants/${runtime.studentBParticipantId}`);
+    await transformedAccount.update({ dataScope: 'test' });
+    await transformedParticipant.update({ dataScope: 'test' });
+    testStoragePaths.push(testPath);
     expect(
       await outsider.page.evaluate(
         async ({ token, url, bytes }) => {
@@ -682,8 +733,61 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
         )
       ).status
     ).toBe(403);
+    const avatarPath = `test-actors/${runtime.studentBParticipantId}/avatar.jpg`;
+    testStoragePaths.push(avatarPath);
+    const avatarRequest = (viewer: Page, token: string, path: string, upload = false) =>
+      viewer.evaluate(
+        async ({ token, url, bytes }) => {
+          const response = await fetch(url, {
+            method: bytes ? 'POST' : 'GET',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              ...(bytes ? { 'Content-Type': 'image/jpeg' } : {}),
+            },
+            body: bytes ? new Uint8Array(bytes) : undefined,
+            signal: AbortSignal.timeout(20_000),
+            cache: 'no-store',
+          });
+          return {
+            status: response.status,
+            cacheControl: response.headers.get('cache-control'),
+            length: (await response.arrayBuffer()).byteLength,
+          };
+        },
+        {
+          token,
+          url: `${functionsCallableUrl('protectedImages')}?${new URLSearchParams({ path })}`,
+          bytes: upload ? [...image] : undefined,
+        }
+      );
+    expect(
+      (
+        await avatarRequest(
+          outsider.page,
+          outsider.token,
+          `participant-avatars/${runtime.studentBParticipantId}/avatar.jpg`,
+          true
+        )
+      ).status
+    ).toBe(201);
+    expect(await avatarRequest(outsider.page, outsider.token, avatarPath)).toEqual({
+      status: 200,
+      cacheControl: 'private, no-store',
+      length: image.length,
+    });
+    expect((await avatarRequest(page, studentToken, avatarPath)).status).toBe(403);
+    const { getStorage } = requireFunctions(
+      'firebase-admin/storage'
+    ) as typeof import('firebase-admin/storage');
+    const [storedAvatar] = await getStorage()
+      .bucket(`${E2E_PROJECT_ID}.appspot.com`)
+      .file(avatarPath)
+      .getMetadata();
+    expect(storedAvatar.metadata?.firebaseStorageDownloadTokens).toBeUndefined();
+    await db.doc(`test_sessions/${testSessionId}`).update({ status: 'locked' });
+    expect((await avatarRequest(outsider.page, outsider.token, avatarPath)).status).toBe(403);
     console.log(
-      'Browser roles: student/instructor/admin 200; outsider 403; owner/instructor revocation 403; LIVE-to-TEST 403'
+      'Browser roles: student/instructor/admin 200; outsider 403; owner/instructor revocation 403; LIVE-to-TEST 403; TEST avatar owner 200, after lock 403'
     );
   } catch (error) {
     for (const [index, rolePage] of rolePages.entries()) {
@@ -704,14 +808,14 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
         await restore.commit();
       }
     } finally {
-      if (testMediaPath) {
+      if (testStoragePaths.length) {
         const { getStorage } = requireFunctions(
           'firebase-admin/storage'
         ) as typeof import('firebase-admin/storage');
-        await getStorage()
-          .bucket(`${E2E_PROJECT_ID}.appspot.com`)
-          .file(testMediaPath)
-          .delete({ ignoreNotFound: true });
+        const bucket = getStorage().bucket(`${E2E_PROJECT_ID}.appspot.com`);
+        await Promise.all(
+          testStoragePaths.map((path) => bucket.file(path).delete({ ignoreNotFound: true }))
+        );
       }
     }
   }

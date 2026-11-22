@@ -1,3 +1,4 @@
+import { ProtectedImage } from '../../media/ProtectedImage';
 import type { CourseCatalogLoadInput } from '../groupCourseEnrollmentCta';
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
@@ -142,7 +143,7 @@ export const CourseDetailsModal: React.FC<CourseDetailsModalProps> = ({
                               key={insId}
                               className="flex items-center gap-3.5 bg-black/5 dark:bg-white/5 border border-[var(--border)] p-3 transition hover:border-[var(--ink)] duration-300"
                             >
-                              <img
+                              <ProtectedImage
                                 src={ins.avatarUrl}
                                 referrerPolicy="no-referrer"
                                 alt={ins.name}

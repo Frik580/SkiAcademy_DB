@@ -48,6 +48,8 @@ function createFirestore(role: 'admin' | 'user'): Firestore {
   };
   return {
     collection: (name: string) => {
+      if (name === 'test_actors')
+        return { doc: () => ({ get: async () => ({ exists: false, data: () => undefined }) }) };
       if (name === 'users') {
         return {
           doc: () => ({

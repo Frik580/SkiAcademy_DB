@@ -2,7 +2,53 @@
 
 Дата: 2026-11-22, Asia/Qyzylorda. Ветка: `fix/ca-sec-05b-firestore-rules-consistency`, HEAD: `c88949d630cabf0807f370aeb1f7b96755ee2c20`.
 
-## VERDICT: BLOCKED
+## VERDICT: LIVE READY
+
+Актуальный verdict после P1 fix: готовность исходников к принятому release-процессу. Это не разрешение deploy; preflight и authenticated staging smoke ниже остаются обязательными. Разделы первоначального аудита ниже сохранены как историческое обоснование найденной уязвимости и release manifest.
+
+## ROOT CAUSE — P1 fix
+
+Общий `requireAdministrator` проверял active canonical Account, соответствие Auth UID, `role=admin` и отсутствие `test_actors/{uid}`, но не LIVE scope серверного профиля. Постоянный TEST Account валиден без registry. Поэтому оба callable handlers через Admin SDK обходили корректную scope-проверку Firestore Rules. Admission wrapper не добавляет LIVE authority. Отсутствие registry не является доказательством LIVE.
+
+## FIX
+
+В общий guard добавлен `documentMatchesReadScope(LIVE_CANONICAL_READ_SCOPE, profile)`. Оба обработчика требуют active canonical Account текущего Auth UID, роль admin, сохранённый LIVE scope и отсутствие registry. Клиентские scope/accountId не определяют права; каждая страница clear повторно проходит guard, даже с ранее выданным cursor. Неизвестный/null scope, LIVE с session stamp, TEST ± registry, registry с LIVE-меткой, malformed Account и UID mismatch отклоняются. Owner-only не получает admin.
+
+Существующая canonical совместимость legacy LIVE без scope/session stamp сохранена. TEST-управление журналами не добавлялось: всем TEST principals отказано. Общие resolvers, модель ролей и reporting не изменены.
+
+Проверены все log management paths: delete/clear callables используют исправленный guard; SDK read/delete уже требуют Rules `isAdmin()` (canonical active LIVE Account, admin, отсутствие registry), SDK create/update запрещены. `reportClientErrors` — отдельная admission-controlled запись, не destructive administration; этот guard не использует.
+
+## FILES CHANGED — P1 fix
+
+- `functions/src/security/manageErrorLogs.ts` — LIVE scope в общем guard.
+- `functions/src/security/manageErrorLogs.emulator.test.ts` — canonical fixtures, актуальная owner policy, negative matrix обеих операций и cursor continuation.
+- `docs/audits/CA-SEC-05B-live-release-readiness.md` — актуальный verdict и проверки.
+- Graphify: выполнен один запуск `graphify update .`; результат фиксируется в дополнении ниже.
+
+## TESTS — P1 fix
+
+- PASS: реальные handlers на локальном Firestore Emulator, **20/20**, `error-log-fix-emulator.log`. LIVE и legacy LIVE delete/clear; TEST с/без registry; forged scope, известный LIVE ID, валидный ранее выданный cursor; user, anonymous, disabled, owner-only и malformed authority. Сохранены 425-document cleanup, cutoff/new logs, retry/failure, signed cursor, replay и preservation других collections.
+- PASS: целевые Rules regressions **58/58** (106 вне выборки), `error-log-fix-rules.log`: CA-SEC-05B direct wallet/chat scope, T32.8A identity authority, resort/error logs, release identity/course access.
+- PASS: клиентские `adminErrorLogsService` / `adminErrorLogsPanel`, **6/6**, `error-log-fix-unit.log`.
+- PASS: `npx tsc --noEmit`, `npm run build:functions` (включая Functions TypeScript), ESLint обоих изменённых TS files; `error-log-fix-types.log`, `error-log-fix-build.log`, `error-log-fix-lint.log`.
+- Логи в `.scratch/ca-sec-05b/`. Успешные emulator wrappers: exit 0, штатный shutdown SIGINT. Cloud Firestore egress: 0 attempts. Первоначальные попытки остановились до assertions: sandbox hub timeout, завершение emulator перед Rules, Windows shell quoting. Итоговый Rules runner использует Node argv.
+- Общая авторизация не изменена; полный suite/E2E повторно не запускались. `git diff --check` и Graphify — в финальном дополнении.
+
+## SECURITY REVIEW — P1 fix
+
+PASS: один независимый read-only security review узкого diff, Account validator, shared scope parser, exports, Rules и тестовой матрицы. Подтверждённых новых findings нет. Проверены TEST без registry, scope/UID spoofing, malformed authority, cursor replay и legacy LIVE compatibility. Review статический; реальное поведение отдельно подтверждено emulator tests.
+
+## Оставшиеся риски LIVE / release manifest — P1 fix
+
+Новых известных LIVE blockers в пределах исправления нет. Авторизация, как прежде, проверяется перед транзакцией; одновременный отзыв прав после проверки внутри уже начатого вызова не сериализован с удалением. Следующий вызов/страница проверяет актуальные права. Legacy missing-scope остаётся принятой canonical совместимостью.
+
+AUTHENTICATED WORKFLOW: NOT VERIFIED для staging. Deployed version, permissions, preflight и staging smoke остаются release gates. TEST Session — DEFERRED.
+
+**Release manifest не изменился:** `deleteErrorLog` и `clearErrorLogs` уже присутствуют в списке ниже. Дополнительный scope P1 fix: Functions — эти два exports; Hosting — NO; Firestore Rules — NO; Storage Rules — NO; Indexes — NO; Migration — NO; Settings — NO; Schedulers/triggers — NO. Query shape/bounds не изменены: authority point reads, clear по document ID до 200/page, явный пользовательский drain, без polling/scheduler.
+
+## Первоначальный release-аудит — исторический BLOCKED до исправления
+
+Все утверждения BLOCKED / NOT RUN в исторической части ниже относятся к состоянию **до P1 fix**; актуальные результаты и verdict приведены выше.
 
 Проверен существующий незакоммиченный CA-SEC-05B diff, включая новые untracked server/client modules. Большинство исправлений F7/F10 реализовано и имеет сохранённые успешные проверки. Однако утверждение «неиспользуемый TEST не позволяет обходить LIVE authorization» для всего diff неверно: обнаружен оставшийся destructive server path. Отсутствие трёх TEST-индексов не является причиной BLOCKED.
 
@@ -271,3 +317,10 @@ tests/unit/instructorLessonRevenue.test.tsx
 - FAIL security isolation / reproduction confirmed: `node .scratch/ca-sec-05b/live-readiness-authorization-repro.cjs`, скрипт exit 0; TEST admin без registry вызвал delete. LIVE admin positive и registered TEST negative controls совпали с ожидаемым поведением.
 - Независимый review: один подтверждённый P1, других подтверждённых blockers в проверенных Rules/scoped reads/images/chat/resolvers не найдено.
 - PASS: `git diff --check`; финальный status/diff проверен, новых product source изменений в этом audit нет.
+
+## Финальное дополнение P1 fix
+
+- PASS: `git diff --check`; проверены status и diff, только три целевых файла. Начальный working tree чистый; ветка сохранена.
+- GRAPHIFY UPDATE: BLOCKED. Единственный `graphify update .` дошёл до AST extraction 2265/2265, затем несколько минут не выдавал результат и не завершался; остановлен Ctrl+C, exit 1. Граф не изменён. Причина незавершения внутри CLI не установлена; текущий source проверен как authority. Повторный дорогой update не запускался. Лог: `.scratch/ca-sec-05b/error-log-fix-graphify.log`.
+- PASS: независимый security review, 20 handler Emulator + 58 Rules + 6 client unit tests; TypeScript, Functions build, ESLint. Staging authenticated workflow не проверялся.
+- VERDICT: LIVE READY в пределах исходников и локального regression gate. Release manifest прежний; staging preflight/smoke обязательны. Commit, push, merge, deploy и изменения Firebase вне локальных demo Emulator не выполнялись.

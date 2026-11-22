@@ -6,6 +6,17 @@ import { createClearErrorLogsHandler, createDeleteErrorLogHandler } from './mana
 
 const app = initializeApp({ projectId: 'demo-error-log-cleanup' }, 'error-log-cleanup');
 let db: Firestore;
+const account = (uid: string, role = 'admin', extra: Record<string, unknown> = {}) => ({
+  accountId: uid,
+  role,
+  dataScope: 'live',
+  lifecycle: { status: 'active' },
+  revision: 1,
+  createdAt: { seconds: 1, nanoseconds: 0 },
+  updatedAt: { seconds: 1, nanoseconds: 0 },
+  audit: { createdByCommandId: 'seed', lastChangedByCommandId: 'seed', correlationId: 'seed' },
+  ...extra,
+});
 const request = (data: Record<string, unknown> = {}, uid = 'admin') =>
   ({ auth: { uid, token: {} }, data }) as CallableRequest<Record<string, unknown>>;
 
@@ -16,8 +27,9 @@ describe('administrator error log cleanup', () => {
   });
   beforeEach(async () => {
     await db.recursiveDelete(db.collection('error_logs'));
-    await db.doc('users/admin').set({ uid: 'admin', role: 'admin', email: 'admin@example.com' });
-    await db.doc('users/user').set({ uid: 'user', role: 'user', email: 'user@example.com' });
+    await db.recursiveDelete(db.collection('test_actors'));
+    await db.doc('users/admin').set(account('admin'));
+    await db.doc('users/user').set(account('user', 'user'));
   });
   afterAll(() => deleteApp(app));
 
@@ -53,8 +65,12 @@ describe('administrator error log cleanup', () => {
     expect((await db.doc('users/user').get()).data()?.role).toBe('user');
   });
 
-  it('preserves owner access and rejects malformed lifecycle state', async () => {
-    await db.doc('users/owner').set({ role: 'user', systemRole: 'owner' });
+  it('requires admin role for owners and rejects malformed lifecycle state', async () => {
+    await db.doc('users/owner').set(account('owner', 'user', { systemRole: 'owner' }));
+    await expect(
+      createDeleteErrorLogHandler(db)(request({ id: 'old' }, 'owner'))
+    ).rejects.toMatchObject({ code: 'permission-denied' });
+    await db.doc('users/owner').update({ role: 'admin' });
     await db.doc('error_logs/old').set({ id: 'legacy' });
     await expect(createDeleteErrorLogHandler(db)(request({ id: 'old' }, 'owner'))).resolves.toEqual(
       { deleted: true }
@@ -70,6 +86,73 @@ describe('administrator error log cleanup', () => {
     await expect(
       createDeleteErrorLogHandler(db)(request({ id: 'missing' }, 'owner'))
     ).rejects.toMatchObject({ code: 'permission-denied' });
+  });
+
+  it.each([
+    ['TEST without registry', { dataScope: 'test' }, false],
+    ['TEST with registry', { dataScope: 'test' }, true],
+    ['session TEST without registry', { dataScope: 'test', testSessionId: 'session' }, false],
+    ['LIVE with registry', { dataScope: 'live' }, true],
+    ['LIVE with session', { dataScope: 'live', testSessionId: 'session' }, false],
+    ['missing scope with session', { dataScope: undefined, testSessionId: 'session' }, false],
+    ['null scope', { dataScope: null }, false],
+    ['unknown scope', { dataScope: 'unknown' }, false],
+    ['UID mismatch', { accountId: 'another-admin' }, false],
+    [
+      'disabled account',
+      { lifecycle: { status: 'disabled', disabledAt: { seconds: 1, nanoseconds: 0 } } },
+      false,
+    ],
+    ['malformed lifecycle', { lifecycle: {} }, false],
+    ['missing revision', { revision: undefined }, false],
+    ['malformed audit', { audit: {} }, false],
+    ['unknown role', { role: 'owner', systemRole: 'owner' }, false],
+  ])(
+    'denies both handlers for %s, including forged scope and a valid LIVE cursor',
+    async (_, extra, registered) => {
+      await db.doc('error_logs/known-live-id').set({ dataScope: 'live' });
+      const clear = createClearErrorLogsHandler(db, 'secret');
+      const start = await clear(request());
+      const profile: Record<string, unknown> = account('admin', 'admin', extra);
+      for (const key of Object.keys(profile)) {
+        if (profile[key] === undefined) delete profile[key];
+      }
+      await db.doc('users/admin').set(profile);
+      // Even an invalid registry document must block LIVE administration.
+      if (registered) await db.doc('test_actors/admin').set({});
+      const forged = {
+        id: 'known-live-id',
+        dataScope: 'live',
+        scope: 'live',
+        accountId: 'other-live-admin',
+        requestedTestSessionId: 'session',
+      };
+      await expect(createDeleteErrorLogHandler(db)(request(forged))).rejects.toMatchObject({
+        code: 'permission-denied',
+      });
+      await expect(clear(request(forged))).rejects.toMatchObject({ code: 'permission-denied' });
+      await expect(clear(request({ ...forged, cursor: start.cursor }))).rejects.toMatchObject({
+        code: 'permission-denied',
+      });
+      expect((await db.doc('error_logs/known-live-id').get()).exists).toBe(true);
+    }
+  );
+
+  it('preserves legacy LIVE scope compatibility for canonical active admins', async () => {
+    const profile: Record<string, unknown> = account('admin');
+    delete profile.dataScope;
+    await db.doc('users/admin').set(profile);
+    await db.doc('error_logs/legacy').set({});
+    await expect(createDeleteErrorLogHandler(db)(request({ id: 'legacy' }))).resolves.toEqual({
+      deleted: true,
+    });
+    await db.doc('error_logs/legacy').set({});
+    const clear = createClearErrorLogsHandler(db, 'secret');
+    const start = await clear(request());
+    await expect(clear(request({ cursor: start.cursor }))).resolves.toMatchObject({
+      deleted: 1,
+      done: true,
+    });
   });
 
   it('clears more than a UI page, resumes after failure, retains new logs and other collections', async () => {

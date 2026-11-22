@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { FieldPath, Timestamp, type Firestore } from 'firebase-admin/firestore';
 import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
+import { documentMatchesReadScope, LIVE_CANONICAL_READ_SCOPE } from '@ski-academy/shared-domain';
 import { requireActiveAccount } from './activeAccount';
 
 const PAGE_SIZE = 200;
@@ -14,7 +15,13 @@ async function requireAdministrator(
   if (!uid) throw new HttpsError('unauthenticated', 'Authentication is required.');
   const profile = (await firestore.collection('users').doc(uid).get()).data();
   requireActiveAccount(uid, profile);
-  if (profile?.role !== 'admin' || (await firestore.doc(`test_actors/${uid}`).get()).exists) {
+  // Registry absence is not LIVE authority: persistent TEST Accounts may have
+  // no actor record. Use the server Account scope, including legacy LIVE policy.
+  if (
+    profile?.role !== 'admin' ||
+    !documentMatchesReadScope(LIVE_CANONICAL_READ_SCOPE, profile) ||
+    (await firestore.doc(`test_actors/${uid}`).get()).exists
+  ) {
     throw new HttpsError('permission-denied', 'This action is not permitted.');
   }
   return uid;

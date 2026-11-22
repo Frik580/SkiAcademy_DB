@@ -1,5 +1,6 @@
 import { beforeAll, beforeEach, afterAll, describe, expect, it, vi } from 'vitest';
 import { initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing';
+import sharp from 'sharp';
 import { getAuth } from 'firebase-admin/auth';
 import { getStorage } from 'firebase-admin/storage';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
@@ -37,6 +38,26 @@ let env: RulesTestEnvironment;
 const tokens = new Map<string, string>();
 const path = `chat/${canonicalStorageBooking.bookingId}/photo.jpg`;
 const uploadId = '11111111-1111-4111-8111-111111111111';
+
+// Real fixtures: the gateway classifies payloads from their bytes, never from a
+// declared Content-Type, extension or file name.
+const buildImage = (format: 'jpeg' | 'png' | 'webp') => {
+  const image = sharp({
+    create: { width: 8, height: 8, channels: 3, background: { r: 5, g: 6, b: 7 } },
+  });
+  return format === 'jpeg' ? image.jpeg().toBuffer() : format === 'png' ? image.png().toBuffer() : image.webp().toBuffer();
+};
+const JPEG = await buildImage('jpeg');
+const PNG = await buildImage('png');
+const WEBP = await buildImage('webp');
+const MP4 = Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from('ftypisom'), Buffer.alloc(16)]);
+const WEBM = Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), Buffer.alloc(24)]);
+const SVG = Buffer.from(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><script>alert(1)</script></svg>'
+);
+const HTML = Buffer.from('<!doctype html><html><body><script>alert(1)</script></body></html>');
+const padded = (body: Buffer, size: number) =>
+  Buffer.concat([body, Buffer.alloc(Math.max(0, size - body.length))]);
 
 async function request(
   uid: string | null,
@@ -246,7 +267,7 @@ describe('authorized canonical chat media gateway', () => {
           'POST',
           target,
           { op: 'chunk', index: '0', uploadId },
-          Buffer.from('media')
+          JPEG
         )
       ).status
     ).toBe(204);
@@ -266,7 +287,7 @@ describe('authorized canonical chat media gateway', () => {
       ).toBe(201);
       expect(log).toHaveBeenCalledWith('Chat media cleanup failed', { code: 503 });
       const [bytes] = await getStorage(getOrInitApp()).bucket().file(target).download();
-      expect(bytes.toString()).toBe('media');
+      expect(Buffer.compare(bytes, JPEG)).toBe(0);
     } finally {
       remove.mockRestore();
       log.mockRestore();
@@ -282,7 +303,7 @@ describe('authorized canonical chat media gateway', () => {
           'POST',
           target,
           { op: 'chunk', index: '0', uploadId },
-          Buffer.from('media')
+          JPEG
         )
       ).status
     ).toBe(204);
@@ -300,7 +321,7 @@ describe('authorized canonical chat media gateway', () => {
       ).status
     ).toBe(409);
     expect((await request(STORAGE_OTHER_USER_ID, 'POST', target, finish)).status).toBe(403);
-    expect((await request(STORAGE_USER_ID, 'GET', target)).body).toEqual(Buffer.from('media'));
+    expect((await request(STORAGE_USER_ID, 'GET', target)).body).toEqual(JPEG);
   });
 
   it('counts denied requests before canonical reads', async () => {
@@ -328,7 +349,7 @@ describe('authorized canonical chat media gateway', () => {
             'POST',
             target,
             { op: 'chunk', index: '0', uploadId },
-            Buffer.from('media')
+            type.startsWith('video') ? MP4 : JPEG
           )
         ).status
       ).toBe(204);
@@ -339,6 +360,8 @@ describe('authorized canonical chat media gateway', () => {
       expect(media.status).toBe(200);
       expect(media.headers['Content-Type']).toBe(type);
       expect(media.headers['Cache-Control']).toBe('private, no-store');
+      expect(media.headers['X-Content-Type-Options']).toBe('nosniff');
+      expect(media.headers['Content-Disposition']).toBe('attachment');
       await getStorage(getOrInitApp()).bucket().file(target).delete();
     }
   });
@@ -611,7 +634,7 @@ describe('authorized canonical chat media gateway', () => {
         'POST',
         `participant-avatars/${managedId}/avatar.jpg`,
         {},
-        Buffer.from('avatar'),
+        JPEG,
         handleProtectedImages
       );
     expect(await managedUpload(STORAGE_TEST_ACTOR_ID)).toMatchObject({
@@ -697,8 +720,8 @@ describe('authorized canonical chat media gateway', () => {
     expect((await readAvatar(STORAGE_ADMIN_ID)).status).toBe(200);
 
     const misc = `test-sessions/${STORAGE_TEST_SESSION_A}/misc/private-image.jpg`;
-    const imageRequest = (uid: string, method: string) =>
-      request(uid, method, misc, {}, Buffer.from('image'), handleProtectedImages);
+    const imageRequest = (uid: string, method: string, body = JPEG) =>
+      request(uid, method, misc, {}, body, handleProtectedImages);
     expect((await imageRequest(STORAGE_TEST_ACTOR_ID, 'POST')).status).toBe(201);
     expect((await imageRequest(STORAGE_TEST_ACTOR_ID, 'GET')).status).toBe(200);
     await seedStorageFirestore(env, async (db) => {
@@ -782,7 +805,7 @@ describe('authorized canonical chat media gateway', () => {
             'POST',
             target,
             { op: 'chunk', index: '0', uploadId },
-            Buffer.alloc(size)
+            padded(JPEG, size)
           )
         ).status
       ).toBe(204);
@@ -816,6 +839,7 @@ describe('authorized canonical chat media gateway', () => {
     for (const size of [50 * 1024 * 1024 - 1, 50 * 1024 * 1024]) {
       const count = Math.ceil(size / chunkSize);
       for (let i = 0; i < count; i++) {
+        const length = Math.min(chunkSize, size - i * chunkSize);
         expect(
           (
             await request(
@@ -823,7 +847,7 @@ describe('authorized canonical chat media gateway', () => {
               'POST',
               target,
               { op: 'chunk', uploadId, index: String(i) },
-              Buffer.alloc(Math.min(chunkSize, size - i * chunkSize))
+              i === 0 ? padded(MP4, length) : Buffer.alloc(length)
             )
           ).status
         ).toBe(204);
@@ -878,5 +902,186 @@ describe('authorized canonical chat media gateway', () => {
         })
       ).status
     ).toBe(400);
+  });
+});
+
+describe('CA-SEC-06A media upload security', () => {
+  const exists = async (target: string) =>
+    (await getStorage(getOrInitApp()).bucket().file(target).exists())[0];
+
+  it.each([
+    ['image/jpeg', JPEG],
+    ['image/png', PNG],
+    ['image/webp', WEBP],
+    ['video/mp4', MP4],
+    ['video/webm', WEBM],
+  ])('publishes an allowlisted %s payload that matches its bytes', async (type, body) => {
+    const target = `chat/${canonicalStorageBooking.bookingId}/allowlisted-${type.split('/')[1]}.bin`;
+    expect(
+      (await request(STORAGE_USER_ID, 'POST', target, { op: 'chunk', index: '0', uploadId }, body))
+        .status
+    ).toBe(204);
+    expect(
+      (await request(STORAGE_USER_ID, 'POST', target, { op: 'finish', count: '1', uploadId, type }))
+        .status
+    ).toBe(201);
+    const media = await request(STORAGE_USER_ID, 'GET', target);
+    expect(media.status).toBe(200);
+    expect(media.headers['Content-Type']).toBe(type);
+    expect(media.headers['X-Content-Type-Options']).toBe('nosniff');
+    // Bearer-only bytes: never rendered as a document on the Functions origin.
+    expect(media.headers['Content-Disposition']).toBe('attachment');
+    expect(media.headers['Cache-Control']).toBe('private, no-store');
+  });
+
+  it.each([
+    { label: 'SVG declared as SVG', type: 'image/svg+xml', body: SVG },
+    { label: 'SVG declared as PNG', type: 'image/png', body: SVG },
+    { label: 'SVG declared as JPEG', type: 'image/jpeg', body: SVG },
+    { label: 'HTML declared as WebP', type: 'image/webp', body: HTML },
+    { label: 'HTML declared as PNG', type: 'image/png', body: HTML },
+    { label: 'WebM bytes declared as MP4', type: 'video/mp4', body: WEBM },
+    { label: 'MP4 bytes declared as WebM', type: 'video/webm', body: MP4 },
+    { label: 'HTML declared as WebM', type: 'video/webm', body: HTML },
+    { label: 'truncated JPEG', type: 'image/jpeg', body: Buffer.from([0xff, 0xd8, 0x00]) },
+  ])('rejects spoofed content: $label', async ({ type, body }) => {
+    const slug = type.replace(/[^a-zA-Z0-9]+/g, '-');
+    const target = `chat/${canonicalStorageBooking.bookingId}/spoofed-${slug}-${body.length}.jpg`;
+    expect(
+      (await request(STORAGE_USER_ID, 'POST', target, { op: 'chunk', index: '0', uploadId }, body))
+        .status
+    ).toBe(204);
+    expect(
+      await request(STORAGE_USER_ID, 'POST', target, { op: 'finish', count: '1', uploadId, type })
+    ).toMatchObject({ status: 400, body: { error: 'invalid-argument' } });
+    expect(await exists(target)).toBe(false);
+    const [remaining] = await getStorage(getOrInitApp())
+      .bucket()
+      .getFiles({ prefix: `_chat-media-uploads/${STORAGE_USER_ID}/` });
+    expect(remaining).toHaveLength(0);
+  });
+
+  it.each([
+    'image/svg+xml',
+    'image/gif',
+    'image/heic',
+    'image/avif',
+    'text/html',
+    'application/pdf',
+    'application/octet-stream',
+  ])('denies the unsupported declared upload type %s', async (type) => {
+    const target = `chat/${canonicalStorageBooking.bookingId}/unsupported-${type.replace(/[^a-zA-Z0-9]+/g, '-')}`;
+    expect(
+      (await request(STORAGE_USER_ID, 'POST', target, { op: 'chunk', index: '0', uploadId }, JPEG))
+        .status
+    ).toBe(204);
+    expect(
+      await request(STORAGE_USER_ID, 'POST', target, { op: 'finish', count: '1', uploadId, type })
+    ).toMatchObject({ status: 400, body: { error: 'invalid-argument' } });
+    expect(await exists(target)).toBe(false);
+  });
+
+  it('ignores the file name extension in both directions', async () => {
+    // A real image keeps its bytes when the stored name is not an image name.
+    const disguised = `chat/${canonicalStorageBooking.bookingId}/payload.txt`;
+    expect(
+      (
+        await request(STORAGE_USER_ID, 'POST', disguised, { op: 'chunk', index: '0', uploadId }, JPEG)
+      ).status
+    ).toBe(204);
+    expect(
+      (
+        await request(STORAGE_USER_ID, 'POST', disguised, {
+          op: 'finish',
+          count: '1',
+          uploadId,
+          type: 'image/jpeg',
+        })
+      ).status
+    ).toBe(201);
+    // An .jpg name never authorizes SVG bytes.
+    const imageNamed = `chat/${canonicalStorageBooking.bookingId}/payload.jpg`;
+    await request(STORAGE_USER_ID, 'POST', imageNamed, { op: 'chunk', index: '0', uploadId }, SVG);
+    expect(
+      (
+        await request(STORAGE_USER_ID, 'POST', imageNamed, {
+          op: 'finish',
+          count: '1',
+          uploadId,
+          type: 'image/jpeg',
+        })
+      ).status
+    ).toBe(400);
+    expect(await exists(imageNamed)).toBe(false);
+  });
+
+  it('requires current chat authority before the type is even classified', async () => {
+    const target = `chat/${canonicalStorageBooking.bookingId}/foreign.svg`;
+    expect(
+      (
+        await request(
+          STORAGE_OTHER_USER_ID,
+          'POST',
+          target,
+          { op: 'chunk', index: '0', uploadId },
+          SVG
+        )
+      ).status
+    ).toBe(403);
+    expect(
+      (
+        await request(STORAGE_OTHER_USER_ID, 'POST', target, {
+          op: 'finish',
+          count: '1',
+          uploadId,
+          type: 'image/svg+xml',
+        })
+      ).status
+    ).toBe(403);
+    expect(await exists(target)).toBe(false);
+  });
+
+  it('keeps already published legacy active payloads readable but inert', async () => {
+    const legacy = `chat/${canonicalStorageBooking.bookingId}/legacy-hostile.svg`;
+    await getStorage(getOrInitApp())
+      .bucket()
+      .file(legacy)
+      .save(SVG, { resumable: false, metadata: { contentType: 'image/svg+xml' } });
+    const media = await request(STORAGE_USER_ID, 'GET', legacy);
+    expect(media.status).toBe(200);
+    expect(media.headers['Content-Type']).toBe('image/svg+xml');
+    expect(media.headers['X-Content-Type-Options']).toBe('nosniff');
+    expect(media.headers['Content-Disposition']).toBe('attachment');
+  });
+
+  it('applies the same byte classification to protected LIVE catalog images', async () => {
+    const target = 'instructors/instructor_media_security.jpg';
+    const upload = (body: Buffer) =>
+      request(STORAGE_ADMIN_ID, 'POST', target, {}, body, handleProtectedImages);
+    expect((await upload(JPEG)).status).toBe(201);
+    // A rejected re-upload must not replace the previously published image.
+    expect(await upload(SVG)).toMatchObject({ status: 400, body: { error: 'invalid-argument' } });
+    expect((await upload(HTML)).status).toBe(400);
+    const [stored] = await getStorage(getOrInitApp()).bucket().file(target).download();
+    expect(Buffer.compare(stored, JPEG)).toBe(0);
+    await expect(
+      request(STORAGE_USER_ID, 'POST', target, {}, JPEG, handleProtectedImages)
+    ).resolves.toMatchObject({ status: 403 });
+  });
+
+  it('denies GIF on LIVE public protected images', async () => {
+    const gif = await sharp({
+      create: { width: 4, height: 4, channels: 3, background: { r: 9, g: 9, b: 9 } },
+    })
+      .gif()
+      .toBuffer();
+    // TEST session misc images keep their historical GIF support (unit-tested in
+    // mediaTypePolicy); LIVE public participant/catalog images do not.
+    for (const target of ['instructors/instructor_media_gif.jpg', 'courses/course_media_gif.webp']) {
+      expect(
+        await request(STORAGE_ADMIN_ID, 'POST', target, {}, gif, handleProtectedImages)
+      ).toMatchObject({ status: 400, body: { error: 'invalid-argument' } });
+      expect((await getStorage(getOrInitApp()).bucket().file(target).exists())[0]).toBe(false);
+    }
   });
 });

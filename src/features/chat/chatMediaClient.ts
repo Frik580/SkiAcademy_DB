@@ -3,6 +3,19 @@ import { app, auth, firebaseEmulatorConfig } from '../../infrastructure/firebase
 const CHUNK_SIZE = 8 * 1024 * 1024;
 const marker = 'chat-media:';
 
+/** Mirrors the server allowlist so unsupported files fail before any upload. */
+const MEDIA_LIMITS = new Map<string, number>([
+  ['image/jpeg', 5 * 1024 * 1024],
+  ['image/png', 5 * 1024 * 1024],
+  ['image/webp', 5 * 1024 * 1024],
+  ['video/mp4', 50 * 1024 * 1024],
+  ['video/webm', 50 * 1024 * 1024],
+]);
+
+export function isSupportedChatMediaType(type: string): boolean {
+  return MEDIA_LIMITS.has(type);
+}
+
 export function chatMediaPath(value: string): string {
   if (value.startsWith(marker)) return value.slice(marker.length);
   // Historical Firebase token URLs are resolved to a path, never fetched directly.
@@ -45,12 +58,9 @@ async function requestMedia(
 }
 
 export async function uploadChatMedia(blob: Blob, path: string) {
-  const limit = blob.type.startsWith('image/')
-    ? 5 * 1024 * 1024
-    : blob.type.startsWith('video/')
-      ? 50 * 1024 * 1024
-      : 0;
-  if (!blob.size || blob.size >= limit) throw new Error('Invalid chat media format or size');
+  const limit = MEDIA_LIMITS.get(blob.type) ?? 0;
+  if (!limit || !blob.size || blob.size >= limit)
+    throw new Error('Invalid chat media format or size');
   const uploadId = crypto.randomUUID();
   const count = Math.ceil(blob.size / CHUNK_SIZE);
   try {

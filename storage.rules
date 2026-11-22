@@ -60,19 +60,19 @@ service firebase.storage {
         !isRegisteredTestActor();
     }
 
-    function isValidImageUpload() {
-      return request.resource.contentType.matches('image/.*') &&
-        request.resource.size < 5 * 1024 * 1024;
-    }
-
     function isRegisteredTestActor() {
       return isAuthenticated() &&
         firestore.exists(/databases/(default)/documents/test_actors/$(request.auth.uid));
     }
 
+    // Historical public account avatars: reads are preserved for already stored
+    // objects. Writes are closed because Rules can only see the client declared
+    // contentType, never the bytes, and no current or historical client writes
+    // this exact path (the legacy writer used `avatars/{uid}.jpg`, which the
+    // owner check already denies). New account images go through protectedImages.
     match /avatars/{uid} {
       allow read: if true;
-      allow write: if isOwner(uid) && !isRegisteredTestActor() && isValidImageUpload();
+      allow write: if false;
     }
 
     // Public LIVE images, with writes authorized by protectedImages.

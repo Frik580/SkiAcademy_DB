@@ -16,6 +16,10 @@ const requireFunctions = createRequire(new URL('../functions/package.json', impo
 const { getFirestore } = requireFunctions(
   'firebase-admin/firestore'
 ) as typeof import('firebase-admin/firestore');
+const { getStorage: getAdminStorage } = requireFunctions(
+  'firebase-admin/storage'
+) as typeof import('firebase-admin/storage');
+const e2eBucket = () => getAdminStorage().bucket(`${E2E_PROJECT_ID}.appspot.com`);
 
 test.beforeAll(async () => {
   test.setTimeout(120_000);
@@ -424,6 +428,8 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
     const svgPath = `chat/${booking.bookingId}/hostile-image.svg`;
     const svgMessageId = `svg-regression-${booking.bookingId}`;
     const svgVideoMessageId = `svg-video-regression-${booking.bookingId}`;
+    // The media gateway classifies bytes: an active payload is rejected even when
+    // the sender is an authorized chat participant.
     expect(
       await instructor.page.evaluate(
         async ({ token, url, bytes }) => {
@@ -449,7 +455,12 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
           bytes: [...svg],
         }
       )
-    ).toEqual([204, 201]);
+    ).toEqual([204, 400]);
+    // Historical objects may already exist: seed one directly to keep the
+    // inert-render regression for already published hostile attachments.
+    await e2eBucket()
+      .file(svgPath)
+      .save(svg, { resumable: false, metadata: { contentType: 'image/svg+xml' } });
     const homeworkFixture = await getFirestore()
       .collection('bookings')
       .doc(booking.bookingId)

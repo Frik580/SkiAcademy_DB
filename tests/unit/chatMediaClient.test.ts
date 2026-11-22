@@ -13,6 +13,7 @@ vi.mock('../../src/infrastructure/firebase', () => ({
 import {
   chatMediaPath,
   downloadChatMedia,
+  isSupportedChatMediaType,
   uploadChatMedia,
 } from '../../src/features/chat/chatMediaClient';
 beforeEach(() => {
@@ -73,5 +74,24 @@ describe('private chat media client', () => {
     await downloadChatMedia('chat-media:chat/booking-1/photo.jpg');
     await expect(downloadChatMedia('chat-media:chat/booking-1/photo.jpg')).rejects.toThrow('403');
     expect(mocks.fetch).toHaveBeenCalledTimes(2);
+  });
+  it('mirrors the server media allowlist and refuses unsupported files before uploading', async () => {
+    for (const type of ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm'])
+      expect(isSupportedChatMediaType(type)).toBe(true);
+    for (const type of [
+      'image/svg+xml',
+      'image/gif',
+      'image/heic',
+      'image/avif',
+      'video/quicktime',
+      'text/html',
+      '',
+    ])
+      expect(isSupportedChatMediaType(type)).toBe(false);
+    for (const type of ['image/svg+xml', 'image/gif', 'image/heic', 'video/quicktime', 'text/html'])
+      await expect(
+        uploadChatMedia(new Blob(['payload'], { type }), 'chat/booking-1/payload.jpg')
+      ).rejects.toThrow('Invalid chat media format or size');
+    expect(mocks.fetch).not.toHaveBeenCalled();
   });
 });

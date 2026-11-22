@@ -1,4 +1,5 @@
 import process from 'node:process';
+import { resolve } from 'node:path';
 import { chromium } from '@playwright/test';
 import { createServer } from 'vite';
 
@@ -6,8 +7,25 @@ let ready = false;
 const server = await createServer({
   configFile: 'vite.config.ts',
   mode: 'staging',
-  server: { host: '127.0.0.1', port: 5176, strictPort: true },
+  server: { host: '127.0.0.1', port: 18765, strictPort: true },
   plugins: [
+    {
+      name: 'attention-center-fixture-data',
+      enforce: 'pre',
+      resolveId(source, importer) {
+        if (!importer?.replaceAll('\\', '/').endsWith('/issues/AdminIssueCenter.tsx')) return;
+        if (
+          [
+            './useAdminIssueReadModels',
+            './useAdminIssueAttendance',
+            './useAdminAttentionChangeRequests',
+            './AdminLevelRequests',
+          ].includes(source)
+        ) {
+          return resolve('tests/browser/admin-issue-attendance/centerData.tsx');
+        }
+      },
+    },
     {
       name: 'attendance-fixture-readiness',
       configureServer(vite) {
@@ -38,19 +56,30 @@ try {
   // The unchanged Playwright webServer startup budget bounds the entire warmup.
   // Do not spend the first scenario's 30s budget on Vite's cold module/CSS graph.
   await page.goto(
-    'http://127.0.0.1:5176/tests/browser/admin-issue-attendance/index.html?theme=light&language=ru',
+    'http://127.0.0.1:18765/tests/browser/admin-issue-attendance/index.html?theme=light&language=ru',
     { waitUntil: 'domcontentloaded', timeout: 0 }
   );
   await page.getByRole('button', { name: 'Все присутствовали' }).waitFor({ timeout: 0 });
   await page.waitForFunction(
     () => {
       const button = globalThis.document.querySelector('button');
-      return button && !button.disabled && globalThis.getComputedStyle(button).display === 'inline-flex';
+      return (
+        button && !button.disabled && globalThis.getComputedStyle(button).display === 'inline-flex'
+      );
     },
     undefined,
     { timeout: 0 }
   );
   await page.evaluate(() => globalThis.document.fonts.ready);
+  // Warm the real center's module graph as well as the standalone attendance panel.
+  await page.goto(
+    'http://127.0.0.1:18765/tests/browser/admin-issue-attendance/index.html?kind=center&language=en',
+    { waitUntil: 'domcontentloaded', timeout: 0 }
+  );
+  await page
+    .getByRole('button')
+    .filter({ hasText: 'Missing attendance evidence' })
+    .waitFor({ timeout: 0 });
   if (browserErrors.length) throw new Error(`Fixture browser errors: ${browserErrors.join('\n')}`);
   await browser.close();
   browser = undefined;

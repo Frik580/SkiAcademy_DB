@@ -104,6 +104,9 @@ describe('AdminIssueCenter', () => {
         </MemoryRouter>
       );
       const dialog = screen.getByRole('dialog');
+      // The admin shell retains a transform and clips overflow. Mobile details
+      // must escape that containing block, while desktop details stay inline.
+      expect(dialog.parentElement).toBe(document.body);
       expect(dialog).toHaveFocus();
       fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true });
       expect(dialog).toHaveFocus();
@@ -142,6 +145,7 @@ describe('AdminIssueCenter', () => {
       </MemoryRouter>
     );
     expect(screen.getByText('adminAttentionEmptyOpen')).toBeInTheDocument();
+    expect(screen.getByLabelText('adminIssueDetailTitle').parentElement).not.toBe(document.body);
     expect(screen.getByRole('region', { name: 'Level change requests' })).toHaveAttribute(
       'data-account-id',
       'admin_account_01'

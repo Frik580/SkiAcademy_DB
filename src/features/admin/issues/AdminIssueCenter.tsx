@@ -10,8 +10,9 @@ import {
   type AdminIssueInboxItem,
 } from '@ski-academy/shared-domain';
 import { ChevronRight, Info, Loader2, RefreshCw, Search, ShieldAlert, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import {
   ADMIN_ISSUE_CATEGORY_QUERY_KEY,
   ADMIN_ISSUE_QUERY_KEY,
@@ -103,6 +104,17 @@ function formatInterval(locale: string, startsAt: { seconds: number }, timeZone?
     timeStyle: 'short',
     ...(timeZone ? { timeZone } : {}),
   }).format(timestampDate(startsAt));
+}
+
+// Fullscreen details must escape the admin shell's transform and overflow clipping.
+function IssueDetailPortal({
+  active,
+  children,
+}: {
+  readonly active: boolean;
+  readonly children: ReactElement;
+}) {
+  return active ? createPortal(children, document.body) : children;
 }
 
 export function AdminIssueCenter({ adminAccountId }: { readonly adminAccountId: string }) {
@@ -594,390 +606,396 @@ export function AdminIssueCenter({ adminAccountId }: { readonly adminAccountId: 
         )}
       </section>
 
-      <aside
-        ref={detailRoot}
-        role={modalDetail ? 'dialog' : undefined}
-        aria-modal={modalDetail ? true : undefined}
-        aria-label={t('adminIssueDetailTitle')}
-        className={`border border-[var(--border)] bg-[var(--bg)] p-4 ${
-          selectedOpen
-            ? 'fixed inset-0 z-30 overflow-auto lg:static lg:z-auto'
-            : 'hidden min-h-56 lg:flex lg:items-center lg:justify-center'
-        }`}
-      >
-        {attendance.notice && (
-          <div
-            role={attendance.notice.errorCode ? 'alert' : 'status'}
-            aria-live="polite"
-            className="mb-4 space-y-2 type-compact text-[var(--ink)]"
-          >
-            <p>
-              {t(attendance.notice.key)}
-              {attendance.notice.errorCode && attendance.notice.errorCode !== 'stale_version'
-                ? ` (${attendance.notice.errorCode})`
-                : ''}
-            </p>
-            {attendance.notice.refreshFailed && (
-              <p className="text-[var(--ink-dim)]">{t('adminIssueAttendanceRefreshPending')}</p>
-            )}
-          </div>
-        )}
-        {selectedChangeRequestParam ? (
-          !selectedChangeRequestResult.success ? (
+      <IssueDetailPortal active={modalDetail}>
+        <aside
+          ref={detailRoot}
+          role={modalDetail ? 'dialog' : undefined}
+          aria-modal={modalDetail ? true : undefined}
+          aria-label={t('adminIssueDetailTitle')}
+          className={`min-w-0 border border-[var(--border)] bg-[var(--bg)] p-4 text-[var(--ink)] ${
+            selectedOpen
+              ? 'fixed inset-0 z-30 overflow-auto overscroll-contain lg:static lg:z-auto'
+              : 'hidden min-h-56 lg:flex lg:items-center lg:justify-center'
+          }`}
+        >
+          {attendance.notice && (
+            <div
+              role={attendance.notice.errorCode ? 'alert' : 'status'}
+              aria-live="polite"
+              className="mb-4 space-y-2 type-compact text-[var(--ink)]"
+            >
+              <p>
+                {t(attendance.notice.key)}
+                {attendance.notice.errorCode && attendance.notice.errorCode !== 'stale_version'
+                  ? ` (${attendance.notice.errorCode})`
+                  : ''}
+              </p>
+              {attendance.notice.refreshFailed && (
+                <p className="text-[var(--ink-dim)]">{t('adminIssueAttendanceRefreshPending')}</p>
+              )}
+            </div>
+          )}
+          {selectedChangeRequestParam ? (
+            !selectedChangeRequestResult.success ? (
+              <div role="alert" className="space-y-3 type-compact text-red-700">
+                <p>{t('adminIssueNotFound')}</p>
+                <button
+                  type="button"
+                  onClick={() => updateQuery({ [ADMIN_CHANGE_REQUEST_QUERY_KEY]: undefined })}
+                  className="border border-[var(--border)] px-3 py-2 type-button"
+                >
+                  {t('adminIssueClose')}
+                </button>
+              </div>
+            ) : changeRequests.detail.loading && !selectedChangeRequest ? (
+              <div role="status" className="flex min-h-48 items-center justify-center">
+                <Loader2 className="h-5 w-5 animate-spin" />
+              </div>
+            ) : changeRequests.detail.error ? (
+              <div role="alert" className="space-y-3 type-compact text-red-700">
+                <p>
+                  {t(
+                    changeRequests.detail.error === 'permission-denied'
+                      ? 'adminIssuePermissionDenied'
+                      : 'adminIssueReadFailed'
+                  )}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void changeRequests.retryDetail()}
+                  className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 type-button"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  {t('retry')}
+                </button>
+              </div>
+            ) : !selectedChangeRequest ? (
+              <p className="type-compact text-[var(--ink-dim)]">{t('adminIssueNotFound')}</p>
+            ) : (
+              <div className="space-y-5">
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="type-card-title text-[var(--ink)]">
+                    {t('adminAttentionChangeRequestKind')}
+                  </h3>
+                  <button
+                    type="button"
+                    aria-label={t('adminIssueClose')}
+                    disabled={attendance.pending}
+                    onClick={() => updateQuery({ [ADMIN_CHANGE_REQUEST_QUERY_KEY]: undefined })}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="flex gap-3 border border-amber-500/30 bg-amber-500/5 p-3">
+                  <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600" />
+                  <div className="type-caption">
+                    <p className="font-medium text-[var(--ink)]">{t('adminIssueActionRequired')}</p>
+                    <p className="mt-1 text-[var(--ink-dim)]">
+                      {t('adminLessonInstructorRequestedChange')}
+                    </p>
+                  </div>
+                </div>
+
+                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 type-caption">
+                  <dt className="text-[var(--ink-dim)]">{t('adminAttentionInstructor')}</dt>
+                  <dd>{selectedChangeRequest.instructor.displayName}</dd>
+                  <dt className="text-[var(--ink-dim)]">{t('adminAttentionParticipants')}</dt>
+                  <dd>
+                    {selectedChangeRequest.participants
+                      .map((participant) => participant.displayName)
+                      .join(', ')}
+                  </dd>
+                  <dt className="text-[var(--ink-dim)]">{t('adminAttentionLessonTime')}</dt>
+                  <dd>{formatOccurrence(selectedChangeRequest)}</dd>
+                  <dt className="text-[var(--ink-dim)]">{t('adminAttentionReason')}</dt>
+                  <dd>{selectedChangeRequest.reason}</dd>
+                  <dt className="text-[var(--ink-dim)]">{t('adminAttentionCreatedAt')}</dt>
+                  <dd>{formatDate(selectedChangeRequest.createdAt)}</dd>
+                </dl>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateQuery({
+                      [ADMIN_TAB_QUERY_KEY]: 'operations',
+                      [ADMIN_LESSON_BOOKING_QUERY_KEY]: selectedChangeRequest.bookingId,
+                      [ADMIN_CHANGE_REQUEST_QUERY_KEY]: selectedChangeRequest.requestId,
+                    })
+                  }
+                  className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 type-button uppercase"
+                >
+                  {t('adminIssueReviewRequest')}
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )
+          ) : !selectedIssueParam ? (
+            <div className="hidden text-center type-compact text-[var(--ink-dim)] lg:block">
+              {t('adminIssueSelectPrompt')}
+            </div>
+          ) : !selectedIssueResult.success ? (
             <div role="alert" className="space-y-3 type-compact text-red-700">
               <p>{t('adminIssueNotFound')}</p>
               <button
                 type="button"
-                onClick={() => updateQuery({ [ADMIN_CHANGE_REQUEST_QUERY_KEY]: undefined })}
+                onClick={() => updateQuery({ [ADMIN_ISSUE_QUERY_KEY]: undefined })}
                 className="border border-[var(--border)] px-3 py-2 type-button"
               >
                 {t('adminIssueClose')}
               </button>
             </div>
-          ) : changeRequests.detail.loading && !selectedChangeRequest ? (
+          ) : detail.loading ? (
             <div role="status" className="flex min-h-48 items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin" />
             </div>
-          ) : changeRequests.detail.error ? (
+          ) : detail.error ? (
             <div role="alert" className="space-y-3 type-compact text-red-700">
               <p>
                 {t(
-                  changeRequests.detail.error === 'permission-denied'
+                  detail.error === 'permission-denied'
                     ? 'adminIssuePermissionDenied'
                     : 'adminIssueReadFailed'
                 )}
               </p>
               <button
                 type="button"
-                onClick={() => void changeRequests.retryDetail()}
+                onClick={() => void retryDetail()}
                 className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 type-button"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 {t('retry')}
               </button>
             </div>
-          ) : !selectedChangeRequest ? (
+          ) : !detail.item ? (
             <p className="type-compact text-[var(--ink-dim)]">{t('adminIssueNotFound')}</p>
           ) : (
             <div className="space-y-5">
               <div className="flex items-start justify-between gap-3">
-                <h3 className="type-card-title text-[var(--ink)]">
-                  {t('adminAttentionChangeRequestKind')}
-                </h3>
+                <div>
+                  <h3 className="type-card-title text-[var(--ink)]">
+                    {t(ADMIN_ISSUE_KIND_LABEL_KEYS[detail.item.kind])}
+                  </h3>
+                  {detail.item.presentationOrigin === 'guest' ||
+                  selectedListIssue?.presentationOrigin === 'guest' ? (
+                    <p className="mt-1 type-caption text-[var(--ink-dim)]">
+                      {t('adminIssueGuestOrigin')}
+                    </p>
+                  ) : null}
+                </div>
                 <button
                   type="button"
                   aria-label={t('adminIssueClose')}
-                  onClick={() => updateQuery({ [ADMIN_CHANGE_REQUEST_QUERY_KEY]: undefined })}
+                  disabled={attendance.pending}
+                  onClick={() => updateQuery({ [ADMIN_ISSUE_QUERY_KEY]: undefined })}
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
 
-              <div className="flex gap-3 border border-amber-500/30 bg-amber-500/5 p-3">
-                <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600" />
+              <div
+                className={`flex gap-3 border p-3 ${
+                  detail.item.actionRequirement === 'action_required'
+                    ? 'border-amber-500/30 bg-amber-500/5'
+                    : 'border-[var(--border)]'
+                }`}
+              >
+                {detail.item.actionRequirement === 'action_required' ? (
+                  <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600" />
+                ) : (
+                  <Info className="h-4 w-4 shrink-0" />
+                )}
                 <div className="type-caption">
-                  <p className="font-medium text-[var(--ink)]">{t('adminIssueActionRequired')}</p>
+                  <p className="font-medium text-[var(--ink)]">
+                    {detail.item.actionRequirement === 'action_required'
+                      ? t('adminIssueActionRequired')
+                      : t('adminIssueInformational')}
+                  </p>
                   <p className="mt-1 text-[var(--ink-dim)]">
-                    {t('adminLessonInstructorRequestedChange')}
+                    {t(ADMIN_ISSUE_GUIDANCE_KEYS[detail.item.resolutionGuidance])}
                   </p>
                 </div>
               </div>
 
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 type-caption">
-                <dt className="text-[var(--ink-dim)]">{t('adminAttentionInstructor')}</dt>
-                <dd>{selectedChangeRequest.instructor.displayName}</dd>
-                <dt className="text-[var(--ink-dim)]">{t('adminAttentionParticipants')}</dt>
+                <dt className="text-[var(--ink-dim)]">{t('adminIssueSeverity')}</dt>
                 <dd>
-                  {selectedChangeRequest.participants
-                    .map((participant) => participant.displayName)
-                    .join(', ')}
+                  {t(
+                    detail.item.severity === 'critical'
+                      ? 'adminIssueSeverityCritical'
+                      : detail.item.severity === 'urgent'
+                        ? 'adminIssueSeverityUrgent'
+                        : 'adminIssueSeverityNormal'
+                  )}
                 </dd>
-                <dt className="text-[var(--ink-dim)]">{t('adminAttentionLessonTime')}</dt>
-                <dd>{formatOccurrence(selectedChangeRequest)}</dd>
-                <dt className="text-[var(--ink-dim)]">{t('adminAttentionReason')}</dt>
-                <dd>{selectedChangeRequest.reason}</dd>
-                <dt className="text-[var(--ink-dim)]">{t('adminAttentionCreatedAt')}</dt>
-                <dd>{formatDate(selectedChangeRequest.createdAt)}</dd>
+                <dt className="text-[var(--ink-dim)]">{t('adminIssueBlocking')}</dt>
+                <dd>{t(ADMIN_ISSUE_BLOCKING_KEYS[detail.item.blockingCondition])}</dd>
+                <dt className="text-[var(--ink-dim)]">{t('adminIssueSubject')}</dt>
+                <dd>
+                  {detail.item.courseTitle ??
+                    selectedListIssue?.courseTitle ??
+                    t(
+                      detail.item.subjectRef.subjectKind === 'booking'
+                        ? 'adminIssueLessonContext'
+                        : 'adminIssueCourseContext'
+                    )}
+                </dd>
+                {(detail.item.subjectDisplayName ||
+                  detail.item.participant ||
+                  selectedListIssue?.subjectDisplayName) && (
+                  <>
+                    <dt className="text-[var(--ink-dim)]">{t('adminIssueParticipant')}</dt>
+                    <dd>
+                      {detail.item.participant?.displayName ??
+                        detail.item.subjectDisplayName ??
+                        selectedListIssue?.subjectDisplayName}
+                    </dd>
+                  </>
+                )}
+                {(detail.item.lessonStartsAt || selectedListIssue?.lessonStartsAt) && (
+                  <>
+                    <dt className="text-[var(--ink-dim)]">{t('adminAttentionLessonTime')}</dt>
+                    <dd>
+                      {formatIssueTime({
+                        ...detail.item,
+                        lessonStartsAt:
+                          detail.item.lessonStartsAt ?? selectedListIssue?.lessonStartsAt,
+                        lessonTimeZone:
+                          detail.item.lessonTimeZone ?? selectedListIssue?.lessonTimeZone,
+                      })}
+                    </dd>
+                  </>
+                )}
+                <dt className="text-[var(--ink-dim)]">{t('adminIssueOpenedAt')}</dt>
+                <dd>{formatDate(detail.item.lifecycle.openedAt)}</dd>
+                {detail.item.lessonEndsAt && (
+                  <>
+                    <dt className="text-[var(--ink-dim)]">{t('adminIssueLessonEnded')}</dt>
+                    <dd>{formatDate(detail.item.lessonEndsAt)}</dd>
+                  </>
+                )}
+                {detail.item.attendanceDeadlineAt && (
+                  <>
+                    <dt className="text-[var(--ink-dim)]">{t('adminIssueAttendanceDeadline')}</dt>
+                    <dd>{formatDate(detail.item.attendanceDeadlineAt)}</dd>
+                  </>
+                )}
+                {detail.item.missingAttendanceCount !== undefined && (
+                  <>
+                    <dt className="text-[var(--ink-dim)]">
+                      {t('adminIssueMissingAttendanceCount')}
+                    </dt>
+                    <dd>{detail.item.missingAttendanceCount}</dd>
+                  </>
+                )}
               </dl>
 
+              {attendanceIssue && (
+                <>
+                  {attendance.loading && (
+                    <p
+                      role="status"
+                      className="flex items-center gap-2 type-caption text-[var(--ink-dim)]"
+                    >
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                      {t('adminIssueLoading')}
+                    </p>
+                  )}
+                  {attendance.readError && (
+                    <div role="alert" className="space-y-2 type-caption">
+                      <p>{t(attendance.readError)}</p>
+                      <button
+                        type="button"
+                        onClick={() => void attendance.retry()}
+                        className="border border-[var(--border)] px-3 py-2 type-button"
+                      >
+                        {t('adminIssueRetry')}
+                      </button>
+                    </div>
+                  )}
+                  {attendance.panel && (
+                    <AdminIssueAttendancePanel
+                      input={attendance.panel}
+                      pending={attendance.pending}
+                      onSubmit={() => void attendance.submit()}
+                    />
+                  )}
+                </>
+              )}
+
               <button
                 type="button"
-                onClick={() =>
-                  updateQuery({
-                    [ADMIN_TAB_QUERY_KEY]: 'operations',
-                    [ADMIN_LESSON_BOOKING_QUERY_KEY]: selectedChangeRequest.bookingId,
-                    [ADMIN_CHANGE_REQUEST_QUERY_KEY]: selectedChangeRequest.requestId,
-                  })
-                }
+                onClick={() => openIssueDestination(detail.item!)}
                 className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 type-button uppercase"
               >
-                {t('adminIssueReviewRequest')}
+                {t(ADMIN_ISSUE_PRIMARY_DESTINATION_KEYS[adminIssuePrimaryDestination(detail.item)])}
                 <ChevronRight className="h-3.5 w-3.5" />
               </button>
-            </div>
-          )
-        ) : !selectedIssueParam ? (
-          <div className="hidden text-center type-compact text-[var(--ink-dim)] lg:block">
-            {t('adminIssueSelectPrompt')}
-          </div>
-        ) : !selectedIssueResult.success ? (
-          <div role="alert" className="space-y-3 type-compact text-red-700">
-            <p>{t('adminIssueNotFound')}</p>
-            <button
-              type="button"
-              onClick={() => updateQuery({ [ADMIN_ISSUE_QUERY_KEY]: undefined })}
-              className="border border-[var(--border)] px-3 py-2 type-button"
-            >
-              {t('adminIssueClose')}
-            </button>
-          </div>
-        ) : detail.loading ? (
-          <div role="status" className="flex min-h-48 items-center justify-center">
-            <Loader2 className="h-5 w-5 animate-spin" />
-          </div>
-        ) : detail.error ? (
-          <div role="alert" className="space-y-3 type-compact text-red-700">
-            <p>
-              {t(
-                detail.error === 'permission-denied'
-                  ? 'adminIssuePermissionDenied'
-                  : 'adminIssueReadFailed'
-              )}
-            </p>
-            <button
-              type="button"
-              onClick={() => void retryDetail()}
-              className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 type-button"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              {t('retry')}
-            </button>
-          </div>
-        ) : !detail.item ? (
-          <p className="type-compact text-[var(--ink-dim)]">{t('adminIssueNotFound')}</p>
-        ) : (
-          <div className="space-y-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="type-card-title text-[var(--ink)]">
-                  {t(ADMIN_ISSUE_KIND_LABEL_KEYS[detail.item.kind])}
-                </h3>
-                {detail.item.presentationOrigin === 'guest' ||
-                selectedListIssue?.presentationOrigin === 'guest' ? (
-                  <p className="mt-1 type-caption text-[var(--ink-dim)]">
-                    {t('adminIssueGuestOrigin')}
+
+              {detail.item.payment && adminIssuePrimaryDestination(detail.item) !== 'payment' && (
+                <div className="border-t border-[var(--border)] pt-4">
+                  <h4 className="type-card-title uppercase">{t('adminIssuePaymentSummary')}</h4>
+                  <p className="mt-2 type-caption text-[var(--ink-dim)]">
+                    {detail.item.payment.paymentStatus} · {t('adminIssueOutstanding')}:{' '}
+                    {formatMoney(detail.item.payment.outstandingAmount)}
                   </p>
-                ) : null}
-              </div>
-              <button
-                type="button"
-                aria-label={t('adminIssueClose')}
-                onClick={() => updateQuery({ [ADMIN_ISSUE_QUERY_KEY]: undefined })}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div
-              className={`flex gap-3 border p-3 ${
-                detail.item.actionRequirement === 'action_required'
-                  ? 'border-amber-500/30 bg-amber-500/5'
-                  : 'border-[var(--border)]'
-              }`}
-            >
-              {detail.item.actionRequirement === 'action_required' ? (
-                <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600" />
-              ) : (
-                <Info className="h-4 w-4 shrink-0" />
-              )}
-              <div className="type-caption">
-                <p className="font-medium text-[var(--ink)]">
-                  {detail.item.actionRequirement === 'action_required'
-                    ? t('adminIssueActionRequired')
-                    : t('adminIssueInformational')}
-                </p>
-                <p className="mt-1 text-[var(--ink-dim)]">
-                  {t(ADMIN_ISSUE_GUIDANCE_KEYS[detail.item.resolutionGuidance])}
-                </p>
-              </div>
-            </div>
-
-            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 type-caption">
-              <dt className="text-[var(--ink-dim)]">{t('adminIssueSeverity')}</dt>
-              <dd>
-                {t(
-                  detail.item.severity === 'critical'
-                    ? 'adminIssueSeverityCritical'
-                    : detail.item.severity === 'urgent'
-                      ? 'adminIssueSeverityUrgent'
-                      : 'adminIssueSeverityNormal'
-                )}
-              </dd>
-              <dt className="text-[var(--ink-dim)]">{t('adminIssueBlocking')}</dt>
-              <dd>{t(ADMIN_ISSUE_BLOCKING_KEYS[detail.item.blockingCondition])}</dd>
-              <dt className="text-[var(--ink-dim)]">{t('adminIssueSubject')}</dt>
-              <dd>
-                {detail.item.courseTitle ??
-                  selectedListIssue?.courseTitle ??
-                  t(
-                    detail.item.subjectRef.subjectKind === 'booking'
-                      ? 'adminIssueLessonContext'
-                      : 'adminIssueCourseContext'
-                  )}
-              </dd>
-              {(detail.item.subjectDisplayName ||
-                detail.item.participant ||
-                selectedListIssue?.subjectDisplayName) && (
-                <>
-                  <dt className="text-[var(--ink-dim)]">{t('adminIssueParticipant')}</dt>
-                  <dd>
-                    {detail.item.participant?.displayName ??
-                      detail.item.subjectDisplayName ??
-                      selectedListIssue?.subjectDisplayName}
-                  </dd>
-                </>
-              )}
-              {(detail.item.lessonStartsAt || selectedListIssue?.lessonStartsAt) && (
-                <>
-                  <dt className="text-[var(--ink-dim)]">{t('adminAttentionLessonTime')}</dt>
-                  <dd>
-                    {formatIssueTime({
-                      ...detail.item,
-                      lessonStartsAt:
-                        detail.item.lessonStartsAt ?? selectedListIssue?.lessonStartsAt,
-                      lessonTimeZone:
-                        detail.item.lessonTimeZone ?? selectedListIssue?.lessonTimeZone,
-                    })}
-                  </dd>
-                </>
-              )}
-              <dt className="text-[var(--ink-dim)]">{t('adminIssueOpenedAt')}</dt>
-              <dd>{formatDate(detail.item.lifecycle.openedAt)}</dd>
-              {detail.item.lessonEndsAt && (
-                <>
-                  <dt className="text-[var(--ink-dim)]">{t('adminIssueLessonEnded')}</dt>
-                  <dd>{formatDate(detail.item.lessonEndsAt)}</dd>
-                </>
-              )}
-              {detail.item.attendanceDeadlineAt && (
-                <>
-                  <dt className="text-[var(--ink-dim)]">{t('adminIssueAttendanceDeadline')}</dt>
-                  <dd>{formatDate(detail.item.attendanceDeadlineAt)}</dd>
-                </>
-              )}
-              {detail.item.missingAttendanceCount !== undefined && (
-                <>
-                  <dt className="text-[var(--ink-dim)]">{t('adminIssueMissingAttendanceCount')}</dt>
-                  <dd>{detail.item.missingAttendanceCount}</dd>
-                </>
-              )}
-            </dl>
-
-            {attendanceIssue && (
-              <>
-                {attendance.loading && (
-                  <p
-                    role="status"
-                    className="flex items-center gap-2 type-caption text-[var(--ink-dim)]"
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateQuery({
+                        [ADMIN_TAB_QUERY_KEY]: 'finance',
+                        [ADMIN_FINANCE_PAYMENT_QUERY_KEY]: detail.item!.payment!.paymentId,
+                      })
+                    }
+                    className="mt-3 inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 type-button uppercase"
                   >
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                    {t('adminIssueLoading')}
-                  </p>
-                )}
-                {attendance.readError && (
-                  <div role="alert" className="space-y-2 type-caption">
-                    <p>{t(attendance.readError)}</p>
-                    <button
-                      type="button"
-                      onClick={() => void attendance.retry()}
-                      className="border border-[var(--border)] px-3 py-2 type-button"
-                    >
-                      {t('adminIssueRetry')}
-                    </button>
-                  </div>
-                )}
-                {attendance.panel && (
-                  <AdminIssueAttendancePanel
-                    input={attendance.panel}
-                    pending={attendance.pending}
-                    onSubmit={() => void attendance.submit()}
-                  />
-                )}
-              </>
-            )}
-
-            <button
-              type="button"
-              onClick={() => openIssueDestination(detail.item!)}
-              className="inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 type-button uppercase"
-            >
-              {t(ADMIN_ISSUE_PRIMARY_DESTINATION_KEYS[adminIssuePrimaryDestination(detail.item)])}
-              <ChevronRight className="h-3.5 w-3.5" />
-            </button>
-
-            {detail.item.payment && adminIssuePrimaryDestination(detail.item) !== 'payment' && (
-              <div className="border-t border-[var(--border)] pt-4">
-                <h4 className="type-card-title uppercase">{t('adminIssuePaymentSummary')}</h4>
-                <p className="mt-2 type-caption text-[var(--ink-dim)]">
-                  {detail.item.payment.paymentStatus} · {t('adminIssueOutstanding')}:{' '}
-                  {formatMoney(detail.item.payment.outstandingAmount)}
-                </p>
-                <button
-                  type="button"
-                  onClick={() =>
-                    updateQuery({
-                      [ADMIN_TAB_QUERY_KEY]: 'finance',
-                      [ADMIN_FINANCE_PAYMENT_QUERY_KEY]: detail.item!.payment!.paymentId,
-                    })
-                  }
-                  className="mt-3 inline-flex items-center gap-2 border border-[var(--border)] px-3 py-2 type-button uppercase"
-                >
-                  {t('adminIssueCheckPayment')}
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            )}
-
-            {detail.item.payment && adminIssuePrimaryDestination(detail.item) === 'payment' && (
-              <div className="border-t border-[var(--border)] pt-4">
-                <h4 className="type-card-title uppercase">{t('adminIssuePaymentSummary')}</h4>
-                <p className="mt-2 type-caption text-[var(--ink-dim)]">
-                  {detail.item.payment.paymentStatus} · {t('adminIssueOutstanding')}:{' '}
-                  {formatMoney(detail.item.payment.outstandingAmount)}
-                </p>
-              </div>
-            )}
-
-            <div className="border-t border-[var(--border)] pt-4">
-              <h4 className="type-card-title uppercase">{t('adminIssueAttendanceEvidence')}</h4>
-              {detail.item.attendance.length === 0 ? (
-                <p className="mt-2 type-caption text-[var(--ink-dim)]">
-                  {t('adminIssueNoAttendanceEvidence')}
-                </p>
-              ) : (
-                <ul className="mt-2 space-y-1 type-caption text-[var(--ink-dim)]">
-                  {detail.item.attendance.map((record) => (
-                    <li key={record.attendanceId}>{record.attendanceStatus}</li>
-                  ))}
-                </ul>
+                    {t('adminIssueCheckPayment')}
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               )}
-            </div>
 
-            <div className="border-t border-[var(--border)] pt-4">
-              <h4 className="type-card-title uppercase">{t('adminIssueAuthorizedActions')}</h4>
-              <p className="mt-2 type-caption text-[var(--ink-dim)]">
-                {t(
-                  detail.item.actionRequirement === 'informational'
-                    ? 'adminIssueNoCurrentAction'
-                    : detail.item.authorizedActions.unavailableReason
-                      ? 'adminIssueActionsMissingContext'
-                      : 'adminIssueActionsDeferred'
+              {detail.item.payment && adminIssuePrimaryDestination(detail.item) === 'payment' && (
+                <div className="border-t border-[var(--border)] pt-4">
+                  <h4 className="type-card-title uppercase">{t('adminIssuePaymentSummary')}</h4>
+                  <p className="mt-2 type-caption text-[var(--ink-dim)]">
+                    {detail.item.payment.paymentStatus} · {t('adminIssueOutstanding')}:{' '}
+                    {formatMoney(detail.item.payment.outstandingAmount)}
+                  </p>
+                </div>
+              )}
+
+              <div className="border-t border-[var(--border)] pt-4">
+                <h4 className="type-card-title uppercase">{t('adminIssueAttendanceEvidence')}</h4>
+                {detail.item.attendance.length === 0 ? (
+                  <p className="mt-2 type-caption text-[var(--ink-dim)]">
+                    {t('adminIssueNoAttendanceEvidence')}
+                  </p>
+                ) : (
+                  <ul className="mt-2 space-y-1 type-caption text-[var(--ink-dim)]">
+                    {detail.item.attendance.map((record) => (
+                      <li key={record.attendanceId}>{record.attendanceStatus}</li>
+                    ))}
+                  </ul>
                 )}
-              </p>
+              </div>
+
+              <div className="border-t border-[var(--border)] pt-4">
+                <h4 className="type-card-title uppercase">{t('adminIssueAuthorizedActions')}</h4>
+                <p className="mt-2 type-caption text-[var(--ink-dim)]">
+                  {t(
+                    detail.item.actionRequirement === 'informational'
+                      ? 'adminIssueNoCurrentAction'
+                      : detail.item.authorizedActions.unavailableReason
+                        ? 'adminIssueActionsMissingContext'
+                        : 'adminIssueActionsDeferred'
+                  )}
+                </p>
+              </div>
             </div>
-          </div>
-        )}
-      </aside>
+          )}
+        </aside>
+      </IssueDetailPortal>
     </div>
   );
 }

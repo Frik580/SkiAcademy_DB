@@ -1,5 +1,7 @@
 # CA-SEC-05B — LIVE Release Readiness
 
+Актуальная техническая подготовка PR/staging: см. раздел **Final CI & Release Preparation** в конце документа. Исторические BLOCKED/Graphify записи ниже не являются текущим verdict CI.
+
 Дата: 2026-11-22, Asia/Qyzylorda. Ветка: `fix/ca-sec-05b-firestore-rules-consistency`, HEAD: `c88949d630cabf0807f370aeb1f7b96755ee2c20`.
 
 ## VERDICT: LIVE READY
@@ -324,3 +326,77 @@ tests/unit/instructorLessonRevenue.test.tsx
 - GRAPHIFY UPDATE: BLOCKED. Единственный `graphify update .` дошёл до AST extraction 2265/2265, затем несколько минут не выдавал результат и не завершался; остановлен Ctrl+C, exit 1. Граф не изменён. Причина незавершения внутри CLI не установлена; текущий source проверен как authority. Повторный дорогой update не запускался. Лог: `.scratch/ca-sec-05b/error-log-fix-graphify.log`.
 - PASS: независимый security review, 20 handler Emulator + 58 Rules + 6 client unit tests; TypeScript, Functions build, ESLint. Staging authenticated workflow не проверялся.
 - VERDICT: LIVE READY в пределах исходников и локального regression gate. Release manifest прежний; staging preflight/smoke обязательны. Commit, push, merge, deploy и изменения Firebase вне локальных demo Emulator не выполнялись.
+
+## Final CI & Release Preparation — 2026-11-22
+
+### Git
+
+- Ветка: `fix/ca-sec-05b-firestore-rules-consistency`.
+- HEAD/P1: `6776fb6f3bb2b923d43f8b65fbeb7ffca57c477b`, `fix(security): prevent TEST admins from deleting LIVE error logs`.
+- Checkpoint: `42e40cd2`, `chore(security): checkpoint CA-SEC-05B authorization hardening`; прямой предок P1. После базового `c88949d6` ровно эти два коммита.
+- В начале preflight рабочее дерево чистое. Checkpoint содержит 95 файлов принятого security slice, P1 — только guard, его emulator tests и этот audit. Посторонних незакоммиченных изменений нет. Итоговая новая tracked правка — только этот отчёт; существующие коммиты не изменялись.
+
+### Graphify: NOT REQUIRED для CI; refresh NOT VERIFIED
+
+`.github/workflows/ci.yml`, `scripts/testManifest.mjs` и вызываемые scripts не включают Graphify в CI. `quality` требует lint/i18n, app, Functions unit/build, Functions emulator/reset, Firestore Rules, integration/Storage, production build и E2E. Локальные post-commit/post-checkout Graphify hooks — фоновые вспомогательные проверки, не CI gates. Remote branch-protection rules отдельно не запрашивались.
+
+Исходный запуск был остановлен вручную Ctrl+C (exit 1), а не провалил assertions. Старый лог не содержит stack dump, поэтому точный instruction pointer исходного процесса восстановить нельзя. Диагностический запуск локализовал скрытую работу **после** сообщения AST 100%: `extract.py:6681` → `_augment_symbol_resolution_edges` / `_collect_js_symbol_resolution_facts`, затем `extract.py:6762` → повторный `Path.resolve()` для edge targets. AST 100% означает конец пофайлового разбора, не всего update. В этих последующих фазах нет progress output; stack snapshots менялись, то есть доказательств deadlock нет. JS/TS extraction в этой версии намеренно обходит cache, поэтому update снова разбирает весь JS/TS corpus.
+
+Дополнительно подтверждён native Windows access violation `0xC0000005`: сначала worker pool (BrokenProcessPool с sequential fallback), затем вне sandbox даже с `GRAPHIFY_MAX_WORKERS=1`. Launcher `C:/Users/geras/.local/bin/graphify.cmd` смешивает bundled Python 3.12.14, Graphify 0.9.62 из uv-tool и приоритетные workspace deps `tree-sitter 0.26.0`. Штатный uv-tool имеет Python 3.13.13 / tree-sitter 0.25.2. Само расхождение конфигураций установлено; точная C-level причина crash/виновность конкретной версии не доказана. Это внешнее инструментальное ограничение, не дефект authorisation или провал CI.
+
+Проверка ограничена диагностическими запусками с watchdog 180 секунд; выполнена отдельная попытка в уже установленном uv environment без установки пакетов. Итог этой попытки и состояние процессов приведены в завершающей записи ниже. Обход через один worker не устранил crash в смешанном runtime. Product code, role model и security boundaries ради Graphify не менялись; глобальный launcher/пакеты автоматически не перезаписывались. Логи: `.scratch/ca-sec-05b/final-preflight-graphify*.log`.
+
+### Release preflight
+
+| Компонент | Результат |
+| --- | --- |
+| Functions manifest | PASS: текущий TypeScript import/re-export traversal от изменённых modules даёт ровно **48 exports**, missing/extra = 0; исходный manifest выше сохранён. Ни один дополнительный scheduler не затронут. |
+| Staging Functions | PASS read-only inventory: **37 existing ACTIVE** (nodejs22, us-central1), **11 new absent** до rollout. Это ожидаемое состояние, не подтверждение уже deployed исправления. Runtime SA: `1005648185457-compute@developer.gserviceaccount.com`. |
+| LIVE indexes | PASS read-only: **все 69 baseline definitions присутствуют и READY** в staging; missing/nonReady = 0. Локально 72 definitions: только три TEST additions. Ничего не создавать, не deploy весь indexes JSON. |
+| Secret | PASS metadata: `GUEST_ACTION_TOKEN_SECRET` version 1 ENABLED; runtime SA имеет `roles/secretmanager.secretAccessor`. Значение секрета не запрашивалось. |
+| Rules / Storage / Hosting | Принятый совместимый комплект source сохранён. Новый клиент использует scoped callables, protected media/SSE; новые Rules закрывают прежние SDK paths. Компоненты требуют согласованного cutover. |
+| Staging Hosting build | PASS: `npm run build:staging`; project `ski-school-staging`, environment staging, provenance `6776fb6f…`, `dirty=false` на момент сборки. Существующий warning крупных chunks остаётся. |
+| Functions artifact | PASS: `npm run build:functions`, включая TypeScript/provenance check; тот же `6776fb6f…`, `dirty=false` на момент сборки. |
+| Regression evidence | Предыдущие P1 PASS 20 handler Emulator + 58 Rules + 6 client unit, TypeScript, ESLint и independent security review сохранены. Тесты повторно не запускались. CI на GitHub для нового PR ещё не запускался этим preflight. |
+
+Cloud checks выполнены read-only с существующим ADC через Node `--use-system-ca`. Gcloud сначала отказал на TLS issuer verification при OAuth refresh; переход на системные доверенные CA решил именно этот доступ без отключения TLS verification, login или изменения credentials. JSON snapshots/logs в `.scratch/ca-sec-05b/final-preflight-*`; это локальные release evidence, не CI artifacts из репозитория.
+
+### Rollback и окно переключения
+
+Сохранены текущие Rules sources и anchors:
+
+- Firestore ruleset: `3ae4295e-bce7-4542-a54b-f8a1fd5e1f06`.
+- Storage ruleset: `81e0979e-6db3-4491-9872-7e15f6d022a6`.
+- Hosting release: `sites/ski-school-staging/releases/1795114449491000`; version `ae01378ec461c22f`.
+- Functions inventory содержит runtime/config и точные source object generations. Проверено наличие **37/37 source archives** через metadata GET; архивы не скачивались, восстановление не репетировалось.
+
+Перед фактическим rollout перепроверить freshness anchors. Firebase не переключает Functions/Rules/Hosting атомарно. В согласованное окно ограничить staging access; до smoke не открывать обычный доступ. Старые вкладки должны reload после cutover.
+
+Сначала адресные 48 Functions, затем endpoint/authorization checks; только при успехе — Firestore Rules → Storage Rules → Hosting. Не использовать `npm run deploy:functions:staging`: текущий wrapper выбирает все Functions. Подготовлен точный PowerShell selector в `.scratch/ca-sec-05b/final-preflight-functions-selector.txt` (48 уникальных имён, сверены с manifest). После отдельного разрешения:
+
+```powershell
+$caSec05bSelectors = (Get-Content -Raw .scratch/ca-sec-05b/final-preflight-functions-selector.txt).Trim()
+firebase deploy --project ski-school-staging --only "$caSec05bSelectors"
+# После endpoint checks, в согласованное окно:
+firebase deploy --project ski-school-staging --only "firestore:rules"
+firebase deploy --project ski-school-staging --only "storage"
+firebase deploy --project ski-school-staging --only "hosting"
+```
+
+После Functions неудачи Rules/Hosting не переключать. После cutover предпочтителен forward fix со строгими Rules. Hosting-only или Functions-only rollback несовместим с новым клиентом/Rules. Полный rollback — только согласованным комплектом сохранённых deployed artifacts/config + Rules + Hosting при закрытом доступе и отдельном разрешении: прежние Rules вновь могут открыть F7/F10, а прежний Functions artifact не содержит P1 fix. Новые 11 exports не удалять автоматически. Data/index rollback не нужен. Исторические данные не удалять.
+
+### Readiness и дальнейшие действия
+
+- **CI readiness: READY** к запуску PR gates; это не утверждение, что remote CI уже green. Graphify их не блокирует. Production build gate проверяется самим CI со штатными CI env; локально подготовлен именно staging bundle.
+- **Staging readiness: READY** к контролируемому rollout после отдельного разрешения, с подтверждёнными indexes/secret/rollback anchors и согласованным окном. Это не acceptance открытого staging: **AUTHENTICATED WORKFLOW: NOT VERIFIED** до post-deploy smoke.
+- Release manifest прежний: 48 Functions, Firestore Rules, Storage Rules, Hosting; Indexes/Migration/Settings changes — NO; шесть signal triggers уже входят в 48, scheduler changes — NO. TEST Session и её три индекса — DEFERRED.
+
+1. После отдельного разрешения зафиксировать итоговый documentation update; не amend существующие коммиты. Push/создание PR — также только после разрешения.
+2. Получить green всех обязательных `quality` jobs на итоговом SHA; не заменять их локальными историческими PASS.
+3. После согласования staging rollout обновить artifacts/provenance для итогового SHA и свежие rollback anchors, подтвердить ответственного admin и окно переключения.
+4. Выполнить адресный rollout в порядке выше, без индексов TEST и без общего `firebase deploy`.
+5. Проверить provenance и authenticated smoke: signup/provisioning; own/foreign scopes Wallet/Participant/Booking/Course; admin/owner+admin allow, owner-only deny; TEST ± registry deny LIVE delete/clear, известный log ID/scope spoof deny; protected images/chat create/read/revoke; notifications/history/cleanup без TEST indexes. Только после успеха открыть staging access.
+
+Commit, push, PR, merge, deploy, изменение индексов/IAM/secrets и реальных Firebase данных этим preflight не выполнялись.
+
+Завершение Graphify diagnostics: штатный uv Python 3.13/tree-sitter 0.25.2 прошёл AST **2123/2123 (100%)**, затем watchdog остановил update на **180s, exit 124** в `_walk_js_tree` / symbol-resolution phase. Native crash в этом окружении не наблюдался, но полный refresh не подтверждён. Минимальный environment workaround поэтому не объявляется исправлением; глобальные настройки не изменены. Итог: **Graphify NOT REQUIRED для CI, полный refresh NOT VERIFIED**. Дальнейшие повторы остановлены. Заключительный process inventory не обнаружил оставшихся Graphify/Python jobs. `git diff --check`: PASS; изменён только этот audit, product source сохранён.

@@ -196,7 +196,9 @@ describeEmulator('instructor revenue transactions and callable authorization', (
         data: { requestedTestSessionId: 'test_other' },
       } as never)
     ).rejects.toMatchObject({ code: 'permission-denied' });
-    await db.doc('users/revenue_coach').update({ 'lifecycle.status': 'disabled' });
+    await db.doc('users/revenue_coach').update({
+      lifecycle: { status: 'disabled', disabledAt: revenueAt },
+    });
     await expect(handler(request)).rejects.toMatchObject({ code: 'permission-denied' });
   });
 

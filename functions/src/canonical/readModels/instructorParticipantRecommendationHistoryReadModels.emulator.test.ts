@@ -238,7 +238,7 @@ describeEmulator('instructor recommendation history with canonical Firestore', (
     await expect(call()).rejects.toMatchObject({ code: 'permission-denied' });
     await booking();
     const user = db.doc(`users/${uid}`);
-    await user.update({ lifecycle: { status: 'disabled', disabledAt: revenueAt, reason: 'Test' } });
+    await user.update({ lifecycle: { status: 'disabled', disabledAt: revenueAt } });
     await expect(call()).rejects.toMatchObject({ code: 'permission-denied' });
     await user.set(revenueAccount(uid, instructorId));
     const participant = db.doc(`participants/${participantId}`);

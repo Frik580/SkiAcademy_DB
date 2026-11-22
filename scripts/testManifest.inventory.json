@@ -717,5 +717,6 @@
   "tests/unit/useWalletSync.test.ts": "app-unit",
   "tests/unit/verifiedProfileClaim.test.ts": "app-unit",
   "tests/unit/walletLedger.test.ts": "app-unit",
-  "tests/unit/webAppCheck.test.ts": "app-unit"
+  "tests/unit/webAppCheck.test.ts": "app-unit",
+  "tests/unit/studentHomeworkScope.test.tsx": "app-unit"
 }

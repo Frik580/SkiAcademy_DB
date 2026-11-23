@@ -55,6 +55,8 @@
     "test:all": "npm run test",
     "i18n:check": "node scripts/check-translations.mjs",
     "test:manifest": "node scripts/validateTestManifest.mjs",
+    "test:manifest:sync": "node scripts/syncTestManifest.mjs --write",
+    "test:manifest:check": "node scripts/syncTestManifest.mjs --check",
     "test:manifest:unit": "node --test scripts/runLocalTestSuite.test.mjs scripts/testManifest.test.mjs",
     "test:quick": "node scripts/runLocalTestSuite.mjs quick",
     "test:full": "node scripts/runLocalTestSuite.mjs full",

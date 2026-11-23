@@ -723,6 +723,5 @@
   "tests/unit/safeChatLink.test.ts": "app-unit",
   "functions/src/security/mediaTypePolicy.test.ts": "functions-unit",
   "tests/unit/publicCatalogueAuthLifecycle.test.ts": "app-unit",
-  "tests/browser/admin-issue-attendance/attendance.spec.ts": "deferred:browser-fixtures",
   "tests/browser/admin-issue-attendance/center.spec.ts": "deferred:browser-fixtures"
 }

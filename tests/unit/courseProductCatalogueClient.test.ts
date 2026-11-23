@@ -14,7 +14,7 @@ import { useCourseCatalogReadSync } from '../../src/features/course-enrollments/
 const subscribeScopedDocuments = vi.hoisted(() =>
   vi.fn(
     (
-      _query: unknown,
+      query: { collection: string },
       onNext: (snapshot: {
         docs: Array<{ id: string; data: () => unknown }>;
         metadata: { fromCache: boolean };
@@ -25,13 +25,16 @@ const subscribeScopedDocuments = vi.hoisted(() =>
         docs: [
           {
             id: 'course_live_base',
-            data: () => ({
-              title: 'BASE',
-              price: 250000,
-              capacity: { totalSeats: 8, availableSeats: 8 },
-              lifecycle: 'active',
-              dataScope: 'live',
-            }),
+            data: () =>
+              query.collection === 'course_catalog_content'
+                ? productItem.presentation
+                : {
+                    title: 'BASE',
+                    price: 250000,
+                    capacity: { totalSeats: 8, availableSeats: 8 },
+                    lifecycle: 'active',
+                    dataScope: 'live',
+                  },
           },
         ],
       });
@@ -145,6 +148,52 @@ describe('product course catalogue client', () => {
       expect(queryCourseCatalogReadModels).toHaveBeenCalledWith({ scope: 'public' });
     });
     expect(queryCourseCatalogReadModels).not.toHaveBeenCalledWith({ scope: 'product' });
+  });
+
+  it('waits for guest catalog content before publishing courses with or without a discipline', () => {
+    const liveItem = {
+      id: 'course_live_base',
+      data: () => ({
+        title: 'BASE',
+        price: 250000,
+        capacity: { totalSeats: 8, availableSeats: 8 },
+        lifecycle: 'active',
+      }),
+    };
+    type Snapshot = {
+      docs: Array<{ id: string; data: () => unknown }>;
+      metadata: { fromCache: boolean };
+    };
+    let receiveContent!: (snapshot: Snapshot) => void;
+    subscribeScopedDocuments
+      .mockImplementationOnce((_query, receive) => {
+        receive({ docs: [liveItem], metadata: { fromCache: false } });
+        return () => undefined;
+      })
+      .mockImplementationOnce((_query, receive) => {
+        receiveContent = receive;
+        return () => undefined;
+      });
+
+    renderHook(() => useCoursesSync(), { wrapper });
+    expect(useCoursesStore.getState().courses).toEqual([]);
+
+    act(() =>
+      receiveContent({
+        docs: [
+          { id: liveItem.id, data: () => ({ ...productItem.presentation, discipline: 'ski' }) },
+        ],
+        metadata: { fromCache: false },
+      })
+    );
+    expect(useCoursesStore.getState().courses).toMatchObject([
+      { id: liveItem.id, discipline: 'ski' },
+    ]);
+
+    act(() => receiveContent({ docs: [], metadata: { fromCache: false } }));
+    expect(
+      useCoursesStore.getState().courses.map(({ id, discipline }) => ({ id, discipline }))
+    ).toEqual([{ id: liveItem.id, discipline: undefined }]);
   });
 
   it('waits for both server snapshots before confirming an empty public list', () => {

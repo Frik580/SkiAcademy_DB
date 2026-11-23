@@ -56,6 +56,7 @@ import {
   notificationLocaleFromTransportMetadata,
 } from '@ski-academy/shared-domain';
 import type { CommandHandlerMap } from '../commands/canonicalCommands';
+import { courseCatalogContentPath, parseCourseCatalogContent } from './courseCatalogContentStore';
 import {
   executeAuthoritativeIdempotentCanonicalCommand,
   type AuthoritativeIdempotentCanonicalCommandHandler,
@@ -533,6 +534,17 @@ async function createCourseEnrollmentsHandler(
         });
       }
 
+      const contentPath = courseCatalogContentPath(courseRecord.courseId);
+      session.plan.planRead({ path: contentPath, category: 'aggregate' });
+      const contentRead = await session.tx.get({ path: contentPath });
+      const content = parseCourseCatalogContent(contentRead.data);
+      if (contentRead.data?.isHidden === true) {
+        throw new CanonicalCommandError('validation', {
+          correlationId: envelope.context.correlationId,
+          details: { field: 'courseId', reason: 'unsupported' },
+        });
+      }
+
       const seatCount = envelope.intent.participantIds.length;
       if (seatCount * courseDays.length > 64 * 4) {
         throw new CanonicalCommandError('operation_too_large', {
@@ -728,6 +740,16 @@ async function createCourseEnrollmentsHandler(
 
         if (mode === 'guest') {
           guestParticipantProfile = resolveGuestParticipantProfileForCourseEnrollment(envelope);
+          if (
+            content?.courseId !== courseRecord.courseId ||
+            !content.discipline ||
+            guestParticipantProfile.discipline !== content.discipline
+          ) {
+            throw new CanonicalCommandError('validation', {
+              correlationId: envelope.context.correlationId,
+              details: { field: 'discipline', reason: 'conflict' },
+            });
+          }
           if (!participantRead.exists) {
             shouldCreateGuestParticipant = true;
             session.plan.planMutation({

@@ -284,6 +284,14 @@ async function seedCourseWithSchedule(input: { availableSeats: number; courseDay
   const courseDayCount = input.courseDayCount ?? 1;
   const finalEndsAt = courseDayCount === 1 ? dayOneEnd : dayTwoEnd;
 
+  await firestore.doc('course_catalog_content/' + courseId).set({
+    courseId: courseId,
+    discipline: 'ski',
+    duration: 'One day',
+    description: 'Course description',
+    dates: 'January',
+    bgImageUrl: '/ski.jpg',
+  });
   await firestore.doc(`courses/${courseId}`).set({
     courseId,
     title: 'Guest Link Emulator Course',

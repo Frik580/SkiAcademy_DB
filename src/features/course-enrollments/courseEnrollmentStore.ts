@@ -1,4 +1,7 @@
-import type { CourseCatalogReadModel } from '@ski-academy/shared-domain';
+import type {
+  CourseCatalogReadModel,
+  QueryCourseCatalogReadModelsResult,
+} from '@ski-academy/shared-domain';
 import { create } from 'zustand';
 import type {
   CourseCatalogOperationalState,
@@ -17,6 +20,7 @@ interface CourseEnrollmentStoreState {
   readonly catalogLoading: boolean;
   readonly catalogStatus: 'idle' | 'loading' | 'ready' | 'error';
   readonly catalogRequestGeneration: number;
+  readonly catalogPage?: QueryCourseCatalogReadModelsResult['page'];
   readonly loaded: boolean;
   readonly error?: string;
   readonly historyRequestNonce: number;
@@ -234,6 +238,7 @@ export const useCourseEnrollmentStore = create<CourseEnrollmentStoreState>((set,
       catalogByCourseId: new Map(),
       loadGeneration: state.loadGeneration + 1,
       catalogRequestGeneration: state.catalogRequestGeneration + 1,
+      catalogPage: undefined,
     })),
 }));
 

@@ -35,7 +35,7 @@ test('same browser guest changes from Petr to Ars on a new course application', 
     courseId: courseB,
     title: titleB,
     instructorId: config.instructorId,
-    discipline: 'ski',
+    discipline: 'snowboard',
     dayOffset: 21,
   });
   await waitForFunctionsEmulatorReady();
@@ -53,7 +53,7 @@ test('same browser guest changes from Petr to Ars on a new course application', 
     );
   });
   await page.goto('/');
-  const submit = async (title: string, name: string) => {
+  const submit = async (title: string, name: string, discipline: 'ski' | 'snowboard') => {
     const card = page
       .getByRole('article')
       .filter({ has: page.getByRole('heading', { name: title, exact: true }) });
@@ -76,7 +76,7 @@ test('same browser guest changes from Petr to Ars on a new course application', 
     const body = await response.json();
     expect(response.ok(), JSON.stringify(body)).toBe(true);
     const createPayload = response.request().postDataJSON().data;
-    expect(createPayload.guestParticipantDiscipline).toBe('ski');
+    expect(createPayload.guestParticipantDiscipline).toBe(discipline);
     expect(createPayload).not.toHaveProperty('guestParticipantAgeYears');
     expect(createPayload).not.toHaveProperty('guestParticipantSkillLevel');
     const result = body.result;
@@ -97,13 +97,13 @@ test('same browser guest changes from Petr to Ars on a new course application', 
       enrollmentId: result.payload.guestLinkCredentials[0].enrollmentId,
     };
   };
-  const first = await submit(titleA, 'Petr');
+  const first = await submit(titleA, 'Petr', 'ski');
   const seed = await page.evaluate(
     (key) => localStorage.getItem(key),
     GUEST_COURSE_SESSION_STORAGE_KEY
   );
   expect(seed).toBeTruthy();
-  const second = await submit(titleB, 'Ars');
+  const second = await submit(titleB, 'Ars', 'snowboard');
   expect(second.participantId).toBe(first.participantId);
   expect(second.enrollmentId).not.toBe(first.enrollmentId);
   expect(
@@ -167,7 +167,7 @@ test('same browser guest changes from Petr to Ars on a new course application', 
     .poll(() => getParticipantProfile(second.participantId))
     .toMatchObject({
       displayName: 'Ars',
-      discipline: 'ski',
+      discipline: 'snowboard',
       age: { kind: 'age_years', years: 43 },
       skillLevel: 'intermediate',
     });

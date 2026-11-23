@@ -1,8 +1,10 @@
+import { inventoryCourseCatalog } from '../../staging/courseCatalogInventoryCli';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { initializeApp, getApps, deleteApp, type App } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import {
   AccountIdSchema,
+  TestSessionIdSchema,
   AccountSchema,
   AggregateRevisionSchema,
   CorrelationIdSchema,
@@ -823,4 +825,88 @@ describe.sequential.runIf(runsOnFirestoreEmulator)('course provisioning emulator
     expect(course).toBeUndefined();
     expect(courseDays).toHaveLength(0);
   }, 30_000);
+
+  it('inventories real Firestore pages and joins complete courses across the 200 document boundary', async () => {
+    const commands = createCommands();
+    const result = await commands.execute(applyEnvelope('inventory-seed', {
+      ...manifest,
+      presentation: { ...manifest.presentation!, discipline: 'ski' },
+    }));
+    expect(result.status).toBe('success');
+    const aggregate = (await firestore.doc('courses/' + courseId).get()).data()!;
+    const day = (await firestore.doc(courseDaysCollectionPath(courseId) + '/' + courseDayId).get()).data()!;
+    const content = (await firestore.doc(courseCatalogContentPath(courseId)).get()).data()!;
+    const sessionId = TestSessionIdSchema.parse('test_session_catalog_inventory');
+    const testScope = { dataScope: 'test' as const, testSessionId: sessionId };
+    const batch = firestore.batch();
+    const seeded: FirebaseFirestore.DocumentReference[] = [];
+    const seed = (ref: FirebaseFirestore.DocumentReference, data: FirebaseFirestore.DocumentData) => {
+      seeded.push(ref);
+      batch.set(ref, data);
+    };
+    for (let index = 0; index < 205; index++) {
+      const id = 'course_a_inventory_' + String(index).padStart(3, '0');
+      seed(firestore.doc('courses/' + id), { ...aggregate, courseId: id, lifecycle: 'archived' });
+    }
+    for (const [suffix, fields, presentation] of [
+      ['snow', {}, { ...content, discipline: 'snowboard' }],
+      ['missing', {}, null],
+      ['unknown', {}, { ...content, discipline: null }],
+      ['unset', {}, manifest.presentation],
+      ['hidden', {}, { ...content, isHidden: true }],
+      ['test', testScope, { ...content, ...testScope, discipline: 'snowboard' }],
+    ] as const) {
+      const id = 'course_z_inventory_' + suffix;
+      seed(firestore.doc('courses/' + id), { ...aggregate, ...fields, courseId: id });
+      seed(firestore.doc('courses/' + id + '/days/' + courseDayId), { ...day, ...fields, courseId: id });
+      if (presentation) seed(firestore.doc('course_catalog_content/' + id), { ...presentation, courseId: id });
+    }
+    for (let index = 0; index < 201; index++) {
+      const id = 'course_a_orphan_' + String(index).padStart(3, '0');
+      seed(firestore.doc('course_catalog_content/' + id), { ...content, courseId: id });
+    }
+    await batch.commit();
+
+    try {
+      const inventory = await inventoryCourseCatalog(firestore);
+      expect(inventory.counts['live/archived']).toBe(205);
+      expect(inventory.counts['test/' + sessionId + '/active']).toBe(1);
+      expect(inventory.invalidContent).toContainEqual({ id: 'course_z_inventory_unknown', scope: 'live' });
+      expect(inventory.issues).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: 'course_z_inventory_missing', lifecycle: 'active', problems: ['missing_content'] }),
+        expect.objectContaining({ id: 'course_z_inventory_unset', problems: ['missing_discipline'] }),
+        expect.objectContaining({ id: 'course_z_inventory_snow', problems: ['non_ski_discipline'] }),
+      ]));
+
+      const liveItems = [];
+      let page: { cursor?: string } = {};
+      const pageOptions = { now: catalogNow, pageSecret: 'emulator-catalog-cursor-secret' };
+      let pages = 0;
+      for (;;) {
+        const response = await queryCourseCatalogReadModels(firestore, { scope: 'public', page }, pageOptions);
+        liveItems.push(...response.items);
+        pages++;
+        if (pages === 1) {
+          await firestore.doc('course_catalog_content/course_z_inventory_snow').update({ discipline: 'ski' });
+        }
+        if (!response.page?.next) break;
+        page = { cursor: response.page.next };
+      }
+      expect(pages).toBeGreaterThan(4);
+      expect(liveItems.map((item) => [item.courseId, item.presentation?.discipline])).toEqual([
+        [courseId, 'ski'],
+        ['course_z_inventory_snow', 'snowboard'],
+        ['course_z_inventory_unset', undefined],
+      ]);
+      const testPage = await queryCourseCatalogReadModels(firestore, { scope: 'product', page: {} },
+        { ...pageOptions, readScope: testScope });
+      expect(testPage.items.map((item) => item.courseId)).toEqual(['course_z_inventory_test']);
+      await expect(queryCourseCatalogReadModels(firestore, { scope: 'product', page },
+        { ...pageOptions, readScope: testScope })).rejects.toMatchObject({ code: 'failed-precondition' });
+    } finally {
+      const cleanup = firestore.batch();
+      for (const ref of seeded) cleanup.delete(ref);
+      await cleanup.commit();
+    }
+  });
 });

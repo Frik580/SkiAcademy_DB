@@ -35,6 +35,10 @@ vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryCourseCatalogReadModels: mocks.query,
   queryCourseEnrollmentReadModels: vi.fn(),
 }));
+vi.mock('../../src/infrastructure/firebase', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/infrastructure/firebase')>()),
+  onSnapshot: vi.fn(() => vi.fn()),
+}));
 
 const catalogReadModel: CourseCatalogReadModel = {
   courseId: 'course_1784217360616',
@@ -83,6 +87,7 @@ const course = {
   availableSeats: 0,
   totalSeats: 8,
 } as Course;
+const catalogPage = { scopeKey: 'live', next: null, revisions: [null, null] };
 const operational = mapCourseCatalogReadModelToOperationalState(catalogReadModel);
 
 beforeEach(() => {
@@ -203,6 +208,7 @@ it('retries the source once, clears errors and keeps late course A data out of B
   rerender(<CatalogDetails selectedCourse={courseB} />);
   await act(async () =>
     finish({
+      page: catalogPage,
       items: [
         catalogReadModel,
         {
@@ -227,7 +233,7 @@ it('retries the source once, clears errors and keeps late course A data out of B
 it('offers retry for a failed empty course list', async () => {
   mocks.language = 'en';
   useCourseEnrollmentStore.setState({ catalogStatus: 'error' });
-  mocks.query.mockResolvedValue({ items: [] });
+  mocks.query.mockResolvedValue({ items: [], page: catalogPage });
   render(
     <GroupCoursesSection
       data={{

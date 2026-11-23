@@ -179,6 +179,12 @@ if (process.argv[2] === '--snapshot') {
       ],
       {
         ...process.env,
+        // Windows native watch events can report unchanged build output as modified
+        // when the Functions runtime reads it. Poll file metadata to avoid reloads.
+        ...(process.platform === 'win32' && {
+          CHOKIDAR_USEPOLLING: process.env.CHOKIDAR_USEPOLLING ?? 'true',
+          CHOKIDAR_INTERVAL: process.env.CHOKIDAR_INTERVAL ?? '1000',
+        }),
         CARVE_E2E_TIMING_PATH: timingPath,
         CARVE_E2E_PLAYWRIGHT_ARGS: JSON.stringify(
           process.argv.slice(2).filter((arg) => arg !== '--hosting')

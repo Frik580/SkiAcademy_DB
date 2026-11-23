@@ -54,6 +54,10 @@ export const QueryCourseCatalogReadModelsInputSchema = z
   .object({
     scope: CourseCatalogReadScopeSchema,
     courseId: CourseIdSchema.optional(),
+    page: z
+      .object({ cursor: z.string().min(1).max(4096).optional() })
+      .strict()
+      .optional(),
     idempotencyKey: IdempotencyKeySchema.optional(),
   })
   .strict()
@@ -65,6 +69,9 @@ export const QueryCourseCatalogReadModelsInputSchema = z
         message: 'courseId is required for authenticated catalog scope',
       });
     }
+    if (input.page && input.courseId) {
+      context.addIssue({ code: 'custom', path: ['page'], message: 'Invalid catalog page' });
+    }
   });
 
 export type QueryCourseCatalogReadModelsInput = z.output<
@@ -75,6 +82,14 @@ export const QueryCourseCatalogReadModelsResultSchema = z
   .object({
     scope: CourseCatalogReadScopeSchema,
     items: z.array(CourseCatalogReadModelSchema),
+    page: z
+      .object({
+        next: z.string().nullable(),
+        scopeKey: z.string(),
+        revisions: z.tuple([z.string().nullable(), z.string().nullable()]),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 

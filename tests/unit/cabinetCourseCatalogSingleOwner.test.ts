@@ -9,6 +9,12 @@ import {
 
 const queryCourseCatalogReadModelsMock = vi.fn();
 const queryCourseEnrollmentReadModelsMock = vi.fn();
+const catalogPage = { scopeKey: 'live', next: null, revisions: [null, null] };
+
+vi.mock('../../src/infrastructure/firebase', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/infrastructure/firebase')>()),
+  onSnapshot: vi.fn(() => vi.fn()),
+}));
 
 vi.mock('../../src/lib/canonical/canonicalReadModelClient', () => ({
   queryCourseCatalogReadModels: (...args: unknown[]) => queryCourseCatalogReadModelsMock(...args),
@@ -22,7 +28,7 @@ describe('cabinet public course catalog single owner', () => {
     useCourseEnrollmentStore.getState().reset();
     queryCourseCatalogReadModelsMock.mockReset();
     queryCourseEnrollmentReadModelsMock.mockReset();
-    queryCourseCatalogReadModelsMock.mockResolvedValue({ scope: 'public', items: [] });
+    queryCourseCatalogReadModelsMock.mockResolvedValue({ scope: 'public', items: [], page: catalogPage });
     queryCourseEnrollmentReadModelsMock.mockImplementation(async (input: { scope: string }) => ({
       scope: input.scope,
       items: [],
@@ -40,7 +46,7 @@ describe('cabinet public course catalog single owner', () => {
       expect(queryCourseCatalogReadModelsMock).toHaveBeenCalledTimes(1);
     });
 
-    expect(queryCourseCatalogReadModelsMock).toHaveBeenCalledWith({ scope: 'public' });
+    expect(queryCourseCatalogReadModelsMock).toHaveBeenCalledWith({ scope: 'public', page: {} });
   });
 
   it('uses the product catalogue for an authenticated principal and does not keep the public list', async () => {
@@ -49,14 +55,14 @@ describe('cabinet public course catalog single owner', () => {
       authLoading: false,
       authGeneration: 1,
     });
-    queryCourseCatalogReadModelsMock.mockResolvedValue({ scope: 'product', items: [] });
+    queryCourseCatalogReadModelsMock.mockResolvedValue({ scope: 'product', items: [], page: catalogPage });
 
     renderHook(() => useCourseCatalogReadSync(true));
 
     await waitFor(() => {
-      expect(queryCourseCatalogReadModelsMock).toHaveBeenCalledWith({ scope: 'product' });
+      expect(queryCourseCatalogReadModelsMock).toHaveBeenCalledWith({ scope: 'product', page: {} });
     });
-    expect(queryCourseCatalogReadModelsMock).not.toHaveBeenCalledWith({ scope: 'public' });
+    expect(queryCourseCatalogReadModelsMock).not.toHaveBeenCalledWith({ scope: 'public', page: {} });
   });
 
   it('reloadCatalog from enrollment sync issues one catalog request', async () => {
@@ -72,7 +78,7 @@ describe('cabinet public course catalog single owner', () => {
     queryCourseCatalogReadModelsMock.mockClear();
     await result.current.reloadCatalog();
     expect(queryCourseCatalogReadModelsMock).toHaveBeenCalledTimes(1);
-    expect(queryCourseCatalogReadModelsMock).toHaveBeenCalledWith({ scope: 'public' });
+    expect(queryCourseCatalogReadModelsMock).toHaveBeenCalledWith({ scope: 'public', page: {} });
   });
 
   it.each([null, { uid: 'account_test_actor' }])(
@@ -99,7 +105,7 @@ describe('cabinet public course catalog single owner', () => {
       expect(queryCourseCatalogReadModelsMock).toHaveBeenCalledTimes(2);
       expect(useCourseEnrollmentStore.getState().catalogStatus).toBe('loading');
       await act(async () => {
-        resolve({ items: [] });
+        resolve({ items: [], page: catalogPage });
         await retry;
       });
       expect(useCourseEnrollmentStore.getState().catalogStatus).toBe('ready');
@@ -132,12 +138,12 @@ describe('cabinet public course catalog single owner', () => {
         useAuthStore.setState({ firebaseUser: { uid: 'account_new' } as never, authGeneration: 1 })
       );
       await act(async () => {
-        if (outcome === 'resolve') resolveOld({ items: [] });
+        if (outcome === 'resolve') resolveOld({ items: [], page: catalogPage });
         else rejectOld(new Error('old request failed'));
       });
       expect(useCourseEnrollmentStore.getState().catalogStatus).toBe('loading');
       expect(useCourseEnrollmentStore.getState().catalogLoading).toBe(true);
-      await act(async () => resolveNew({ items: [] }));
+      await act(async () => resolveNew({ items: [], page: catalogPage }));
       expect(useCourseEnrollmentStore.getState().catalogStatus).toBe('ready');
     }
   );

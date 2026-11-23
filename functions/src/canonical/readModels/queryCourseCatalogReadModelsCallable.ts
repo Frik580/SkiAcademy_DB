@@ -14,7 +14,10 @@ import { readCallableAccountProfile } from './resolveCallableInstructorId';
 import { resolveCanonicalReadScope } from '../testSessions/canonicalReadScopeResolver';
 import { createFirestoreCanonicalExecutionScopeStore } from '../testSessions/canonicalExecutionScopeResolver';
 
-export function createQueryCourseCatalogReadModelsHandler(firestore: Firestore) {
+export function createQueryCourseCatalogReadModelsHandler(
+  firestore: Firestore,
+  pageSecret?: string
+) {
   return async (
     request: CallableRequest<Record<string, unknown>>
   ): Promise<QueryCourseCatalogReadModelsResult> => {
@@ -49,16 +52,24 @@ export function createQueryCourseCatalogReadModelsHandler(firestore: Firestore) 
         isAdministrator = isAdministratorProfile(readCallableAccountProfile(profileData));
       }
 
-      const readScope = await resolveCanonicalReadScope(
-        createFirestoreCanonicalExecutionScopeStore(firestore),
-        {
+      const resolveScope = () =>
+        resolveCanonicalReadScope(createFirestoreCanonicalExecutionScopeStore(firestore), {
           ...(accountId ? { accountId, accountLifecycleStatus } : {}),
           isAdministrator,
           requestedTestSessionId,
-        }
-      );
+        });
+      const readScope = await resolveScope();
       const readContext = createReadModelRequestContext(firestore, { readScope });
-      return await queryCourseCatalogReadModels(firestore, input, { readContext, readScope });
+      const result = await queryCourseCatalogReadModels(firestore, input, {
+        readContext,
+        readScope,
+        pageSecret,
+        principalId: accountId,
+      });
+      if (input.page && JSON.stringify(await resolveScope()) !== JSON.stringify(readScope)) {
+        throw new HttpsError('failed-precondition', 'Catalog scope changed.');
+      }
+      return result;
     } catch (error) {
       rethrowReadScopeHttpsError(error);
     }

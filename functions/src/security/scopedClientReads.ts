@@ -1,4 +1,3 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { FieldPath, Timestamp, type Firestore, type Query } from 'firebase-admin/firestore';
 import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
 import { z } from 'zod';
@@ -8,6 +7,7 @@ import {
   documentMatchesReadScope,
   normalizeFirestoreDocument,
 } from '@ski-academy/shared-domain';
+import { scopedReadCursor } from './scopedReadCursor';
 import { requireActiveAccount } from './activeAccount';
 import { resolveCanonicalReadScope } from '../canonical/testSessions/canonicalReadScopeResolver';
 import { createFirestoreCanonicalExecutionScopeStore } from '../canonical/testSessions/canonicalExecutionScopeResolver';
@@ -58,44 +58,6 @@ const Input = z
 function deny(): never {
   throw new HttpsError('permission-denied', 'This read is not permitted.');
 }
-function cursorCodec(secret: string, binding: string) {
-  const key = createHash('sha256').update(secret).digest();
-  return {
-    encode(values: unknown[]) {
-      const iv = randomBytes(12);
-      const cipher = createCipheriv('aes-256-gcm', key, iv);
-      cipher.setAAD(Buffer.from(binding));
-      const data = Buffer.concat([
-        cipher.update(JSON.stringify({ values, expires: Date.now() + 3600000 })),
-        cipher.final(),
-      ]);
-      return Buffer.concat([iv, cipher.getAuthTag(), data]).toString('base64url');
-    },
-    decode(token: string): unknown[] {
-      try {
-        const bytes = Buffer.from(token, 'base64url');
-        const decipher = createDecipheriv('aes-256-gcm', key, bytes.subarray(0, 12));
-        decipher.setAAD(Buffer.from(binding));
-        decipher.setAuthTag(bytes.subarray(12, 28));
-        const value = JSON.parse(
-          Buffer.concat([decipher.update(bytes.subarray(28)), decipher.final()]).toString()
-        );
-        if (!Array.isArray(value.values) || value.expires < Date.now()) throw new Error('cursor');
-        return value.values.map((entry: unknown) =>
-          entry && typeof entry === 'object' && 'timestamp' in entry
-            ? new Timestamp(
-                (entry as { timestamp: number[] }).timestamp[0],
-                (entry as { timestamp: number[] }).timestamp[1]
-              )
-            : entry
-        );
-      } catch {
-        throw new HttpsError('invalid-argument', 'Invalid cursor.');
-      }
-    },
-  };
-}
-
 /** Replaces unscoped SDK lists. Legacy LIVE documents remain visible on the server.
  * Each physical page is bounded; callers choose pagination. No background drain. */
 export function createQueryScopedClientDocuments(db: Firestore, secret: string) {
@@ -167,7 +129,7 @@ export function createQueryScopedClientDocuments(db: Firestore, secret: string) 
       );
     if (!order.some((item) => item.field === '__name__'))
       query = query.orderBy(FieldPath.documentId(), order[order.length - 1].direction);
-    const codec = cursorCodec(
+    const codec = scopedReadCursor(
       secret,
       JSON.stringify({
         uid: uid ?? '',

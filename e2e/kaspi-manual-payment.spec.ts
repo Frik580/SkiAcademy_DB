@@ -439,8 +439,13 @@ for (const kind of ['lesson', 'course'] as const) {
       } else {
         courseId = `course_kaspi_${suffix}`;
         const title = `Kaspi Course ${suffix}`;
-        // No catalog discipline: the guest must explicitly choose it in the real form.
-        await seedE2ECourse({ courseId, title, instructorId: runtime.instructorId, dayOffset: 35 });
+        await seedE2ECourse({
+          courseId,
+          title,
+          instructorId: runtime.instructorId,
+          dayOffset: 35,
+          discipline: 'ski',
+        });
         await page.goto('/');
         const card = page
           .getByRole('article')
@@ -449,7 +454,7 @@ for (const kind of ['lesson', 'course'] as const) {
         const form = page.getByRole('dialog', { name: 'Course Enrollment' });
         await form.getByPlaceholder('e.g. Alex Carter').fill(`Kaspi Guest ${suffix}`);
         await form.getByPlaceholder('+1 (555) 000-0000').fill('+7 701 123 45 67');
-        await form.getByRole('combobox').selectOption('ski');
+        await expect(form.getByRole('combobox')).toHaveCount(0);
       }
       const modal = page.getByRole('dialog', {
         name: kind === 'lesson' ? 'Book Lesson with' : 'Course Enrollment',
@@ -465,6 +470,7 @@ for (const kind of ['lesson', 'course'] as const) {
       const created = await creation.json();
       expect(created.result.status, JSON.stringify(created)).toBe('success');
       const payload = creation.request().postDataJSON().data;
+      if (kind === 'course') expect(payload.guestParticipantDiscipline).toBe('ski');
       const subjectId =
         kind === 'lesson'
           ? payload.intent.bookingId
@@ -786,6 +792,7 @@ for (const kind of ['lesson', 'course'] as const) {
           title,
           instructorId: runtime.instructorId,
           dayOffset: 39,
+          discipline: 'ski',
         });
         reopen = async () => {
           await page.goto('/');
@@ -799,7 +806,7 @@ for (const kind of ['lesson', 'course'] as const) {
         const form = page.getByRole('dialog', { name: 'Course Enrollment' });
         await form.getByPlaceholder('e.g. Alex Carter').fill(`Visibility ${suffix}`);
         await form.getByPlaceholder('+1 (555) 000-0000').fill('+7 701 123 45 67');
-        await form.getByRole('combobox').selectOption('ski');
+        await expect(form.getByRole('combobox')).toHaveCount(0);
       }
       const modal = page.getByRole('dialog', {
         name: kind === 'lesson' ? 'Book Lesson with' : 'Course Enrollment',

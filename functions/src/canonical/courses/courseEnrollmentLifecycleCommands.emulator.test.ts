@@ -264,6 +264,14 @@ async function seedCourseWithSchedule(input: {
   const dayIds = input.courseDayIds ?? [input.courseDayId ?? courseDayId, courseDayB2Id];
   const finalEndsAt = courseDayCount === 1 ? dayOneEnd : dayTwoEnd;
 
+  await firestore.doc('course_catalog_content/' + targetCourseId).set({
+    courseId: targetCourseId,
+    discipline: 'ski',
+    duration: 'One day',
+    description: 'Course description',
+    dates: 'January',
+    bgImageUrl: '/ski.jpg',
+  });
   await firestore.doc(`courses/${targetCourseId}`).set({
     courseId: targetCourseId,
     title: `Course Lifecycle Emulator ${targetCourseId}`,

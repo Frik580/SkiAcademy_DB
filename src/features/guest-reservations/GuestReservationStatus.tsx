@@ -109,7 +109,9 @@ export function GuestReservationStatus({
       ) : cancelled ? (
         <p className="type-compact text-[var(--ink)]">{t('guestCancelledBody')}</p>
       ) : createdWithoutStatusDetails ? (
-        <p className="type-compact text-[var(--ink)]">{t('postCreateRefreshFailedBody')}</p>
+        <p className="type-compact text-[var(--ink)]">
+          {refreshing ? t('loading') : t('postCreateRefreshFailedBody')}
+        </p>
       ) : (
         <div className="space-y-3 type-compact text-[var(--ink)]">
           {formattedDeadline && (

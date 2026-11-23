@@ -193,6 +193,16 @@ function seedCourseDay() {
   };
 }
 
+const catalogContent = {
+  courseId,
+  discipline: 'ski',
+  duration: 'One day',
+  description: 'Course description',
+  dates: 'January',
+  bgImageUrl: '/ski.jpg',
+};
+const catalogContentPath = 'course_catalog_content/' + courseId;
+
 function baseFixture(extra: Record<string, unknown> = {}) {
   return {
     [`users/${accountId}`]: seedAccount(),
@@ -202,6 +212,7 @@ function baseFixture(extra: Record<string, unknown> = {}) {
     [`users/${accountId}/wallet/state`]: seedWallet(100_000),
     [`courses/${courseId}`]: seedCourse(),
     [`courses/${courseId}/days/${courseDayId}`]: seedCourseDay(),
+    [catalogContentPath]: catalogContent,
     ...extra,
   };
 }
@@ -568,7 +579,10 @@ describe('create_course_enrollments command', () => {
         management: { kind: 'unmanaged_guest' },
       };
       const executor = createInMemoryCanonicalTransactionExecutor(
-        baseFixture({ [participantPath]: participant })
+        baseFixture({
+          [participantPath]: participant,
+          [catalogContentPath]: { ...catalogContent, discipline: 'participant_discipline' in patch ? patch.participant_discipline : 'ski' },
+        })
       );
       const plans: ReturnType<TransactionPlanBuilder['build']>[] = [];
       const trackedExecutor: CanonicalTransactionExecutor = {
@@ -963,7 +977,7 @@ describe('create_course_enrollments command', () => {
 
     const estimate = estimateTransactionPlan(capturedPlans[0]!);
     expect(estimate).toMatchObject({
-      readCount: 216,
+      readCount: 217,
       mutationCount: 204,
       estimatedPayloadBytes: 231_872,
       estimatedIndexImpactBytes: 0,

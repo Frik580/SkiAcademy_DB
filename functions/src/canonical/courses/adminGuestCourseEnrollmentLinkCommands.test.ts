@@ -173,6 +173,14 @@ function baseFixture(extra: Record<string, unknown> = {}) {
         correlationId,
       },
     },
+    [`course_catalog_content/${courseId}`]: {
+      courseId,
+      discipline: 'ski',
+      duration: 'One day',
+      description: 'Course description',
+      dates: 'January',
+      bgImageUrl: '/ski.jpg',
+    },
     [`courses/${courseId}/days/${courseDayId}`]: {
       courseId,
       courseDayId,

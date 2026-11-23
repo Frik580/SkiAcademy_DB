@@ -20,6 +20,7 @@ export function courseFromProductCatalogItem(item: CourseCatalogReadModel): Cour
           revision: item.revision,
           ...item.presentation,
         }
-      : null
+      : null,
+    true
   );
 }

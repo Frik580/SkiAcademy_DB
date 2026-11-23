@@ -4,7 +4,8 @@ import { callFunction } from '../functions/functionsClient';
 // Firestore confirms the current assignment. Cached snapshots cannot move UI scope.
 export function observeTestActorAssignment(
   uid: string,
-  onAssignment: (sessionId: string | null) => void
+  onAssignment: (sessionId: string | null) => void,
+  onError?: (error: unknown) => void
 ) {
   return onSnapshot(
     doc(db, `test_actor_assignments/${uid}`),
@@ -14,7 +15,7 @@ export function observeTestActorAssignment(
       const sessionId: unknown = snapshot.data()?.activeTestSessionId;
       onAssignment(typeof sessionId === 'string' ? sessionId : null);
     },
-    () => onAssignment(null)
+    onError ?? (() => onAssignment(null))
   );
 }
 

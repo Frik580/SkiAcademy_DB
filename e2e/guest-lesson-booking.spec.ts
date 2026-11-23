@@ -1,5 +1,11 @@
 import { test, type BrowserContext, type Page } from '@playwright/test';
 import {
+  ADMIN_LESSON_BOOKINGS_REVISION_COLLECTION,
+  ADMIN_LESSON_BOOKINGS_REVISION_DOCUMENT_ID,
+  AdminLessonBookingsRevisionDocumentSchema,
+} from '../packages/shared-domain/src/canonical/adminLessonBookingsRevision';
+import { timestampFromDate } from '../packages/shared-domain/src/canonical/primitives';
+import {
   expect,
   fillBookingSelectors,
   loadRuntimeConfig,
@@ -8,7 +14,12 @@ import {
   uniqueTimeSlot,
   watchBrowserFailures,
 } from './fixtures';
-import { getParticipantProfile, getBookingRecord, getInstructorRecord } from './firestore-admin';
+import {
+  ensureFirestore,
+  getParticipantProfile,
+  getBookingRecord,
+  getInstructorRecord,
+} from './firestore-admin';
 
 let adminContext: BrowserContext;
 let admin: Page;
@@ -16,6 +27,19 @@ let assertAdminHealthy: () => void;
 
 test.beforeAll(async ({ browser }) => {
   const config = loadRuntimeConfig();
+  const revisionSignal = ensureFirestore()
+    .collection(ADMIN_LESSON_BOOKINGS_REVISION_COLLECTION)
+    .doc(ADMIN_LESSON_BOOKINGS_REVISION_DOCUMENT_ID);
+  // The admin listener needs an existing LIVE signal. A standalone run starts
+  // with an empty emulator, while the booking specs normally create it first.
+  if (!(await revisionSignal.get()).exists) {
+    await revisionSignal.create(
+      AdminLessonBookingsRevisionDocumentSchema.parse({
+        revision: 1,
+        updatedAt: timestampFromDate(new Date()),
+      })
+    );
+  }
   adminContext = await browser.newContext({ locale: 'en-US' });
   admin = await adminContext.newPage();
   assertAdminHealthy = watchBrowserFailures(admin);

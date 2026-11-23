@@ -3,7 +3,7 @@ import { deriveGroupCourseEnrollmentCtaState } from '../groupCourseEnrollmentCta
 import { lookupCourseCatalogOperational } from '../../course-enrollments/courseEnrollmentViewModel';
 import { CourseCatalogFeedback } from './CourseCatalogFeedback';
 import { useCourseEnrollmentStore as useCatalogStore } from '../../course-enrollments/courseEnrollmentStore';
-import { reloadCourseCatalog } from '../../course-enrollments/useCourseEnrollmentReadSync';
+import { retryCourseCatalog } from '../../course-enrollments/useCourseEnrollmentReadSync';
 import { GUEST_COURSE_COMMENT_MAX_LENGTH } from '@ski-academy/shared-domain/canonical/courseEnrollmentAttendanceAdminIssue';
 import React, { useCallback, useEffect, useLayoutEffect, useState, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
@@ -54,6 +54,7 @@ interface CourseEnrollmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   course: Course | null;
+  courseUnavailable?: boolean;
   userProfile?: UserProfile | null;
   onAuthSuccess?: (profile: UserProfile) => void;
   onEnroll: (
@@ -77,6 +78,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   isOpen,
   onClose,
   course,
+  courseUnavailable = false,
   userProfile,
   onAuthSuccess,
   onEnroll,
@@ -90,7 +92,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   const { formatPrice } = useCurrency();
   const { addNotification } = useNotifications();
   const { createGuestEnrollment, completeGuestParticipantProfile, requestCancellation } =
-    useCourseEnrollmentCommands(undefined);
+    useCourseEnrollmentCommands(undefined, { deferGuestStatusRefresh: true });
 
   const [unauthTab, setUnauthTab] = useState<'guest' | 'auth'>('guest');
   const [authenticatedProfile, setAuthenticatedProfile] = useState<UserProfile | null>(
@@ -102,7 +104,6 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   const [guestEmail, setGuestEmail] = useState('');
   const [guestNotes, setGuestNotes] = useState('');
   const [showGuestOptionalDetails, setShowGuestOptionalDetails] = useState(false);
-  const [guestDiscipline, setGuestDiscipline] = useState<'' | 'ski' | 'snowboard'>('');
   const [guestProfileAgeYears, setGuestProfileAgeYears] = useState('');
   const [guestProfileSkillLevel, setGuestProfileSkillLevel] = useState('');
   const [showGuestProfileCompletion, setShowGuestProfileCompletion] = useState(false);
@@ -112,6 +113,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [guestQuotaErrorCourseId, setGuestQuotaErrorCourseId] = useState<string | null>(null);
   const [guestCreatedEnrollmentId, setGuestCreatedEnrollmentId] = useState<string | null>(null);
+  const [submittedGuest, setSubmittedGuest] = useState<{ title: string; name: string }>();
   const [guestReservation, setGuestReservation] =
     useState<Awaited<ReturnType<typeof loadGuestSingleCourseEnrollment>>>();
   const [guestRefreshError, setGuestRefreshError] = useState(false);
@@ -122,6 +124,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     request: ReturnType<typeof loadGuestSingleCourseEnrollment>;
   } | null>(null);
   const guestLookupGeneration = useRef(0);
+  const dialogGeneration = useRef(0);
   const isSubmittingRef = useRef(false);
   const guestEnrollmentAttemptKeyRef = useRef<ReturnType<typeof createGuestEnrollmentAttempt> | null>(null);
 
@@ -174,7 +177,9 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
         isClientActive: authenticatedProfile?.isClientActive,
       })
     : undefined;
-  const enrollmentBlocked = !availability || availability.enrollDisabled;
+  const enrollmentBlocked =
+    courseUnavailable || course?.isHidden || !availability || availability.enrollDisabled;
+  const guestDiscipline = course?.discipline;
   const courseId = course?.id;
   const previousGuestEnrollmentId = course
     ? (rememberedGuestReservation('course', course.id) ?? guestActiveEnrollment?.enrollmentId)
@@ -182,6 +187,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   useLayoutEffect(() => {
     return () => {
       guestLookupGeneration.current += 1;
+      dialogGeneration.current += 1;
     };
   }, [courseId, isOpen, activeAccountId]);
   const checkPreviousGuestStatus = useCallback(async () => {
@@ -222,10 +228,13 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   }, [userProfile, isOpen]);
 
   useEffect(() => {
+    isSubmittingRef.current = false;
+    setIsSubmitting(false);
     guestEnrollmentAttemptKeyRef.current = null;
     setSubmissionError('');
     setGuestQuotaErrorCourseId(null);
     setGuestCreatedEnrollmentId(null);
+    setSubmittedGuest(undefined);
     setGuestReservation(undefined);
     setGuestRefreshing(false);
     setGuestRefreshError(false);
@@ -267,13 +276,14 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
 
   const handleSubmitGuest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmittingRef.current || isSubmitting || enrollmentBlocked) return;
+    if (isSubmittingRef.current || isSubmitting || enrollmentBlocked || !guestDiscipline) return;
     if (guestActiveEnrollment) {
       addNotification('warning', t('alreadyEnrolled'), t('alreadyEnrolledDesc'));
       onClose();
       return;
     }
-    if (!guestName.trim()) {
+    const submittedName = guestName.trim();
+    if (!submittedName) {
       addNotification('warning', t('missingDetails'), t('guestNameLabel'));
       return;
     }
@@ -283,16 +293,12 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
       document.getElementById('course-guest-phone')?.focus();
       return;
     }
-    const resolvedGuestDiscipline = course.discipline ?? guestDiscipline;
-    if (!resolvedGuestDiscipline) {
-      addNotification('warning', t('missingDetails'), t('participantsDisciplineLabel'));
-      return;
-    }
-
     isSubmittingRef.current = true;
     setSubmissionError('');
     setIsSubmitting(true);
     setGuestQuotaErrorCourseId(null);
+    const generation = dialogGeneration.current;
+    const isCurrentDialog = () => dialogGeneration.current === generation;
     try {
       const attempt = guestEnrollmentAttemptKeyRef.current ?? createGuestEnrollmentAttempt();
       guestEnrollmentAttemptKeyRef.current = attempt;
@@ -302,22 +308,21 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
         enrollmentId: attempt.enrollmentId,
         participantId,
         identity: attempt,
-        guestDisplayName: guestName.trim(),
-        guestDiscipline: resolvedGuestDiscipline,
+        guestDisplayName: submittedName,
+        guestDiscipline,
         guestPhone: normalizedPhone,
         guestEmail: guestEmail.trim() || undefined,
         ...(guestNotes.trim() ? { guestComment: guestNotes.trim() } : {}),
         notificationLocale: language,
       });
       rememberGuestReservation('course', course.id, credential.enrollmentId);
+      if (!isCurrentDialog()) return;
       setGuestCreatedEnrollmentId(credential.enrollmentId);
-      try {
-        setGuestReservation(await loadGuestSingleCourseEnrollment(credential.enrollmentId));
-      } catch {
-        setGuestRefreshError(true);
-      }
+      setSubmittedGuest({ title: course.title, name: submittedName });
+      void refreshGuestStatus(credential.enrollmentId);
       onSuccess?.();
     } catch (err) {
+      if (!isCurrentDialog()) return;
       const presented = presentCanonicalCommandErrorWithContext(err, {
         t: t as (key: string) => string,
       });
@@ -334,16 +339,22 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
         addNotification('error', t('bookingError'), presented.message || t('bookingRecordFailed'));
       }
     } finally {
-      isSubmittingRef.current = false;
-      setIsSubmitting(false);
+      if (isCurrentDialog()) {
+        isSubmittingRef.current = false;
+        setIsSubmitting(false);
+      }
     }
   };
 
-  const refreshGuestStatus = async () => {
-    if (!guestCreatedEnrollmentId || guestRefreshing) return;
+  const refreshGuestStatus = async (createdEnrollmentId?: string) => {
+    const enrollmentId = createdEnrollmentId ?? guestCreatedEnrollmentId;
+    if (!enrollmentId || (!createdEnrollmentId && guestRefreshing)) return;
+    const generation = ++guestLookupGeneration.current;
+    const isCurrent = () => guestLookupGeneration.current === generation;
     setGuestRefreshing(true);
     try {
-      const refreshed = await loadGuestSingleCourseEnrollment(guestCreatedEnrollmentId);
+      const refreshed = await loadGuestSingleCourseEnrollment(enrollmentId);
+      if (!isCurrent()) return;
       setGuestReservation((current) =>
         current?.lifecycle.status === 'cancelled' &&
         (refreshed.revision < current.revision || refreshed.lifecycle.status !== 'cancelled')
@@ -352,9 +363,9 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
       );
       setGuestRefreshError(false);
     } catch {
-      setGuestRefreshError(true);
+      if (isCurrent()) setGuestRefreshError(true);
     } finally {
-      setGuestRefreshing(false);
+      if (isCurrent()) setGuestRefreshing(false);
     }
   };
 
@@ -466,10 +477,13 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   };
 
   const startNewGuestBooking = () => {
+    guestLookupGeneration.current += 1;
     forgetGuestReservation('course', course.id, guestCreatedEnrollmentId ?? undefined);
     guestEnrollmentAttemptKeyRef.current = null;
     setGuestCreatedEnrollmentId(null);
+    setSubmittedGuest(undefined);
     setGuestReservation(undefined);
+    setGuestRefreshing(false);
     setGuestRefreshError(false);
     setGuestLookupError(null);
     setGuestProfileAgeYears('');
@@ -542,7 +556,9 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
             language
           ),
         }
-      : undefined;
+      : submittedGuest
+        ? { title: submittedGuest.title, participantName: submittedGuest.name, scheduleLines: [] }
+        : undefined;
 
   const canCreateGuestPayment = Boolean(
     guestReservation?.lifecycle.status === 'pending' &&
@@ -649,7 +665,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                       }
                       language={language}
                       t={t}
-                      onRefresh={refreshGuestStatus}
+                      onRefresh={() => refreshGuestStatus()}
                       refreshing={guestRefreshing}
                       refreshError={guestRefreshError}
                       statusHydrated={Boolean(guestReservation)}
@@ -797,7 +813,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                         loadingLabel={t('loading')}
                         errorLabel={t('courseCatalogLoadError')}
                         retryLabel={t('retry')}
-                        onRetry={reloadCourseCatalog}
+                        onRetry={retryCourseCatalog}
                       />
                       {availability?.label === 'soldOut' && (
                         <p role="status">{t('courseSoldOut')}</p>
@@ -982,31 +998,12 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                         )}
                       </div>
 
-                      {!course.discipline && (
-                        <label className="space-y-1 type-caption text-[var(--ink-dim)]">
-                          <span>{t('participantsDisciplineLabel')} *</span>
-                          <select
-                            required
-                            value={guestDiscipline}
-                            onChange={(event) =>
-                              setGuestDiscipline(event.target.value as '' | 'ski' | 'snowboard')
-                            }
-                            className="ui-field-plain type-body"
-                          >
-                            <option value="" disabled>
-                              —
-                            </option>
-                            <option value="ski">{t('participantsDisciplineSki')}</option>
-                            <option value="snowboard">
-                              {t('participantsDisciplineSnowboard')}
-                            </option>
-                          </select>
-                          <span className="block type-caption">
-                            {language === 'ru'
-                              ? 'Для старого курса дисциплина ещё не указана в каталоге.'
-                              : 'This legacy course does not yet have a catalog discipline.'}
-                          </span>
-                        </label>
+                      {!guestDiscipline && (
+                        <p className="type-caption text-[var(--ink-dim)]">
+                          {language === 'ru'
+                            ? 'Запись недоступна, пока в каталоге не указана дисциплина курса.'
+                            : 'Enrollment is unavailable until the course discipline is set.'}
+                        </p>
                       )}
 
                       <div className="flex items-center justify-between gap-3 py-2 border-t border-[var(--border)]">
@@ -1029,7 +1026,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                         loadingLabel={t('loading')}
                         errorLabel={t('courseCatalogLoadError')}
                         retryLabel={t('retry')}
-                        onRetry={reloadCourseCatalog}
+                        onRetry={retryCourseCatalog}
                       />
                       {availability?.label === 'soldOut' && (
                         <p role="status">{t('courseSoldOut')}</p>
@@ -1041,7 +1038,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                         type="submit"
                         pending={isSubmitting}
                         pendingLabel={t('submitting')}
-                        disabled={enrollmentBlocked || Boolean(guestActiveEnrollment)}
+                        disabled={enrollmentBlocked || !guestDiscipline || Boolean(guestActiveEnrollment)}
                         className="btn-primary w-full py-3"
                       >
                         {guestActiveEnrollment?.lifecycleStatus === 'pending' ? (

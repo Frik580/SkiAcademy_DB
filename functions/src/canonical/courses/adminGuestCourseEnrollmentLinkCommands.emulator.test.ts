@@ -178,6 +178,14 @@ async function seedFixture() {
     pricePerHourKZT: 12_000,
     isAvailable: true,
   });
+  await firestore.doc('course_catalog_content/' + courseId).set({
+    courseId: courseId,
+    discipline: 'ski',
+    duration: 'One day',
+    description: 'Course description',
+    dates: 'January',
+    bgImageUrl: '/ski.jpg',
+  });
   await firestore.doc(`courses/${courseId}`).set({
     courseId,
     title: 'Admin Enrollment Link Course',

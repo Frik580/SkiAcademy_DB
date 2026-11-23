@@ -261,8 +261,8 @@ export const queryCourseEnrollmentReadModels = onCall(
 
 export const queryCourseCatalogReadModels = onCall(
   'queryCourseCatalogReadModels',
-  CANONICAL_CALLABLE_OPTIONS,
-  async (request) => createQueryCourseCatalogReadModelsHandler(getAdminFirestore())(request)
+  GUEST_SECRET_CALLABLE_OPTIONS,
+  async (request) => createQueryCourseCatalogReadModelsHandler(getAdminFirestore(), guestActionTokenSecret.value())(request)
 );
 
 export const queryCourseAttendanceReadModels = onCall(

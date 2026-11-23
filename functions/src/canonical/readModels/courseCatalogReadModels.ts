@@ -12,7 +12,9 @@ import {
   LIVE_CANONICAL_READ_SCOPE,
   type CanonicalReadScope,
 } from '@ski-academy/shared-domain';
-import type { Firestore } from 'firebase-admin/firestore';
+import { FieldPath, Timestamp, type Firestore } from 'firebase-admin/firestore';
+import { HttpsError } from 'firebase-functions/v2/https';
+import { scopedReadCursor } from '../../security/scopedReadCursor';
 import { parseCourseCatalogContent } from '../courses/courseCatalogContentStore';
 import { parseCourse, parseCourseDays, courseDaysCollectionPath } from '../courses/courseStore';
 import { buildCourseScheduleProjectionReadModel } from './courseDayScheduleProjectionSupport';
@@ -60,9 +62,11 @@ async function buildCourseCatalogReadModel(
   firestore: Firestore,
   course: Course,
   now: ReturnType<typeof timestampFromDate>,
-  readScope: CanonicalReadScope
+  readScope: CanonicalReadScope,
+  readDays = (courseId: Course['courseId']) =>
+    firestore.collection(courseDaysCollectionPath(courseId)).get()
 ): Promise<CourseCatalogReadModel | undefined> {
-  const dayDocuments = await firestore.collection(courseDaysCollectionPath(course.courseId)).get();
+  const dayDocuments = await readDays(course.courseId);
   const courseDays = sortedCourseDays(
     parseCourseDays(
       queryDocsMatchingReadScope(dayDocuments.docs, readScope).map((doc) => ({
@@ -102,6 +106,102 @@ async function buildCourseCatalogReadModel(
   };
 }
 
+const CATALOG_PAGE_SIZE = 50;
+
+async function queryCatalogPage(
+  firestore: Firestore,
+  input: QueryCourseCatalogReadModelsInput,
+  page: NonNullable<QueryCourseCatalogReadModelsInput['page']>,
+  now: ReturnType<typeof timestampFromDate>,
+  readScope: CanonicalReadScope,
+  secret: string,
+  principalId: string | undefined
+): Promise<QueryCourseCatalogReadModelsResult> {
+  const scopeKey =
+    readScope.dataScope === 'live' ? 'live' : `test/sessions/${readScope.testSessionId}`;
+  const codec = scopedReadCursor(
+    secret,
+    JSON.stringify(['course_catalog', input.scope, scopeKey, principalId ?? ''])
+  );
+  let values: unknown[] = [];
+  if (page.cursor) {
+    try {
+      values = codec.decode(page.cursor);
+    } catch {
+      throw new HttpsError('failed-precondition', 'Catalog continuation is no longer valid.');
+    }
+  }
+  const [after, readTime] = values;
+  if (page.cursor && (typeof after !== 'string' || !(readTime instanceof Timestamp))) {
+    throw new HttpsError('invalid-argument', 'Invalid catalog cursor.');
+  }
+  if (readTime instanceof Timestamp && Date.now() - readTime.toMillis() >= 55_000) {
+    throw new HttpsError('aborted', 'Catalog snapshot expired.');
+  }
+  let query = firestore.collection('courses').orderBy(FieldPath.documentId());
+  if (readScope.dataScope === 'test') {
+    query = query
+      .where('dataScope', '==', 'test')
+      .where('testSessionId', '==', readScope.testSessionId);
+  }
+  if (typeof after === 'string') query = query.startAfter(after);
+  return firestore.runTransaction(
+    async (tx) => {
+      const [snapshot, courseSignal, contentSignal] = await Promise.all([
+        tx.get(query.limit(CATALOG_PAGE_SIZE + 1)),
+        tx.get(firestore.doc(`client_read_runtime/${scopeKey}/collections/courses`)),
+        tx.get(firestore.doc(`client_read_runtime/${scopeKey}/collections/course_catalog_content`)),
+      ]);
+      const scanned = snapshot.docs.slice(0, CATALOG_PAGE_SIZE);
+      const courses = scanned.flatMap((doc) => {
+        const course = parseIfVisibleInReadScope(doc.data(), parseCourse, readScope);
+        return course?.courseId === doc.id && course.lifecycle === 'active' ? [course] : [];
+      });
+      const contents = courses.length
+        ? await tx.getAll(
+            ...courses.map((course) => firestore.doc(`course_catalog_content/${course.courseId}`))
+          )
+        : [];
+      const items = await Promise.all(
+        courses.map(async (course, index) => {
+          const content = parseIfVisibleInReadScope(
+            contents[index]?.data(),
+            parseCourseCatalogContent,
+            readScope
+          );
+          if (!content || content.courseId !== course.courseId || content.isHidden)
+            return undefined;
+          const item = await buildCourseCatalogReadModel(
+            firestore,
+            course,
+            now,
+            readScope,
+            (courseId) => tx.get(firestore.collection(courseDaysCollectionPath(courseId)).limit(65))
+          );
+          return item && { ...item, presentation: catalogPresentation(content) };
+        })
+      );
+      const snapshotTime = readTime instanceof Timestamp ? readTime : snapshot.readTime;
+      return {
+        scope: input.scope,
+        items: items.filter((item): item is NonNullable<typeof item> => Boolean(item)),
+        page: {
+          next:
+            snapshot.size > CATALOG_PAGE_SIZE
+              ? codec.encode([
+                  scanned.at(-1)!.id,
+                  { timestamp: [snapshotTime.seconds, snapshotTime.nanoseconds] },
+                ])
+              : null,
+          scopeKey,
+          revisions: [courseSignal.get('revision') ?? null, contentSignal.get('revision') ?? null],
+        },
+      };
+    },
+    { readOnly: true, ...(readTime instanceof Timestamp ? { readTime } : {}) }
+  );
+}
+
 export async function queryCourseCatalogReadModels(
   firestore: Firestore,
   input: QueryCourseCatalogReadModelsInput,
@@ -109,11 +209,27 @@ export async function queryCourseCatalogReadModels(
     readonly now?: Date;
     readonly readContext?: ReadModelRequestContext;
     readonly readScope?: CanonicalReadScope;
+    readonly pageSecret?: string;
+    readonly principalId?: string;
   } = {}
 ): Promise<QueryCourseCatalogReadModelsResult> {
   const now = timestampFromDate(options.now ?? new Date());
-  const readScope = options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
-  const readContext = options.readContext ?? createReadModelRequestContext(firestore, { readScope });
+  const readScope =
+    options.readScope ?? options.readContext?.readScope ?? LIVE_CANONICAL_READ_SCOPE;
+  if (input.page) {
+    if (!options.pageSecret) throw new HttpsError('internal', 'Catalog pagination is unavailable.');
+    return queryCatalogPage(
+      firestore,
+      input,
+      input.page,
+      now,
+      readScope,
+      options.pageSecret,
+      options.principalId
+    );
+  }
+  const readContext =
+    options.readContext ?? createReadModelRequestContext(firestore, { readScope });
   const includePresentation = input.scope === 'product';
 
   if (input.scope === 'authenticated' || input.courseId) {

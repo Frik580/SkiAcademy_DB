@@ -1,3 +1,4 @@
+import { useAuthStore } from '../auth/authStore';
 import { useCallback } from 'react';
 import { AggregateRevisionSchema } from '@ski-academy/shared-domain/canonical/primitives';
 import {
@@ -39,6 +40,7 @@ import { mergeCatalogRecords, mergeCourseEnrollmentRecords } from './courseEnrol
 import {
   loadGuestSingleCourseEnrollment,
   hydrateGuestCourseEnrollmentsFromStorage,
+  reloadCourseCatalog,
 } from './useCourseEnrollmentReadSync';
 import {
   resolveCourseCancellationLifecycleFromStore,
@@ -47,9 +49,15 @@ import {
 import { resolveCabinetCancellationOutcome } from '../student-cabinet/resolveCabinetCancellationOutcome';
 
 async function refetchPublicCourseCatalog(courseId?: string): Promise<void> {
+  const { authGeneration } = useAuthStore.getState();
+  const { catalogRequestGeneration } = useCourseEnrollmentStore.getState();
   const catalogResult = await queryCourseCatalogReadModels(
     courseId ? { scope: 'public', courseId: CourseIdSchema.parse(courseId) } : { scope: 'public' }
   );
+  if (
+    useAuthStore.getState().authGeneration !== authGeneration ||
+    useCourseEnrollmentStore.getState().catalogRequestGeneration !== catalogRequestGeneration
+  ) return;
   const mergedCatalog = mergeCatalogRecords(
     useCourseEnrollmentStore.getState().catalogByCourseId,
     catalogResult.items
@@ -66,10 +74,10 @@ async function refetchAccountHotEnrollments(): Promise<void> {
       scope: 'account_hot',
       ...(participantId ? { selectedParticipantId: ParticipantIdSchema.parse(participantId) } : {}),
     }),
-    queryCourseCatalogReadModels({ scope: 'product' }).then((catalogResult) => {
-      useCourseEnrollmentStore
-        .getState()
-        .replaceCatalog(mergeCatalogRecords(new Map(), catalogResult.items));
+    reloadCourseCatalog().then(() => {
+      if (useCourseEnrollmentStore.getState().catalogStatus === 'error') {
+        throw new Error('Course catalog refresh failed.');
+      }
     }),
     refreshAccountCourseSessions(true),
   ]);
@@ -118,7 +126,10 @@ function resolveCreateEnrollmentOutcome(
   return 'created';
 }
 
-export function useCourseEnrollmentCommands(accountId: string | undefined) {
+export function useCourseEnrollmentCommands(
+  accountId: string | undefined,
+  { deferGuestStatusRefresh = false }: { deferGuestStatusRefresh?: boolean } = {}
+) {
   const createAuthenticatedEnrollment = useCallback(
     async (
       input: AuthenticatedCourseEnrollmentInput
@@ -203,10 +214,14 @@ export function useCourseEnrollmentCommands(accountId: string | undefined) {
           throw new Error('Guest course enrollment credential was not returned.');
         }
         persistGuestCourseEnrollmentCredential(credential);
-        await refreshGuestEnrollmentSurfaces({
-          courseId: input.courseId,
-          enrollmentId: credential.enrollmentId,
-        }).catch(() => undefined);
+        if (deferGuestStatusRefresh) {
+          void refetchPublicCourseCatalog(input.courseId).catch(() => undefined);
+        } else {
+          await refreshGuestEnrollmentSurfaces({
+            courseId: input.courseId,
+            enrollmentId: credential.enrollmentId,
+          }).catch(() => undefined);
+        }
         return credential;
       } catch (error) {
         await refreshGuestEnrollmentSurfaces({
@@ -216,7 +231,7 @@ export function useCourseEnrollmentCommands(accountId: string | undefined) {
         throw error;
       }
     },
-    []
+    [deferGuestStatusRefresh]
   );
 
   const completeGuestParticipantProfile = useCallback(

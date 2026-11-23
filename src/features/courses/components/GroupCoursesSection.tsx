@@ -1,6 +1,6 @@
 import { CourseCatalogFeedback } from './CourseCatalogFeedback';
 import { useCourseEnrollmentStore } from '../../course-enrollments/courseEnrollmentStore';
-import { reloadCourseCatalog } from '../../course-enrollments/useCourseEnrollmentReadSync';
+import { retryCourseCatalog } from '../../course-enrollments/useCourseEnrollmentReadSync';
 import React from 'react';
 import { m, useReducedMotion } from 'framer-motion';
 import { useLanguage, type Language } from '../../../app/providers/LanguageContext';
@@ -45,7 +45,6 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
   const isSignedIn = useAuthStore((state) => Boolean(state.firebaseUser));
   const publicCoursesStatus = useCoursesStore((state) => state.publicCoursesStatus);
   const catalogueScope = useCoursesStore((state) => state.catalogueScope);
-  const retryPublicCourses = useCoursesStore((state) => state.retryPublicCourses);
   const shouldReduceMotion = useReducedMotion();
   const visibleCourses = sortVisibleCourses(courses);
   const publicError = !isSignedIn && publicCoursesStatus === 'error';
@@ -55,10 +54,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
     catalogueScope === 'instructor' ||
     (!isSignedIn && publicCoursesStatus === 'loading');
   const error = publicError || catalogStatus === 'error';
-  const retry = () => {
-    if (publicError) retryPublicCourses();
-    if (catalogStatus === 'error') void reloadCourseCatalog();
-  };
+
 
   return (
     <div id="courses-grid" className="space-y-6 w-full max-w-[1200px] mx-auto">
@@ -77,7 +73,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
           loadingLabel={t('loading')}
           errorLabel={t('courseCatalogLoadError')}
           retryLabel={t('retry')}
-          onRetry={retry}
+          onRetry={retryCourseCatalog}
         />
       )}
       <div
@@ -111,7 +107,7 @@ export const GroupCoursesSection: React.FC<GroupCoursesSectionProps> = ({
               courseEnrollments={courseEnrollments}
               selectedParticipantId={selectedParticipantId}
               catalogStatus={catalogStatus}
-              onRetryCatalog={reloadCourseCatalog}
+              onRetryCatalog={retryCourseCatalog}
               catalogOperational={lookupCourseCatalogOperational(catalogByCourseId, rawCourse.id)}
               userProfile={userProfile}
               language={language}

@@ -157,6 +157,14 @@ async function seedSecondCourse() {
   const secondDayId = CourseDayIdSchema.parse('course_day_guest_transport_emulator_02');
   const secondDayStart = timestampFromDate(new Date('2026-03-01T03:00:00.000Z'));
   const secondDayEnd = timestampFromDate(new Date('2026-03-01T05:00:00.000Z'));
+  await firestore.doc('course_catalog_content/' + secondCourseId).set({
+    courseId: secondCourseId,
+    discipline: 'ski',
+    duration: 'One day',
+    description: 'Course description',
+    dates: 'January',
+    bgImageUrl: '/ski.jpg',
+  });
   await firestore.doc(`courses/${secondCourseId}`).set({
     courseId: secondCourseId,
     title: 'Guest Transport Course B',
@@ -213,6 +221,14 @@ async function durableGuestCounts(targetCourseId = courseId) {
 }
 
 async function seedCourse() {
+  await firestore.doc('course_catalog_content/' + courseId).set({
+    courseId: courseId,
+    discipline: 'ski',
+    duration: 'One day',
+    description: 'Course description',
+    dates: 'January',
+    bgImageUrl: '/ski.jpg',
+  });
   await firestore.doc(`courses/${courseId}`).set({
     courseId,
     title: 'Guest Transport Course',
@@ -277,6 +293,7 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
   beforeEach(async () => {
     const collections = [
       'courses',
+      'course_catalog_content',
       'course_enrollments',
       'participants',
       'instructor_relationships',
@@ -298,6 +315,29 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     }
     await seedCourse();
   });
+
+  it.each(['missing', 'unknown', 'mismatch', 'hidden', 'archived', 'deleted'])(
+    'rejects a guest create for a %s course without changing enrollment or payment state',
+    async (condition) => {
+      const course = firestore.doc('courses/' + courseId);
+      const content = firestore.doc('course_catalog_content/' + courseId);
+      if (condition === 'missing') await content.delete();
+      if (condition === 'unknown') {
+        const { discipline, ...fields } = (await content.get()).data()!;
+        expect(discipline).toBe('ski');
+        await content.set(fields);
+      }
+      if (condition === 'mismatch') await content.update({ discipline: 'snowboard' });
+      if (condition === 'hidden') await content.update({ isHidden: true });
+      if (condition === 'archived') await course.update({ lifecycle: 'archived' });
+      if (condition === 'deleted') await course.delete();
+      const before = await durableGuestCounts();
+      const command = await createCommands().execute(guestEnrollmentEnvelope('idem-catalog-' + condition));
+      expect(command).toMatchObject({ status: 'error', error: { code: 'validation' } });
+      expect(await durableGuestCounts()).toEqual(before);
+      expect((await firestore.doc('participants/' + participantId).get()).exists).toBe(false);
+    }
+  );
 
   it('synchronizes a reused browser guest profile across courses and both read models', async () => {
     const commands = createCommands();

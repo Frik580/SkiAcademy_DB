@@ -61,7 +61,7 @@ function accountContext(idempotencyKey: string) {
   };
 }
 
-function baseFixture(extra: Record<string, unknown> = {}) {
+function baseFixture(extra: Record<string, unknown> = {}, discipline = 'ski') {
   return {
     [`users/${accountId}`]: AccountSchema.parse({
       accountId,
@@ -118,6 +118,14 @@ function baseFixture(extra: Record<string, unknown> = {}) {
         lastChangedByCommandId: 'command_seed',
         correlationId,
       },
+    },
+    [`course_catalog_content/${courseId}`]: {
+      courseId,
+      discipline: discipline,
+      duration: 'One day',
+      description: 'Course description',
+      dates: 'January',
+      bgImageUrl: '/ski.jpg',
     },
     [`courses/${courseId}/days/${courseDayId}`]: {
       courseId,
@@ -272,7 +280,7 @@ describe('guest course enrollment participant profile creation', () => {
   it.each(['ski', 'snowboard'] as const)(
     'stores the actual %s guest profile and participant-scoped enrollment',
     async (discipline) => {
-      const fixture = baseFixture();
+      const fixture = baseFixture({}, discipline);
       delete fixture[`participants/${guestParticipantId}`];
       const executor = createInMemoryCanonicalTransactionExecutor(fixture);
       const envelope = guestCreateEnvelope('guest-profile-create');

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { timestampFromDate } from '@ski-academy/shared-domain';
+import { useAuthStore } from '../../src/features/auth/authStore';
 import { useCourseEnrollmentStore } from '../../src/features/course-enrollments/courseEnrollmentStore';
 
 const executeAuthenticatedMock = vi.fn();
@@ -23,6 +24,7 @@ import { useCourseEnrollmentCommands } from '../../src/features/course-enrollmen
 
 describe('courseEnrollment commands integration', () => {
   beforeEach(() => {
+    useAuthStore.setState({ firebaseUser: null });
     useCourseEnrollmentStore.getState().reset();
     executeAuthenticatedMock.mockReset();
     executeGuestMock.mockReset();
@@ -33,6 +35,7 @@ describe('courseEnrollment commands integration', () => {
 
   it('creates authenticated enrollment and refetches hot enrollments and catalog', async () => {
     const accountId = 'account_fixture_01';
+    useAuthStore.setState({ firebaseUser: { uid: accountId } as never });
     executeAuthenticatedMock.mockResolvedValueOnce({
       status: 'success',
       payload: { outcome: 'created' },
@@ -42,7 +45,7 @@ describe('courseEnrollment commands integration', () => {
       items: [],
       hasMore: false,
     });
-    queryCatalogMock.mockResolvedValueOnce({ scope: 'product', items: [] });
+    queryCatalogMock.mockResolvedValueOnce({ scope: 'product', items: [], page: { scopeKey: 'live', next: null, revisions: [null, null] } });
 
     const { result } = renderHook(() => useCourseEnrollmentCommands(accountId));
     const created = await result.current.createAuthenticatedEnrollment({
@@ -63,7 +66,7 @@ describe('courseEnrollment commands integration', () => {
       })
     );
     expect(queryEnrollmentMock).toHaveBeenCalledWith({ scope: 'account_hot' });
-    expect(queryCatalogMock).toHaveBeenCalledWith({ scope: 'product' });
+    expect(queryCatalogMock).toHaveBeenCalledWith({ scope: 'product', page: {} });
   });
 
   it('cancels a guest enrollment with the canonical command and cancellation-scoped credential', async () => {
@@ -106,12 +109,13 @@ describe('courseEnrollment commands integration', () => {
 
   it('keeps authenticated enrollment successful when post-create refresh fails', async () => {
     const accountId = 'account_fixture_01';
+    useAuthStore.setState({ firebaseUser: { uid: accountId } as never });
     executeAuthenticatedMock.mockResolvedValueOnce({
       status: 'success',
       payload: { outcome: 'created' },
     });
     queryEnrollmentMock.mockRejectedValueOnce(new Error('read failed'));
-    queryCatalogMock.mockResolvedValueOnce({ scope: 'product', items: [] });
+    queryCatalogMock.mockResolvedValueOnce({ scope: 'product', items: [], page: { scopeKey: 'live', next: null, revisions: [null, null] } });
 
     const { result } = renderHook(() => useCourseEnrollmentCommands(accountId));
     const created = await result.current.createAuthenticatedEnrollment({
@@ -131,6 +135,7 @@ describe('courseEnrollment commands integration', () => {
 
   it('returns already_exists outcome for equivalent success without treating it as a new debit', async () => {
     const accountId = 'account_fixture_01';
+    useAuthStore.setState({ firebaseUser: { uid: accountId } as never });
     executeAuthenticatedMock.mockResolvedValueOnce({
       status: 'success',
       payload: { outcome: 'already_exists' },
@@ -140,7 +145,7 @@ describe('courseEnrollment commands integration', () => {
       items: [],
       hasMore: false,
     });
-    queryCatalogMock.mockResolvedValueOnce({ scope: 'product', items: [] });
+    queryCatalogMock.mockResolvedValueOnce({ scope: 'product', items: [], page: { scopeKey: 'live', next: null, revisions: [null, null] } });
 
     const { result } = renderHook(() => useCourseEnrollmentCommands(accountId));
     const replayed = await result.current.createAuthenticatedEnrollment({

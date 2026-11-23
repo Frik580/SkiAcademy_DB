@@ -8,12 +8,24 @@ import { timestampFromDate } from '@ski-academy/shared-domain/canonical/primitiv
 import {
   type QueryCourseEnrollmentReadModelsInput,
   type QueryCourseEnrollmentReadModelsResult,
+  type CourseCatalogReadModel,
+  type QueryCourseCatalogReadModelsResult,
 } from '@ski-academy/shared-domain';
+import {
+  db,
+  doc,
+  handleFirestoreError,
+  onSnapshot,
+  OperationType,
+} from '../../infrastructure/firebase';
+import { observeTestActorAssignment } from '../../lib/canonical/scopedClientDocuments';
 import {
   queryCourseCatalogReadModels,
   queryCourseEnrollmentReadModels,
 } from '../../lib/canonical/canonicalReadModelClient';
 import { useAuthStore } from '../auth/authStore';
+import { useCoursesStore } from '../courses/coursesStore';
+import { useUiStore } from '../shell/uiStore';
 import { useCourseEnrollmentStore } from './courseEnrollmentStore';
 import { mergeCatalogRecords, mergeCourseEnrollmentRecords } from './courseEnrollmentViewModel';
 import {
@@ -29,6 +41,34 @@ let catalogRequest:
       promise: Promise<void>;
     }
   | undefined;
+
+function clearCourseCatalog() {
+  useUiStore.setState({
+    selectedCourseForAuth: null,
+    selectedCourseForDetails: null,
+    selectedCourseDetailsEnrollmentId: undefined,
+  });
+  useCourseEnrollmentStore.setState({
+    catalogRecords: [],
+    catalogByCourseId: new Map(),
+    catalogPage: undefined,
+    catalogStatus: 'loading',
+  });
+}
+
+function invalidateCourseCatalog() {
+  useCourseEnrollmentStore.setState((state) => ({
+    catalogRequestGeneration: state.catalogRequestGeneration + 1,
+  }));
+  clearCourseCatalog();
+}
+
+function isCatalogScopeError(error: unknown) {
+  const code = (error as { code?: string } | null)?.code;
+  return ['permission-denied', 'unauthenticated', 'failed-precondition'].some(
+    (denied) => code === denied || code === `functions/${denied}`
+  );
+}
 
 /** One in-flight catalog read per principal; retries always call the canonical source. */
 export function reloadCourseCatalog(): Promise<void> {
@@ -55,15 +95,55 @@ export function reloadCourseCatalog(): Promise<void> {
     useAuthStore.getState().firebaseUser?.uid === uid;
   const promise = (async () => {
     try {
-      const result = await queryCourseCatalogReadModels({ scope: uid ? 'product' : 'public' });
-      if (!isCurrent()) return;
+      const items: CourseCatalogReadModel[] = [];
+      let firstPage: QueryCourseCatalogReadModelsResult['page'];
+      let cursor: string | undefined;
+      let restarted = false;
+      do {
+        let result: QueryCourseCatalogReadModelsResult;
+        try {
+          result = await queryCourseCatalogReadModels({
+            scope: uid ? 'product' : 'public',
+            page: cursor ? { cursor } : {},
+          });
+        } catch (error) {
+          if (!isCurrent()) return;
+          const code = (error as { code?: string } | null)?.code;
+          if (!cursor || restarted || (code !== 'functions/aborted' && code !== 'aborted'))
+            throw error;
+          items.length = 0;
+          firstPage = undefined;
+          cursor = undefined;
+          restarted = true;
+          continue;
+        }
+        if (!isCurrent()) return;
+        if (!result.page) throw new Error('Catalog pagination is unavailable.');
+        const confirmedScope = useCourseEnrollmentStore.getState().catalogPage?.scopeKey;
+        if (!firstPage && confirmedScope && confirmedScope !== result.page.scopeKey) {
+          clearCourseCatalog();
+        }
+        if (firstPage && firstPage.scopeKey !== result.page.scopeKey) {
+          invalidateCourseCatalog();
+          useCourseEnrollmentStore.setState({ catalogStatus: 'error', catalogLoading: false });
+          return;
+        }
+        if (cursor && result.page.next === cursor) throw new Error('Invalid catalog continuation.');
+        firstPage ??= result.page;
+        items.push(...result.items);
+        cursor = result.page.next ?? undefined;
+      } while (cursor || !firstPage);
       useCourseEnrollmentStore.setState({
-        catalogRecords: result.items,
-        catalogByCourseId: mergeCatalogRecords(new Map(), result.items),
+        catalogRecords: items,
+        catalogByCourseId: mergeCatalogRecords(new Map(), items),
+        catalogPage: firstPage,
         catalogStatus: 'ready',
       });
-    } catch {
-      if (isCurrent()) useCourseEnrollmentStore.setState({ catalogStatus: 'error' });
+    } catch (error) {
+      if (isCurrent()) {
+        if (isCatalogScopeError(error)) invalidateCourseCatalog();
+        useCourseEnrollmentStore.setState({ catalogStatus: 'error', catalogLoading: false });
+      }
     } finally {
       if (isCurrent()) useCourseEnrollmentStore.getState().setCatalogLoading(false);
       if (catalogRequest?.generation === generation) catalogRequest = undefined;
@@ -71,6 +151,11 @@ export function reloadCourseCatalog(): Promise<void> {
   })();
   catalogRequest = { generation, authGeneration, uid, promise };
   return promise;
+}
+
+export function retryCourseCatalog(): Promise<void> {
+  useCoursesStore.getState().retryPublicCourses();
+  return reloadCourseCatalog();
 }
 
 function finishScopedHistoryLoad(participantId: string, generation: number): boolean {
@@ -336,6 +421,8 @@ export function useCourseCatalogReadSync(enabled: boolean) {
   const authLoading = useAuthStore((state) => state.authLoading);
   const firebaseUserId = useAuthStore((state) => state.firebaseUser?.uid);
   const authGeneration = useAuthStore((state) => state.authGeneration);
+  const scopeKey = useCourseEnrollmentStore((state) => state.catalogPage?.scopeKey);
+  const retryNonce = useCoursesStore((state) => state.publicCoursesRetryNonce);
 
   const loadCatalog = useCallback(async () => {
     if (enabled && !useAuthStore.getState().authLoading) await reloadCourseCatalog();
@@ -344,7 +431,94 @@ export function useCourseCatalogReadSync(enabled: boolean) {
   useEffect(() => {
     if (!enabled || authLoading) return;
     void loadCatalog();
-  }, [authGeneration, authLoading, enabled, firebaseUserId, loadCatalog]);
+  }, [authGeneration, authLoading, enabled, firebaseUserId, loadCatalog, retryNonce]);
+
+  useEffect(() => {
+    if (!enabled || authLoading || !firebaseUserId) return;
+    let active = true;
+    let assignment: string | null | undefined;
+    const stop = observeTestActorAssignment(
+      firebaseUserId,
+      (sessionId) => {
+        if (!active || assignment === sessionId) return;
+        const previous = assignment;
+        assignment = sessionId;
+        const currentScope = useCourseEnrollmentStore.getState().catalogPage?.scopeKey;
+        const assignedScope = sessionId ? `test/sessions/${sessionId}` : 'live';
+        if (previous === undefined && (currentScope === assignedScope || (!sessionId && !currentScope)))
+          return;
+        invalidateCourseCatalog();
+        void loadCatalog();
+      },
+      (error) => {
+        const currentScope = useCourseEnrollmentStore.getState().catalogPage?.scopeKey;
+        // LIVE accounts cannot read TestActor assignments.
+        if (!active || !currentScope?.startsWith('test/')) return;
+        if (isCatalogScopeError(error)) {
+          invalidateCourseCatalog();
+          void loadCatalog();
+        } else {
+          useCourseEnrollmentStore.setState({ catalogStatus: 'error' });
+        }
+      }
+    );
+    return () => {
+      active = false;
+      stop?.();
+    };
+  }, [authGeneration, authLoading, enabled, firebaseUserId, loadCatalog, retryNonce]);
+
+  useEffect(() => {
+    if (!enabled || authLoading || !scopeKey) return;
+    let active = true;
+    const collections = ['courses', 'course_catalog_content'] as const;
+    const unsubscribes = collections.map((collection, index) =>
+      onSnapshot(
+        doc(db, `client_read_runtime/${scopeKey}/collections/${collection}`),
+        { includeMetadataChanges: true },
+        (snapshot) => {
+          const page = useCourseEnrollmentStore.getState().catalogPage;
+          if (
+            !active ||
+            page?.scopeKey !== scopeKey ||
+            snapshot.metadata.fromCache ||
+            snapshot.metadata.hasPendingWrites
+          )
+            return;
+          if ((snapshot.data()?.revision ?? null) !== page.revisions[index]) {
+            // A request already in flight might have read an older snapshot.
+            const inFlight = catalogRequest?.promise;
+            if (inFlight) {
+              void inFlight.then(() => {
+                const latest = useCourseEnrollmentStore.getState().catalogPage;
+                if (
+                  active &&
+                  latest?.scopeKey === scopeKey &&
+                  (snapshot.data()?.revision ?? null) !== latest.revisions[index]
+                )
+                  void loadCatalog();
+              });
+            } else void loadCatalog();
+          }
+        },
+        (error) => {
+          if (!active || useCourseEnrollmentStore.getState().catalogPage?.scopeKey !== scopeKey)
+            return;
+          if (isCatalogScopeError(error)) {
+            invalidateCourseCatalog();
+            void loadCatalog();
+          } else {
+            useCourseEnrollmentStore.setState({ catalogStatus: 'error' });
+            handleFirestoreError(error, OperationType.LIST, collection);
+          }
+        }
+      )
+    );
+    return () => {
+      active = false;
+      unsubscribes.forEach((unsubscribe) => unsubscribe());
+    };
+  }, [authGeneration, authLoading, enabled, loadCatalog, retryNonce, scopeKey]);
 
   return { reloadCatalog: loadCatalog };
 }

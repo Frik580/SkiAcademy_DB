@@ -10,6 +10,7 @@ import {
 import { resolveCabinetCancellationOutcome } from '../../src/features/student-cabinet/resolveCabinetCancellationOutcome';
 import { useLessonBookingStore } from '../../src/features/lesson-bookings/lessonBookingStore';
 import { useCourseEnrollmentStore } from '../../src/features/course-enrollments/courseEnrollmentStore';
+import { useAuthStore } from '../../src/features/auth/authStore';
 import type { LessonBookingCabinetItem } from '../../src/features/lesson-bookings/lessonBookingContracts';
 import type { CourseEnrollmentCabinetItem } from '../../src/features/course-enrollments';
 
@@ -81,6 +82,7 @@ function courseItem(
 
 describe('cabinet cancellation outcome', () => {
   beforeEach(() => {
+    useAuthStore.setState({ firebaseUser: null });
     useLessonBookingStore.getState().reset();
     useCourseEnrollmentStore.getState().reset();
     executeAuthenticatedMock.mockReset();
@@ -281,6 +283,7 @@ describe('cabinet cancellation outcome', () => {
   });
 
   it('updates course store after pending cancellation refresh', async () => {
+    useAuthStore.setState({ firebaseUser: { uid: 'account_fixture_01' } as never });
     // The cabinet container can only cancel an enrollment it currently renders, so
     // the pre-command item is always present. Course hot refresh is participant-scoped.
     useCourseEnrollmentStore.getState().beginScopedLoad('participant_01');
@@ -333,9 +336,9 @@ describe('cabinet cancellation outcome', () => {
       hasMore: false,
     });
     queryCatalogReadModelsMock.mockResolvedValueOnce({
-      scope: 'public',
+      scope: 'product',
       items: [],
-      hasMore: false,
+      page: { scopeKey: 'live', next: null, revisions: [null, null] },
     });
 
     const { result } = renderHook(() => useCourseEnrollmentCommands('account_fixture_01'));

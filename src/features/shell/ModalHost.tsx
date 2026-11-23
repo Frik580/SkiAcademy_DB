@@ -1,4 +1,4 @@
-import { reloadCourseCatalog } from '../course-enrollments/useCourseEnrollmentReadSync';
+import { retryCourseCatalog } from '../course-enrollments/useCourseEnrollmentReadSync';
 import React from 'react';
 import { useLanguage, translateCourse } from '../../app/providers/LanguageContext';
 import { useUiStore } from './uiStore';
@@ -72,6 +72,7 @@ export const ModalHost: React.FC = () => {
   const selectedInstructor = useUiStore((s) => s.selectedInstructor);
   const setSelectedInstructor = useUiStore((s) => s.setSelectedInstructor);
   const selectedCourseForAuth = useUiStore((s) => s.selectedCourseForAuth);
+  const currentCourseForAuth = courses.find((course) => course.id === selectedCourseForAuth?.id);
   const setSelectedCourseForAuth = useUiStore((s) => s.setSelectedCourseForAuth);
   const selectedCourseForDetails = useUiStore((s) => s.selectedCourseForDetails);
   const setSelectedCourseForDetails = useUiStore((s) => s.setSelectedCourseForDetails);
@@ -133,7 +134,8 @@ export const ModalHost: React.FC = () => {
           <CourseEnrollmentModal
             isOpen
             onClose={() => setSelectedCourseForAuth(null)}
-            course={translateCourse(selectedCourseForAuth, language)}
+            course={translateCourse(currentCourseForAuth ?? selectedCourseForAuth, language)}
+            courseUnavailable={!currentCourseForAuth}
             userProfile={userProfile}
             onEnroll={handleBookCourse}
             onSuccess={() => setSelectedCourseForDetails(null)}
@@ -152,7 +154,7 @@ export const ModalHost: React.FC = () => {
             userProfile={userProfile}
             catalogOperational={selectedCatalogOperational}
             catalogStatus={catalogStatus}
-            onRetryCatalog={reloadCourseCatalog}
+            onRetryCatalog={retryCourseCatalog}
             isEnrolled={Boolean(selectedEnrollment)}
             enrollmentLifecycleStatus={selectedEnrollment?.lifecycleStatus}
             courseProgress={selectedCourseProgress}

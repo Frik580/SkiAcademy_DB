@@ -132,7 +132,7 @@ vi.mock('../../src/features/course-enrollments', () => ({
 }));
 
 vi.mock('../../src/features/course-enrollments/useCourseEnrollmentReadSync', () => ({
-  reloadCourseCatalog: vi.fn(),
+  retryCourseCatalog: vi.fn(),
   loadGuestSingleCourseEnrollment: (...args: unknown[]) =>
     mocks.loadGuestSingleCourseEnrollment(...args),
 }));
@@ -1090,18 +1090,86 @@ describe('CourseEnrollmentModal guest enrollment', () => {
     expect(submitted).not.toHaveProperty('guestSkillLevel');
   });
 
-  it('asks only for discipline on a legacy course without catalog discipline', () => {
-    const legacyCourse = { ...course };
-    delete legacyCourse.discipline;
-    expect(legacyCourse).not.toHaveProperty('discipline');
-    render(
-      <CourseEnrollmentModal isOpen onClose={vi.fn()} course={legacyCourse} onEnroll={vi.fn()} />
-    );
-    expect(
-      screen.getByRole('combobox', { name: /^participantsDisciplineLabel \*/ })
-    ).toBeRequired();
-    expect(screen.queryByLabelText('participantsAgeLabel *')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('participantsSkillLabel *')).not.toBeInTheDocument();
+  it.each(['missing discipline', 'removed', 'hidden'])('blocks a course with %s', (reason) => {
+    const props = { isOpen: true, onClose: vi.fn(), onEnroll: vi.fn() };
+    const { rerender } = render(<CourseEnrollmentModal {...props} course={course} />);
+    fireEvent.change(screen.getByPlaceholderText('guestNamePlaceholder'), { target: { value: 'Petr' } });
+    fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), { target: { value: '+77001234567' } });
+    rerender(<CourseEnrollmentModal {...props}
+      course={{ ...course, discipline: reason === 'missing discipline' ? undefined : course.discipline, isHidden: reason === 'hidden' }}
+      courseUnavailable={reason === 'removed'}
+    />);
+    const button = screen.getByRole('button', { name: /Send request/i });
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(button).toBeDisabled();
+    fireEvent.submit(button.closest('form')!);
+    expect(mocks.createGuestEnrollment).not.toHaveBeenCalled();
+  });
+
+  it('uses the updated course discipline without clearing the contact fields', async () => {
+    const props = { isOpen: true, onClose: vi.fn(), onEnroll: vi.fn() };
+    const { rerender } = render(<CourseEnrollmentModal {...props} course={course} />);
+    fireEvent.change(screen.getByPlaceholderText('guestNamePlaceholder'), { target: { value: 'Ars' } });
+    fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), { target: { value: '+77001234567' } });
+    rerender(<CourseEnrollmentModal {...props} course={{ ...course, discipline: 'snowboard' }} />);
+    expect(screen.getByPlaceholderText('guestNamePlaceholder')).toHaveValue('Ars');
+    expect(screen.getByPlaceholderText('guestPhonePlaceholder')).toHaveValue('+77001234567');
+    fireEvent.click(screen.getByRole('button', { name: /Send request/i }));
+    await waitFor(() => expect(mocks.createGuestEnrollment).toHaveBeenCalledWith(expect.objectContaining({
+      guestDiscipline: 'snowboard', guestDisplayName: 'Ars', guestPhone: '+77001234567',
+    })));
+  });
+
+  it('shows that the guest request was created before the status read returns', async () => {
+    let finishCreate!: (value: unknown) => void;
+    let finish!: (value: unknown) => void;
+    mocks.createGuestEnrollment.mockReturnValueOnce(new Promise((resolve) => {
+      finishCreate = resolve;
+    }));
+    mocks.loadGuestSingleCourseEnrollment.mockReturnValueOnce(new Promise((resolve) => {
+      finish = resolve;
+    }));
+    const onClose = vi.fn();
+    render(<CourseEnrollmentModal isOpen onClose={onClose} course={course} onEnroll={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText('guestNamePlaceholder'), {
+      target: { value: 'Petr' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
+      target: { value: '+77001234567' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Send request/i }));
+    fireEvent.change(screen.getByPlaceholderText('guestNamePlaceholder'), {
+      target: { value: 'Local edit' },
+    });
+    await act(async () => finishCreate({ enrollmentId: 'enrollment_pending_guest' }));
+
+    expect(await screen.findByText('postCreateRefreshFailedCourseTitle')).toBeInTheDocument();
+    expect(screen.getByText('Petr')).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: 'closeBtn' }).at(-1)!);
+    expect(onClose).toHaveBeenCalledOnce();
+    await act(async () => finish(pendingGuestReservation));
+  });
+
+  it('ignores the completion of a guest command after the dialog changes courses', async () => {
+    let finish!: (value: unknown) => void;
+    mocks.createGuestEnrollment.mockReturnValueOnce(new Promise((resolve) => {
+      finish = resolve;
+    }));
+    const onSuccess = vi.fn();
+    const props = { isOpen: true, onClose: vi.fn(), onEnroll: vi.fn(), onSuccess };
+    const { rerender } = render(<CourseEnrollmentModal {...props} course={course} />);
+    fireEvent.change(screen.getByPlaceholderText('guestNamePlaceholder'), {
+      target: { value: 'Petr' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('guestPhonePlaceholder'), {
+      target: { value: '+77001234567' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Send request/i }));
+    rerender(<CourseEnrollmentModal {...props} course={{ ...course, id: 'course_updated' }} />);
+    await act(async () => finish({ enrollmentId: 'enrollment_pending_guest' }));
+    expect(screen.queryByText('postCreateRefreshFailedCourseTitle')).not.toBeInTheDocument();
+    expect(mocks.loadGuestSingleCourseEnrollment).not.toHaveBeenCalled();
+    expect(onSuccess).not.toHaveBeenCalled();
   });
 
   it('stays in created state when post-create enrollment read fails', async () => {

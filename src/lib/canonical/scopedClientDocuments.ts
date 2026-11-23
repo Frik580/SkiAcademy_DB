@@ -98,7 +98,10 @@ export function subscribeScopedDocuments(
       | 'activity_logs';
   },
   publish: (snapshot: ScopedDocumentSnapshot) => void,
-  fail: (error: unknown) => void
+  fail: (error: unknown) => void,
+  // Consumers with an invalidation handler receive only successful snapshots
+  // and can retain their data across transient refresh failures.
+  invalidateScope?: () => void
 ): () => void {
   let active = true;
   let loading = false;
@@ -107,21 +110,40 @@ export function subscribeScopedDocuments(
   let stopAssignment: (() => void) | undefined;
   let assignment: string | null | undefined;
   let generation = 0;
+  let signalGeneration = 0;
   let path = '';
   let revision: string | null = null;
   let previous = new Map<string, string>();
   const uid = auth.currentUser?.uid;
+  const isCurrentPrincipal = () => active && uid === auth.currentUser?.uid;
+  const stopSignal = () => {
+    signalGeneration++;
+    stop?.();
+    stop = undefined;
+    path = '';
+  };
   const clear = (keepSignal = false) => {
     generation++;
-    if (!keepSignal) {
-      stop?.();
-      stop = undefined;
-      path = '';
-    }
+    if (!keepSignal) stopSignal();
     previous.clear();
-    publish({ docs: [], metadata: { fromCache: false }, docChanges: () => [] });
+    if (invalidateScope) invalidateScope();
+    else publish({ docs: [], metadata: { fromCache: false }, docChanges: () => [] });
+  };
+  const scopeDenied = (error: unknown) => {
+    const code = (error as { code?: string } | null)?.code;
+    return (
+      code === 'functions/permission-denied' ||
+      code === 'functions/failed-precondition' ||
+      Boolean(
+        invalidateScope &&
+        (code === 'functions/unauthenticated' ||
+          code === 'permission-denied' ||
+          code === 'unauthenticated')
+      )
+    );
   };
   const refresh = async () => {
+    if (!isCurrentPrincipal()) return;
     if (loading) {
       pending = true;
       return;
@@ -130,7 +152,7 @@ export function subscribeScopedDocuments(
     const currentGeneration = generation;
     try {
       const result = await getScopedDocuments(input);
-      if (!active || uid !== auth.currentUser?.uid || currentGeneration !== generation) return;
+      if (!isCurrentPrincipal() || currentGeneration !== generation) return;
       if (!result.runtimePath) throw new Error('This query has no realtime signal.');
       const testSession = /^client_read_runtime\/test\/sessions\/([^/]+)\//.exec(
         result.runtimePath
@@ -154,12 +176,16 @@ export function subscribeScopedDocuments(
       });
       previous = new Map(docs.map((item) => [item.id, JSON.stringify(item.data())]));
       publish({ docs, metadata: { fromCache: false }, docChanges: () => changes });
+      if (!isCurrentPrincipal() || currentGeneration !== generation) return;
       if (path !== result.runtimePath) {
-        stop?.();
+        stopSignal();
         path = result.runtimePath;
+        const currentSignal = signalGeneration;
+        const isCurrentSignal = () => isCurrentPrincipal() && currentSignal === signalGeneration;
         stop = onSnapshot(
           doc(db, path),
           (signal) => {
+            if (!isCurrentSignal()) return;
             const next = (signal.data()?.revision as string | undefined) ?? null;
             if (next !== revision) {
               revision = next;
@@ -167,19 +193,18 @@ export function subscribeScopedDocuments(
             }
           },
           (error) => {
-            if (!active || path !== result.runtimePath) return;
-            clear();
+            if (!isCurrentSignal()) return;
+            if (!invalidateScope || scopeDenied(error)) clear();
+            else stopSignal();
             fail(error);
           }
         );
       }
     } catch (error) {
-      if (active && currentGeneration === generation && uid === auth.currentUser?.uid) {
-        const code = (error as { code?: string }).code;
-        const scopeDenied =
-          code === 'functions/permission-denied' || code === 'functions/failed-precondition';
-        clear(!scopeDenied);
-        if (scopeDenied) watchAssignment();
+      if (isCurrentPrincipal() && currentGeneration === generation) {
+        const denied = scopeDenied(error);
+        if (!invalidateScope || denied) clear(!denied);
+        if (denied) watchAssignment();
         fail(error);
       }
     } finally {
@@ -193,7 +218,7 @@ export function subscribeScopedDocuments(
   const watchAssignment = () => {
     if (!uid || stopAssignment) return;
     stopAssignment = observeTestActorAssignment(uid, (sessionId) => {
-      if (!active || uid !== auth.currentUser?.uid || assignment === sessionId) return;
+      if (!isCurrentPrincipal() || assignment === sessionId) return;
       assignment = sessionId;
       clear();
       if (sessionId) void refresh();
@@ -202,7 +227,7 @@ export function subscribeScopedDocuments(
   void refresh();
   return () => {
     active = false;
-    stop?.();
+    stopSignal();
     stopAssignment?.();
   };
 }

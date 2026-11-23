@@ -1,7 +1,7 @@
 import { createElement, type ReactNode } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { User } from 'firebase/auth';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuthStore } from '../../src/features/auth/authStore';
 import { useSessionSync } from '../../src/features/auth/sync/useSessionSync';
@@ -59,6 +59,12 @@ const liveCourse = {
   id: 'course_live',
   data: { title: 'Live course', price: 25000, capacity: { totalSeats: 4, availableSeats: 4 } },
 };
+const liveContent = {
+  id: liveCourse.id,
+  data: { duration: '2 days', description: 'Course', dates: 'January', bgImageUrl: '/ski.jpg' },
+};
+const newCourse = { ...liveCourse, id: 'course_new' };
+const newContent = { id: newCourse.id, data: { ...liveContent.data, discipline: 'ski' } };
 const instructor = (id: string) => ({
   instructorId: id,
   name: id,
@@ -104,6 +110,7 @@ function mount(pathname = '/') {
       useBookingsSync();
       useCoursesSync(true);
       useCourseCatalogReadSync(true);
+      return useNavigate();
     },
     {
       wrapper: ({ children }: { children: ReactNode }) =>
@@ -138,9 +145,11 @@ describe('public catalogue across Firebase Auth transitions', () => {
       docs:
         collection === 'courses'
           ? [liveCourse]
-          : collection === 'instructors'
-            ? [{ id: 'ins_live', data: instructor('ins_live') }]
-            : [],
+          : collection === 'course_catalog_content'
+            ? [liveContent]
+            : collection === 'instructors'
+              ? [{ id: 'ins_live', data: instructor('ins_live') }]
+              : [],
       cursor: null,
       revision: '1',
       runtimePath: 'client_read_runtime/live/collections/' + collection,
@@ -205,6 +214,272 @@ describe('public catalogue across Firebase Auth transitions', () => {
     await expectGuestCatalogue();
     expect(firebase.watch).toHaveBeenCalledTimes(3);
     expect(useAuthStore.getState().authGeneration).toBe(0);
+  });
+
+  function refreshCatalogue(collection: 'courses' | 'course_catalog_content', revision: string) {
+    const path = 'client_read_runtime/live/collections/' + collection;
+    const [, receive] = firebase.watch.mock.calls.findLast(([signal]) => signal === path)!;
+    return act(async () => receive({ data: () => ({ revision }) }));
+  }
+
+  it.each(['courses', 'course_catalog_content'] as const)(
+    'publishes a new guest card only when both snapshots contain it, with %s arriving first',
+    async (first) => {
+      mount();
+      await expectGuestCatalogue();
+      const read = firebase.read.getMockImplementation()!;
+      const updatedCourse = { ...liveCourse, data: { ...liveCourse.data, price: 50000 } };
+      const updatedContent = {
+        ...liveContent,
+        data: { ...liveContent.data, discipline: 'snowboard' },
+      };
+      firebase.read.mockImplementation(async (name, query) => {
+        const result = await read(name, query);
+        if (query.collection === 'courses') return { ...result, docs: [updatedCourse, newCourse] };
+        if (query.collection === 'course_catalog_content') {
+          return { ...result, docs: [updatedContent, newContent] };
+        }
+        return result;
+      });
+
+      await refreshCatalogue(first, '2');
+      expect(courseIds()).toEqual([liveCourse.id]);
+      expect(useCoursesStore.getState().publicCoursesStatus).toBe('ready');
+      expect(useCoursesStore.getState().courses[0]).toMatchObject(
+        first === 'courses' ? { price: 50000 } : { discipline: 'snowboard' }
+      );
+
+      const second = first === 'courses' ? 'course_catalog_content' : 'courses';
+      await refreshCatalogue(second, '2');
+      expect(useCoursesStore.getState().courses).toMatchObject([
+        { id: liveCourse.id, price: 50000, discipline: 'snowboard' },
+        { id: newCourse.id, discipline: 'ski' },
+      ]);
+    }
+  );
+
+  it('publishes new legacy cards with complete presentation and no discipline', async () => {
+    mount();
+    await expectGuestCatalogue();
+    const legacyCourse = {
+      id: 'course_legacy',
+      data: {
+        ...liveContent.data,
+        title: 'Legacy course',
+        totalSeats: 4,
+        availableSeats: 4,
+        price: 25000,
+      },
+    };
+    const read = firebase.read.getMockImplementation()!;
+    firebase.read.mockImplementation(async (name, query) => {
+      const result = await read(name, query);
+      if (query.collection === 'courses') {
+        return { ...result, docs: [liveCourse, legacyCourse, newCourse] };
+      }
+      if (query.collection === 'course_catalog_content') {
+        return { ...result, docs: [liveContent, { ...liveContent, id: newCourse.id }] };
+      }
+      return result;
+    });
+    await refreshCatalogue('courses', '2');
+    expect(courseIds()).toEqual([liveCourse.id, legacyCourse.id]);
+    expect(useCoursesStore.getState().courses[1]?.discipline).toBeUndefined();
+
+    await refreshCatalogue('course_catalog_content', '2');
+    expect(courseIds()).toEqual([liveCourse.id, legacyCourse.id, newCourse.id]);
+    expect(useCoursesStore.getState().courses[2]?.discipline).toBeUndefined();
+  });
+
+  it('drops deleted cards immediately and forgets their confirmation', async () => {
+    mount();
+    await expectGuestCatalogue();
+    const read = firebase.read.getMockImplementation()!;
+    let courses: Array<typeof liveCourse> = [];
+    firebase.read.mockImplementation(async (name, query) => ({
+      ...(await read(name, query)),
+      docs: query.collection === 'courses' ? courses : [],
+    }));
+
+    await refreshCatalogue('courses', '2');
+    expect(courseIds()).toEqual([]);
+    await refreshCatalogue('course_catalog_content', '2');
+    courses = [liveCourse];
+    await refreshCatalogue('courses', '3');
+    expect(courseIds()).toEqual([]);
+    expect(useCoursesStore.getState().publicCoursesStatus).toBe('ready');
+  });
+
+  it('keeps confirmed updates and waits for valid content through a transient refresh error', async () => {
+    mount();
+    await expectGuestCatalogue();
+    const read = firebase.read.getMockImplementation()!;
+    let failContent = true;
+    let pendingContent = { id: newCourse.id, data: {} };
+    firebase.read.mockImplementation(async (name, query) => {
+      const result = await read(name, query);
+      if (query.collection === 'course_catalog_content') {
+        if (failContent) throw new Error('content unavailable');
+        return { ...result, docs: [liveContent, pendingContent] };
+      }
+      if (query.collection === 'courses') {
+        return {
+          ...result,
+          docs: [{ ...liveCourse, data: { ...liveCourse.data, price: 50000 } }, newCourse],
+        };
+      }
+      return result;
+    });
+    await refreshCatalogue('course_catalog_content', '2');
+    await refreshCatalogue('courses', '2');
+    expect(courseIds()).toEqual([liveCourse.id]);
+    expect(useCoursesStore.getState().courses[0]?.price).toBe(50000);
+    expect(useCoursesStore.getState().publicCoursesStatus).toBe('error');
+
+    failContent = false;
+    await refreshCatalogue('course_catalog_content', '3');
+    expect(courseIds()).toEqual([liveCourse.id]);
+    expect(useCoursesStore.getState().publicCoursesStatus).toBe('ready');
+
+    pendingContent = newContent;
+    await refreshCatalogue('course_catalog_content', '4');
+    expect(useCoursesStore.getState().courses[1]).toMatchObject({
+      id: newCourse.id,
+      discipline: 'ski',
+    });
+  });
+
+  it.each(['scope change', 'unmount'])(
+    'ignores both late responses and signals after %s',
+    async (event) => {
+      const { result, unmount } = mount();
+      await expectGuestCatalogue();
+      const path = 'client_read_runtime/live/collections/courses';
+      const index = firebase.watch.mock.calls.findIndex(([signal]) => signal === path);
+      const [, receive] = firebase.watch.mock.calls[index];
+      const stop = firebase.watch.mock.results[index].value;
+      const read = firebase.read.getMockImplementation()!;
+      const obsolete = deferred<unknown>();
+      firebase.read.mockReturnValueOnce(obsolete.promise);
+      await refreshCatalogue('courses', '2');
+
+      if (event === 'scope change') act(() => result.current('/instructor'));
+      else unmount();
+      expect(stop).toHaveBeenCalledOnce();
+      const calls = firebase.read.mock.calls.length;
+      await act(async () => {
+        receive({ data: () => ({ revision: '3' }) });
+        obsolete.resolve({
+          ...(await read('queryScopedClientDocuments', { collection: 'courses' })),
+          docs: [newCourse],
+        });
+      });
+      expect(firebase.read).toHaveBeenCalledTimes(calls);
+      expect(courseIds()).toEqual(event === 'scope change' ? [] : [liveCourse.id]);
+    }
+  );
+
+  it('reports an initial content error and publishes only confirmed courses after retry', async () => {
+    const read = firebase.read.getMockImplementation()!;
+    const content = {
+      id: liveCourse.id,
+      data: {
+        duration: '2 days',
+        description: 'Course',
+        dates: 'January',
+        bgImageUrl: '/ski.jpg',
+        discipline: 'ski',
+      },
+    };
+    firebase.read.mockImplementation(async (name, query) => {
+      if (query.collection === 'course_catalog_content') throw new Error('content unavailable');
+      return read(name, query);
+    });
+    mount();
+    await waitFor(() => expect(useCoursesStore.getState().publicCoursesStatus).toBe('error'));
+    expect(courseIds()).toEqual([]);
+
+    firebase.read.mockImplementation(async (name, query) => {
+      const result = await read(name, query);
+      return query.collection === 'course_catalog_content'
+        ? { ...result, docs: [content] }
+        : result;
+    });
+    act(() => useCoursesStore.getState().retryPublicCourses());
+    expect(useCoursesStore.getState().publicCoursesStatus).toBe('loading');
+    await expectGuestCatalogue();
+    expect(useCoursesStore.getState().courses[0]?.discipline).toBe('ski');
+
+    const path = 'client_read_runtime/live/collections/course_catalog_content';
+    const [, receiveSignal] = firebase.watch.mock.calls.find(([signal]) => signal === path)!;
+    const freshRead = firebase.read.getMockImplementation()!;
+    firebase.read.mockImplementation(async (name, query) => {
+      if (query.collection === 'course_catalog_content') throw new Error('refresh unavailable');
+      return freshRead(name, query);
+    });
+    act(() => receiveSignal({ data: () => ({ revision: '2' }) }));
+    await waitFor(() => expect(useCoursesStore.getState().publicCoursesStatus).toBe('error'));
+    expect(useCoursesStore.getState().courses[0]?.discipline).toBe('ski');
+
+    firebase.read.mockImplementation(read);
+    act(() => receiveSignal({ data: () => ({ revision: '3' }) }));
+    await expectGuestCatalogue();
+    expect(useCoursesStore.getState().courses[0]?.discipline).toBeUndefined();
+  });
+
+  it('clears the joined guest catalogue when the server denies access to content', async () => {
+    mount();
+    await expectGuestCatalogue();
+    const listener = (collection: string) =>
+      firebase.watch.mock.calls.find(([path]) => path.endsWith('/' + collection))![1];
+    const read = firebase.read.getMockImplementation()!;
+    firebase.read.mockImplementation(async (name, query) => {
+      if (query.collection === 'course_catalog_content') {
+        throw Object.assign(new Error('denied'), { code: 'functions/permission-denied' });
+      }
+      return read(name, query);
+    });
+    act(() => listener('course_catalog_content')({ data: () => ({ revision: '2' }) }));
+    await waitFor(() => expect(useCoursesStore.getState().publicCoursesStatus).toBe('error'));
+    expect(courseIds()).toEqual([]);
+
+    await act(async () => listener('courses')({ data: () => ({ revision: '2' }) }));
+    expect(courseIds()).toEqual([]);
+    expect(useCoursesStore.getState().publicCoursesStatus).toBe('error');
+
+    firebase.read.mockImplementation(read);
+    act(() => useCoursesStore.getState().retryPublicCourses());
+    await expectGuestCatalogue();
+  });
+
+  it('discards a delayed guest response on sign-in and starts a fresh LIVE catalogue on sign-out', async () => {
+    const read = firebase.read.getMockImplementation()!;
+    const guestContent = deferred<unknown>();
+    firebase.read.mockImplementation(async (name, query) =>
+      query.collection === 'course_catalog_content' ? guestContent.promise : read(name, query)
+    );
+    mount();
+    await waitFor(() =>
+      expect(firebase.read).toHaveBeenCalledWith(
+        'queryScopedClientDocuments',
+        expect.objectContaining({ collection: 'course_catalog_content' }),
+        expect.anything()
+      )
+    );
+    expect(courseIds()).toEqual([]);
+    await act(async () => publishAuth('account-test'));
+    expect(courseIds()).toEqual(['course_signed_in']);
+    await act(async () =>
+      guestContent.resolve(
+        await read('queryScopedClientDocuments', { collection: 'course_catalog_content' })
+      )
+    );
+    expect(courseIds()).toEqual(['course_signed_in']);
+
+    firebase.read.mockImplementation(read);
+    firebase.signOut.mockImplementation(async () => publishAuth());
+    await act(async () => useAuthStore.getState().handleSignOut());
+    await expectGuestCatalogue();
   });
 
   it('ignores pending A responses when a rapid logout is followed by sign-in as B', async () => {

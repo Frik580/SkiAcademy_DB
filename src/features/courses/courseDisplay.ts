@@ -29,7 +29,8 @@ function parseCanonicalAggregateFields(fields: Record<string, unknown>): {
 export function buildCourseFromCanonicalAggregateAndContent(
   id: string,
   aggregate: Record<string, unknown>,
-  content?: Record<string, unknown> | null
+  content?: Record<string, unknown> | null,
+  requireCatalogContent = false
 ): Course | null {
   const canonical = parseCanonicalAggregateFields(aggregate);
   if (!canonical) {
@@ -39,6 +40,7 @@ export function buildCourseFromCanonicalAggregateAndContent(
   const contentFields = content ?? {};
   const parsedContent = CourseCatalogContentSchema.safeParse({ courseId: id, ...contentFields });
   const catalog = parsedContent.success ? parsedContent.data : null;
+  if (requireCatalogContent && !catalog) return null;
 
   return {
     id,
@@ -79,13 +81,19 @@ export function buildCourseFromCanonicalAggregateAndContent(
 export function resolveCourseDocument(
   id: string,
   aggregate: Record<string, unknown>,
-  catalogContent?: Record<string, unknown> | null
+  catalogContent?: Record<string, unknown> | null,
+  requireCatalogContent = false
 ): Course | null {
   const legacy = CourseDocumentSchema.safeParse(aggregate);
   if (legacy.success) {
     return { ...legacy.data, id };
   }
-  return buildCourseFromCanonicalAggregateAndContent(id, aggregate, catalogContent);
+  return buildCourseFromCanonicalAggregateAndContent(
+    id,
+    aggregate,
+    catalogContent,
+    requireCatalogContent
+  );
 }
 
 export function isLegacyCourseDocument(fields: Record<string, unknown>): boolean {

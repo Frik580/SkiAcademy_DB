@@ -64,46 +64,54 @@ export const useCoursesSync = (catalogReadAlreadyOwned = false) => {
 
     let courseDocs: Array<{ id: string; data: Record<string, unknown> }> = [];
     let catalogContentById = new Map<string, Record<string, unknown>>();
+    let confirmedIds = new Set<string>();
     let coursesReady = false;
     let contentReady = false;
-    let coursesConfirmed = false;
-    let contentConfirmed = false;
+    let coursesFailed = false;
+    let contentFailed = false;
     let active = true;
-    const hasExistingCourses = useCoursesStore.getState().courses.length > 0;
+    const isGuestCatalogue = catalogueScope === 'full';
+    const shouldWaitForContent = isGuestCatalogue || useCoursesStore.getState().courses.length > 0;
     const isCurrent = () => active && isCurrentPrincipal();
     const fail = (error: unknown, path: string) => {
       if (!isCurrent()) return;
-      if (catalogueScope === 'full') useCoursesStore.setState({ publicCoursesStatus: 'error' });
+      if (isGuestCatalogue) useCoursesStore.setState({ publicCoursesStatus: 'error' });
       handleFirestoreError(error, OperationType.LIST, path);
+    };
+    const clearGuestCourses = () => {
+      confirmedIds.clear();
+      if (isCurrent()) useCoursesStore.setState({ courses: [], publicCoursesStatus: 'loading' });
     };
 
     const publishCourses = () => {
-      if (!coursesReady || (hasExistingCourses && !contentReady)) return;
-      useCoursesStore.getState().setCourses(
-        courseDocs.flatMap((courseDoc) => {
-          const data = courseDoc.data;
-          if (catalogueScope === 'instructor') {
-            const roster = (data.instructorRosterIds ?? data.instructorIds) as unknown;
-            if (!Array.isArray(roster) || !roster.includes(instructorId)) {
-              return [];
-            }
+      if (!coursesReady || (shouldWaitForContent && !contentReady)) return;
+      const refreshFailed = coursesFailed || contentFailed;
+      const courses = courseDocs.flatMap((courseDoc) => {
+        const data = courseDoc.data;
+        if (catalogueScope === 'instructor') {
+          const roster = (data.instructorRosterIds ?? data.instructorIds) as unknown;
+          if (!Array.isArray(roster) || !roster.includes(instructorId)) {
+            return [];
           }
-          const course = resolveCourseDocument(
-            courseDoc.id,
-            data,
-            catalogContentById.get(courseDoc.id)
-          );
-          return course ? [course] : [];
-        })
-      );
-      if (
-        catalogueScope === 'full' &&
-        coursesConfirmed &&
-        contentConfirmed &&
-        useCoursesStore.getState().publicCoursesStatus !== 'error'
-      ) {
-        useCoursesStore.setState({ publicCoursesStatus: 'ready' });
-      }
+        }
+        // The two streams have independent revisions. Confirm presentation per course.
+        const needsConfirmation = isGuestCatalogue && !confirmedIds.has(courseDoc.id);
+        if (needsConfirmation && refreshFailed) return [];
+        const course = resolveCourseDocument(
+          courseDoc.id,
+          data,
+          catalogContentById.get(courseDoc.id),
+          needsConfirmation
+        );
+        return course ? [course] : [];
+      });
+      if (isGuestCatalogue) {
+        confirmedIds = new Set(courses.map(({ id }) => id));
+        useCoursesStore.setState({
+          courses,
+          publicCoursesStatus: refreshFailed ? 'error' : 'ready',
+        });
+      } else useCoursesStore.getState().setCourses(courses);
     };
 
     const coursesQuery = { collection: 'courses' as const, take: QUERY_LIMITS.courses };
@@ -116,25 +124,35 @@ export const useCoursesSync = (catalogReadAlreadyOwned = false) => {
       coursesQuery,
       (snapshot) => {
         if (!isCurrent()) return;
-        if (snapshot.metadata.fromCache && snapshot.docs.length === 0) return;
+        if (snapshot.metadata.fromCache && (isGuestCatalogue || snapshot.docs.length === 0)) return;
         coursesReady = true;
-        coursesConfirmed ||= !snapshot.metadata.fromCache;
+        coursesFailed = false;
         courseDocs = snapshot.docs.map((courseDoc) => ({
           id: courseDoc.id,
           data: courseDoc.data() as Record<string, unknown>,
         }));
         publishCourses();
       },
-      (error) => fail(error, 'courses')
+      (error) => {
+        coursesFailed = true;
+        fail(error, 'courses');
+      },
+      isGuestCatalogue
+        ? () => {
+            coursesReady = false;
+            courseDocs = [];
+            clearGuestCourses();
+          }
+        : undefined
     );
 
     const unsubscribeContent = subscribeScopedDocuments(
       contentQuery,
       (snapshot) => {
         if (!isCurrent()) return;
-        if (snapshot.metadata.fromCache && snapshot.docs.length === 0) return;
+        if (snapshot.metadata.fromCache && (isGuestCatalogue || snapshot.docs.length === 0)) return;
         contentReady = true;
-        contentConfirmed ||= !snapshot.metadata.fromCache;
+        contentFailed = false;
         catalogContentById = new Map(
           snapshot.docs.flatMap((contentDoc) => {
             const data = contentDoc.data() as Record<string, unknown>;
@@ -143,7 +161,17 @@ export const useCoursesSync = (catalogReadAlreadyOwned = false) => {
         );
         publishCourses();
       },
-      (error) => fail(error, 'course_catalog_content')
+      (error) => {
+        contentFailed = true;
+        fail(error, 'course_catalog_content');
+      },
+      isGuestCatalogue
+        ? () => {
+            contentReady = false;
+            catalogContentById.clear();
+            clearGuestCourses();
+          }
+        : undefined
     );
 
     return () => {

@@ -1,63 +1,82 @@
 import { describe, expect, it } from 'vitest';
-import { cacheObjectPath, isAllowedImageSource, parseOptimizeImageQuery } from './optimizeImage';
+import { parseOptimizeImageQuery } from './optimizeImage';
 
-describe('optimizeImage allowlist', () => {
-  it('allows carve Object Storage HTTPS URLs only', () => {
-    expect(isAllowedImageSource('https://storage.yandexcloud.net/carve/wall.webp')).toBe(true);
-    expect(isAllowedImageSource('https://storage.yandexcloud.net/carve/images/about.jpg')).toBe(
-      true
-    );
-    expect(isAllowedImageSource('https://storage.yandexcloud.net/other/wall.webp')).toBe(false);
-    expect(isAllowedImageSource('http://storage.yandexcloud.net/carve/wall.webp')).toBe(false);
-    expect(isAllowedImageSource('https://evil.example/carve/wall.webp')).toBe(false);
+const u = 'https://storage.yandexcloud.net/carve/images/café.jpg';
+
+describe('public image variants', () => {
+  it('supports the production navigation and responsive widths, with the existing defaults', () => {
+    expect(parseOptimizeImageQuery({ u })).toEqual({
+      sourceUrl: 'https://storage.yandexcloud.net/carve/images/caf%C3%A9.jpg',
+      width: 1920,
+    });
+    for (const width of [480, 960, 1280, 1920]) {
+      expect(parseOptimizeImageQuery({ u, w: String(width), q: '72' })).toHaveProperty(
+        'width',
+        width
+      );
+    }
+  });
+
+  it('maps all 204 legacy width/quality pairs to exactly four variants', () => {
+    const variants = new Set<string>();
+    for (const width of [480, 960, 1280, 1920]) {
+      for (let q = 40; q <= 90; q++) {
+        const parsed = parseOptimizeImageQuery({ u, w: `0${width}`, q: `0${q}` });
+        expect(parsed).not.toHaveProperty('error');
+        variants.add(JSON.stringify(parsed));
+      }
+    }
+    expect(variants.size).toBe(4);
     expect(
-      isAllowedImageSource(
-        'https://firebasestorage.googleapis.com/v0/b/ski-school-8f3ca.appspot.com/o/chat%2Fbooking.jpg'
-      )
-    ).toBe(false);
+      parseOptimizeImageQuery({
+        u: 'https://STORAGE.YANDEXCLOUD.NET:443/carve/%69mages%2Fcaf%c3%a9.jpg',
+        w: '00960',
+        q: '090',
+      })
+    ).toEqual(parseOptimizeImageQuery({ u, w: '960' }));
+    expect(parseOptimizeImageQuery({ u })).not.toEqual(
+      parseOptimizeImageQuery({ u: u.replace('café', 'Café') })
+    );
   });
 
-  it('builds stable cache object paths', () => {
-    const a = cacheObjectPath('https://storage.yandexcloud.net/carve/wall.webp', 1920, 72);
-    const b = cacheObjectPath('https://storage.yandexcloud.net/carve/wall.webp', 1920, 72);
-    const c = cacheObjectPath('https://storage.yandexcloud.net/carve/wall.webp', 960, 72);
-    expect(a).toBe(b);
-    expect(a).not.toBe(c);
-    expect(a.startsWith('image-cache/')).toBe(true);
-    expect(a.endsWith('_w1920_q72.webp')).toBe(true);
-  });
-
-  it('parses query params', () => {
-    const parsed = parseOptimizeImageQuery({
-      u: 'https://storage.yandexcloud.net/carve/wall.webp',
-      w: '960',
-      q: '80',
-    });
-    expect(parsed).toEqual({
-      sourceUrl: 'https://storage.yandexcloud.net/carve/wall.webp',
-      width: 960,
-      quality: 80,
-    });
-  });
-
-  it('rejects missing u', () => {
+  it('rejects unsupported and ambiguous inputs before reading the cache', () => {
+    for (const args of [
+      { w: '320' },
+      { w: '960junk' },
+      { w: ['960'] },
+      { w: '1e3' },
+      { w: '960.0' },
+      { q: '39' },
+      { q: '91' },
+      { q: '72.5' },
+      { q: ['72'] },
+      { q: '' },
+      { h: '360' },
+      { format: 'png' },
+      { nonce: '1' },
+    ]) {
+      expect(parseOptimizeImageQuery({ u, ...args })).toHaveProperty('error');
+    }
     expect(parseOptimizeImageQuery({})).toEqual({ error: 'Missing u parameter' });
   });
 
-  it('rejects cache-busting source URLs and malformed expensive variants', () => {
-    for (const u of [
-      'https://storage.yandexcloud.net/carve/wall.webp?nonce=1',
-      'https://storage.yandexcloud.net/carve/wall.webp#nonce',
+  it('isolates private and signed sources from the unsigned public cache', () => {
+    for (const url of [
+      `${u}?nonce=1`,
+      `${u}?`,
+      `${u}#v`,
+      `${u}#`,
+      `${u}?X-Amz-Signature=fake`,
+      'https://firebasestorage.googleapis.com/v0/b/example/o/chat.jpg?token=fake',
+      'https://storage.yandexcloud.net/other/wall.webp',
+      'https://evil.example/carve/wall.webp',
+      'http://storage.yandexcloud.net/carve/wall.webp',
+      'https://user:pass@storage.yandexcloud.net/carve/wall.webp',
+      'https://storage.yandexcloud.net:8443/carve/wall.webp',
+      'https://storage.yandexcloud.net/carve/a%2F..%2F..%2Fb.jpg',
+      'https://storage.yandexcloud.net/carve/a%5Cb.jpg',
     ]) {
-      expect(isAllowedImageSource(u)).toBe(false);
-      expect(parseOptimizeImageQuery({ u })).toHaveProperty('error');
+      expect(parseOptimizeImageQuery({ u: url })).toHaveProperty('error');
     }
-    const u = 'https://storage.yandexcloud.net/carve/wall.webp';
-    for (const args of [{ w: '960junk' }, { q: '72.5' }, { q: '100' }, { w: ['960'] }]) {
-      expect(parseOptimizeImageQuery({ u, ...args })).toHaveProperty('error');
-    }
-    expect(cacheObjectPath('https://STORAGE.YANDEXCLOUD.NET/carve/wall.webp', 960, 72)).toBe(
-      cacheObjectPath(u, 960, 72)
-    );
   });
 });

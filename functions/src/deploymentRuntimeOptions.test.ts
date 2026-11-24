@@ -143,7 +143,7 @@ describe('reviewed Functions deployment configuration', () => {
         minInstances: null,
         maxInstances: expectedCaps[name],
         ingressSettings: null,
-        concurrency: chatMedia ? 1 : stream ? 40 : null,
+        concurrency: chatMedia ? 1 : stream ? 40 : name === 'optimizeImage' ? 4 : null,
         serviceAccountEmail: null,
         vpc: null,
         ...(scheduled ? {} : { region: ['us-central1'] }),

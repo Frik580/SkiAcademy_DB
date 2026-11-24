@@ -12,6 +12,10 @@ import { FIRESTORE_EMULATOR_HOST } from './emulator-config';
 import { waitForFunctionsEmulatorReady } from './global-setup';
 
 const requireRoot = createRequire(`${process.cwd()}/package.json`);
+const requireFunctions = createRequire(`${process.cwd()}/functions/package.json`);
+const { FieldValue } = requireFunctions(
+  'firebase-admin/firestore'
+) as typeof import('firebase-admin/firestore');
 const { BookingSchema, PaymentSchema, paymentIdFromBookingId, timestampFromDate } = requireRoot(
   '@ski-academy/shared-domain'
 ) as typeof import('@ski-academy/shared-domain');
@@ -29,6 +33,17 @@ test('Student Cabinet weather shares data and unit preference across participant
   const resortRef = db.doc('resort_data/config');
   const originalResort = await resortRef.get();
   const runtime = loadRuntimeConfig();
+  const avatars = [
+    { id: runtime.studentParticipantId, width: 32, color: 'teal' },
+    { id: runtime.studentChildParticipantId, width: 48, color: 'purple' },
+  ].map(({ id, width, color }) => ({
+    id,
+    width,
+    color,
+    ref: db.doc(`participants/${id}`),
+    url: `https://avatar.fixture/weather-${width}.svg`,
+  }));
+  const previousAvatars = await Promise.all(avatars.map(({ ref }) => ref.get()));
   const suffix = `${info.project.name}_w${info.workerIndex}_r${info.repeatEachIndex}_try${info.retry}`;
   const bookingId = `booking_weather_${suffix}`;
   const paymentId = paymentIdFromBookingId(bookingId as never);
@@ -125,6 +140,15 @@ test('Student Cabinet weather shares data and unit preference across participant
     );
 
     const healthy = watchBrowserFailures(page);
+    for (const { ref, url, width, color } of avatars) {
+      await page.route(url, (route) =>
+        route.fulfill({
+          contentType: 'image/svg+xml',
+          body: `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${width}"><rect width="100%" height="100%" fill="${color}"/></svg>`,
+        })
+      );
+      await ref.update({ avatarUrl: url });
+    }
     await page.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, (route) => route.abort());
     await page.route('https://api.open-meteo.com/v1/forecast**', async (route) => {
       weatherRequests.push(route.request().url());
@@ -181,11 +205,22 @@ test('Student Cabinet weather shares data and unit preference across participant
     await expect.poll(() => weatherRequests.length).toBe(1);
 
     const participantSwitcher = page
-      .getByRole('banner')
+      .getByRole('navigation', { name: 'Navigation menu' })
       .getByTestId('navbar-participant-switcher')
       .filter({ visible: true });
     const selectParticipant = (participantId: string) =>
       participantSwitcher.locator(`[data-participant-id="${participantId}"]`);
+    const expectAvatars = async () => {
+      for (const { id, url, width } of avatars) {
+        const image = selectParticipant(id).locator('img');
+        await expect(image).toBeVisible();
+        await expect(image).toHaveAttribute('src', url);
+        await expect
+          .poll(() => image.evaluate((el) => (el as HTMLImageElement).naturalWidth))
+          .toBe(width);
+      }
+    };
+    await expectAvatars();
     await expect(selectParticipant(runtime.studentParticipantId)).toHaveAttribute(
       'aria-pressed',
       'true'
@@ -235,6 +270,7 @@ test('Student Cabinet weather shares data and unit preference across participant
       ['narrow-dark', 320, 844, true],
     ] as const) {
       await page.setViewportSize({ width, height });
+      await expectAvatars();
       await page.evaluate(
         (isDark) => document.documentElement.classList.toggle('dark', isDark),
         dark
@@ -308,6 +344,12 @@ test('Student Cabinet weather shares data and unit preference across participant
   } finally {
     if (originalResort.exists) await resortRef.set(originalResort.data()!);
     else await resortRef.delete();
-    await Promise.all([bookingRef.delete(), paymentRef.delete()]);
+    await Promise.all([
+      bookingRef.delete(),
+      paymentRef.delete(),
+      ...previousAvatars.map((participant) =>
+        participant.ref.update({ avatarUrl: participant.get('avatarUrl') ?? FieldValue.delete() })
+      ),
+    ]);
   }
 });

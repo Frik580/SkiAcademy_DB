@@ -1,190 +1,184 @@
 import { createHash } from 'node:crypto';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { getStorage } from 'firebase-admin/storage';
 import sharp from 'sharp';
 import { getOrInitApp } from '../adminApp';
+import { MAX_IMAGE_PIXELS } from '../security/mediaTypePolicy';
+import { canonicalImageSource, fetchImageSource, type ImageFailure } from './imageSource';
+import type { ImageMissAdmission } from './imageMissAdmission';
 
-/**
- * Public catalog image proxy. TEST and LIVE share the same Yandex `/carve/`
- * allowlist. This must not fetch Firebase Storage, private customer media, or
- * arbitrary URLs (no SSRF broadening).
- */
-export const IMAGE_CACHE_PREFIX = 'image-cache';
-export const ALLOWED_PROXY_WIDTHS = new Set([480, 960, 1280, 1920]);
-export const DEFAULT_PROXY_QUALITY = 72;
-export const MAX_SOURCE_BYTES = 8 * 1024 * 1024;
+const IMAGE_CACHE_PREFIX = 'image-cache';
+const ALLOWED_WIDTHS = new Set([480, 960, 1280, 1920]);
+const PROXY_QUALITY = 72;
+export const CACHE_CONTROL =
+  'public, max-age=604800, s-maxage=604800, stale-while-revalidate=86400';
 
-export const isAllowedImageSource = (url: string): boolean => {
-  try {
-    const parsed = new URL(url);
-    return (
-      parsed.protocol === 'https:' &&
-      parsed.hostname === 'storage.yandexcloud.net' &&
-      !parsed.username &&
-      !parsed.password &&
-      (!parsed.port || parsed.port === '443') &&
-      parsed.pathname.startsWith('/carve/') &&
-      parsed.pathname.length <= 1024 &&
-      !parsed.search &&
-      !parsed.hash
-    );
-  } catch {
-    return false;
-  }
-};
+type ImageParams = { sourceUrl: string; width: number };
+type OptimizeImageResult = { ok: true; body: Buffer; cacheHit: boolean } | ImageFailure;
 
-export const cacheObjectPath = (sourceUrl: string, width: number, quality: number): string => {
-  const normalized = new URL(sourceUrl).href;
+const pending = new Map<string, Promise<OptimizeImageResult>>();
+let transforming = false;
+
+function cacheObjectPath({ sourceUrl, width }: ImageParams): string {
+  // Keep existing q72 objects for canonical URLs. Other quality variants expire
+  // from the request path without a cache migration.
   const digest = createHash('sha256')
-    .update(`${normalized}|${width}|${quality}|webp`)
+    .update(`${sourceUrl}|${width}|${PROXY_QUALITY}|webp`)
     .digest('hex');
-  return `${IMAGE_CACHE_PREFIX}/${digest}_w${width}_q${quality}.webp`;
-};
-
-const parsePositiveInt = (value: unknown, fallback: number): number => {
-  if (value === undefined) return fallback;
-  return typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : NaN;
-};
-
-export type OptimizeImageResult =
-  | { ok: true; body: Buffer; contentType: string; cacheHit: boolean }
-  | { ok: false; status: number; message: string };
-
-export async function fetchImageSource(
-  sourceUrl: string
-): Promise<Buffer | Exclude<OptimizeImageResult, { ok: true }>> {
-  const signal = AbortSignal.timeout(10_000);
-  let url = sourceUrl;
-  for (let redirect = 0; redirect <= 3; redirect++) {
-    if (!isAllowedImageSource(url))
-      return { ok: false, status: 400, message: 'Source URL is not allowlisted' };
-    const response = await fetch(url, {
-      redirect: 'manual',
-      signal,
-      headers: { Accept: 'image/*' },
-    });
-    if ([301, 302, 303, 307, 308].includes(response.status)) {
-      await response.body?.cancel();
-      const location = response.headers.get('location');
-      if (!location || redirect === 3)
-        return { ok: false, status: 502, message: 'Invalid upstream redirect' };
-      url = new URL(location, url).href;
-      continue;
-    }
-    if (!response.ok || !response.body) {
-      await response.body?.cancel();
-      return { ok: false, status: 502, message: 'Upstream fetch failed' };
-    }
-    if (Number(response.headers.get('content-length')) > MAX_SOURCE_BYTES) {
-      await response.body.cancel();
-      return { ok: false, status: 413, message: 'Source image too large' };
-    }
-    const reader = response.body.getReader();
-    const chunks: Uint8Array[] = [];
-    let size = 0;
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        size += value.byteLength;
-        if (size > MAX_SOURCE_BYTES) {
-          await reader.cancel();
-          return { ok: false, status: 413, message: 'Source image too large' };
-        }
-        chunks.push(value);
-      }
-    } finally {
-      reader.releaseLock();
-    }
-    return Buffer.concat(chunks, size);
-  }
-  return { ok: false, status: 502, message: 'Invalid upstream redirect' };
+  return `${IMAGE_CACHE_PREFIX}/${digest}_w${width}_q${PROXY_QUALITY}.webp`;
 }
 
-export async function optimizeImageFromParams(params: {
-  sourceUrl: string;
-  width: number;
-  quality: number;
-  admitCacheMiss?: () => Promise<void>;
-}): Promise<OptimizeImageResult> {
-  const { sourceUrl, width, quality } = params;
+const parsePositiveInt = (value: unknown, fallback: number): number =>
+  value === undefined
+    ? fallback
+    : typeof value === 'string' && /^\d+$/.test(value)
+      ? Number(value)
+      : NaN;
 
-  if (!isAllowedImageSource(sourceUrl)) {
-    return { ok: false, status: 400, message: 'Source URL is not allowlisted' };
-  }
-  if (!ALLOWED_PROXY_WIDTHS.has(width)) {
-    return { ok: false, status: 400, message: 'Unsupported width' };
-  }
-  if (!Number.isInteger(quality) || quality < 40 || quality > 90) {
-    return { ok: false, status: 400, message: 'Unsupported quality' };
-  }
-
-  getOrInitApp();
-  const bucket = getStorage().bucket();
-  const objectPath = cacheObjectPath(sourceUrl, width, quality);
-  const cached = bucket.file(objectPath);
-
-  const [exists] = await cached.exists();
-  if (exists) {
-    const [body] = await cached.download();
-    return { ok: true, body, contentType: 'image/webp', cacheHit: true };
-  }
-
-  await params.admitCacheMiss?.();
-  const sourceBuffer = await fetchImageSource(sourceUrl);
-  if (!Buffer.isBuffer(sourceBuffer)) return sourceBuffer;
-
-  const body = await sharp(sourceBuffer, { limitInputPixels: 40_000_000 })
-    .rotate()
-    .resize({
-      width,
-      withoutEnlargement: true,
-      fit: 'inside',
-    })
-    .webp({ quality, effort: 4 })
-    .toBuffer();
-
-  await cached.save(body, {
-    resumable: false,
-    metadata: {
-      contentType: 'image/webp',
-      cacheControl: 'public, max-age=31536000, immutable',
-      metadata: {
-        sourceUrl,
-        width: String(width),
-        quality: String(quality),
-      },
-    },
-  });
-
-  return { ok: true, body, contentType: 'image/webp', cacheHit: false };
-}
-
-export const parseOptimizeImageQuery = (
+export function parseOptimizeImageQuery(
   query: Record<string, unknown>
-): { sourceUrl: string; width: number; quality: number } | { error: string } => {
-  if (Object.keys(query).some((key) => !['u', 'w', 'q'].includes(key)))
+): ImageParams | { error: string } {
+  if (Object.keys(query).some((key) => !['u', 'w', 'q'].includes(key))) {
     return { error: 'Unsupported query parameter' };
-  const rawUrl = typeof query.u === 'string' ? query.u : '';
-  if (!rawUrl) {
-    return { error: 'Missing u parameter' };
   }
-
-  let sourceUrl: string;
-  try {
-    sourceUrl = new URL(rawUrl).href;
-  } catch {
-    return { error: 'Invalid u parameter' };
-  }
-
+  // The Functions emulator readiness probe uses the no-input response.
+  if (typeof query.u !== 'string' || !query.u) return { error: 'Missing u parameter' };
+  const sourceUrl = canonicalImageSource(query.u);
   const width = parsePositiveInt(query.w, 1920);
-  const quality = parsePositiveInt(query.q, DEFAULT_PROXY_QUALITY);
+  const legacyQuality = parsePositiveInt(query.q, PROXY_QUALITY);
   if (
-    !isAllowedImageSource(sourceUrl) ||
-    !ALLOWED_PROXY_WIDTHS.has(width) ||
-    !Number.isInteger(quality) ||
-    quality < 40 ||
-    quality > 90
-  )
+    !sourceUrl ||
+    !ALLOWED_WIDTHS.has(width) ||
+    !Number.isInteger(legacyQuality) ||
+    legacyQuality < 40 ||
+    legacyQuality > 90
+  ) {
     return { error: 'Unsupported image parameters' };
-  return { sourceUrl, width, quality };
-};
+  }
+  return { sourceUrl, width };
+}
+
+function isSupportedRaster(buffer: Buffer): boolean {
+  // Check bytes before passing input to libvips. Ignore the remote MIME and extension.
+  return (
+    buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])) ||
+    buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) ||
+    (buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP') ||
+    ['GIF87a', 'GIF89a'].includes(buffer.toString('ascii', 0, 6)) ||
+    (buffer.toString('ascii', 4, 8) === 'ftyp' &&
+      ['avif', 'avis'].includes(buffer.toString('ascii', 8, 12)))
+  );
+}
+
+function storageErrorCode(error: unknown): number {
+  return error instanceof Object && 'code' in error ? Number(error.code) : NaN;
+}
+
+async function readOrGenerate(
+  params: ImageParams,
+  objectPath: string,
+  admitCacheMiss: (key: string) => Promise<ImageMissAdmission>
+): Promise<OptimizeImageResult> {
+  getOrInitApp();
+  const cached = getStorage().bucket().file(objectPath);
+  try {
+    const [body] = await cached.download();
+    return { ok: true, body, cacheHit: true };
+  } catch (error) {
+    if (storageErrorCode(error) !== 404) throw error;
+  }
+
+  if (transforming) {
+    return { ok: false, status: 503, message: 'Image optimizer busy', retryAfter: 1 };
+  }
+  transforming = true;
+  try {
+    const admission = await admitCacheMiss(objectPath);
+    if (admission.status === 'in-flight') {
+      return { ok: false, status: 503, message: 'Image variant pending', retryAfter: 1 };
+    }
+    if (admission.status === 'quota-full') {
+      return {
+        ok: false,
+        status: 429,
+        message: 'Image rate limit exceeded',
+        retryAfter: Math.max(1, Math.ceil((admission.until - Date.now()) / 1000)),
+      };
+    }
+
+    const source = await fetchImageSource(params.sourceUrl);
+    if ('ok' in source) return source;
+    if (!isSupportedRaster(source.body)) {
+      return { ok: false, status: 415, message: 'Unsupported source image format' };
+    }
+
+    let body: Buffer;
+    try {
+      body = await sharp(source.body, { limitInputPixels: MAX_IMAGE_PIXELS })
+        .timeout({ seconds: 8 })
+        .rotate()
+        .resize({
+          width: params.width,
+          height: params.width * 2,
+          withoutEnlargement: true,
+          fit: 'inside',
+        })
+        .webp({ quality: PROXY_QUALITY, effort: 4 })
+        .toBuffer();
+    } catch {
+      return { ok: false, status: 422, message: 'Source image could not be processed' };
+    }
+
+    // Aliases can render without persisting a duplicate of the terminal object.
+    if (source.url !== params.sourceUrl) return { ok: true, body, cacheHit: false };
+
+    const uploadBudget = Math.min(5_000, admission.until - Date.now());
+    if (uploadBudget <= 0) {
+      return { ok: false, status: 503, message: 'Image generation lease expired', retryAfter: 1 };
+    }
+    try {
+      // Use a single streaming upload with a bounded wait. Publication still
+      // requires that no live generation exists for the immutable source URL.
+      const output = cached.createWriteStream({
+        resumable: false,
+        timeout: uploadBudget,
+        preconditionOpts: { ifGenerationMatch: 0 },
+        metadata: {
+          contentType: 'image/webp',
+          cacheControl: 'public, max-age=31536000, immutable',
+          metadata: {
+            sourceUrl: params.sourceUrl,
+            width: String(params.width),
+            quality: String(PROXY_QUALITY),
+          },
+        },
+      });
+      await pipeline(Readable.from([body]), output, { signal: AbortSignal.timeout(uploadBudget) });
+    } catch (error) {
+      if (storageErrorCode(error) !== 412) throw error;
+      const [winner] = await cached.download();
+      return { ok: true, body: winner, cacheHit: true };
+    }
+    return { ok: true, body, cacheHit: false };
+  } finally {
+    transforming = false;
+  }
+}
+
+export async function optimizeImageFromParams(
+  params: ImageParams,
+  admitCacheMiss: (key: string) => Promise<ImageMissAdmission>
+): Promise<OptimizeImageResult> {
+  const objectPath = cacheObjectPath(params);
+  const existing = pending.get(objectPath);
+  if (existing) return existing;
+
+  const generation = readOrGenerate(params, objectPath, admitCacheMiss);
+  pending.set(objectPath, generation);
+  try {
+    return await generation;
+  } finally {
+    pending.delete(objectPath);
+  }
+}

@@ -1,6 +1,8 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { E2E_LIVE_APP_URL } from './emulator-config';
 
 test.describe.configure({ mode: 'parallel' });
+test.use({ baseURL: E2E_LIVE_APP_URL });
 
 const sizes = [
   { width: 1440, height: 900 },
@@ -112,6 +114,8 @@ for (const viewport of sizes) {
             );
           }
           await page.goto(`/e2e/hero-layout/?appearance=1${media === 'video' ? '&video=1' : ''}`);
+          // Vite preview's SPA fallback also renders a Hero, but without the one-slide fixture.
+          await expect(page.locator('#after-hero')).toHaveCount(1);
           const hero = page.locator('.ui-hero');
           const nav = page.locator('nav.home-overlay-header');
           const header = nav.locator('header');
@@ -128,8 +132,10 @@ for (const viewport of sizes) {
               .toBeGreaterThan(0);
             await video.evaluate((el: HTMLVideoElement) => el.pause());
           } else {
+            const banner = hero.locator('img.hero-banner-media');
+            await expect(banner).toHaveCount(1);
             await expect
-              .poll(() => hero.locator('img').evaluate((el: HTMLImageElement) => el.naturalWidth))
+              .poll(() => banner.evaluate((el: HTMLImageElement) => el.naturalWidth))
               .toBeGreaterThan(0);
           }
           await page.waitForTimeout(1500);

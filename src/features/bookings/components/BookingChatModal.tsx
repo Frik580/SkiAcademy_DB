@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Booking, UserProfile, ChatMessage, Instructor, Course } from '../../../types';
 import { uploadChatMedia } from '../../chat/chatMediaClient';
+import { formatMediaUploadLimit } from '../../../lib/mediaUploadError';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { logger } from '../../../shared';
 import { resolveChatId, getCourseChatThreadIds } from '../../../domain/chat';
@@ -23,12 +24,44 @@ import {
   compressImage,
   compressVideo,
   formatCompressionError,
+  LocalizedCompressionError,
   type PendingAttachment,
 } from './booking_chat/chatCompression';
 
 const EMPTY_CHAT: ChatMessageRow[] = [];
 
 type CourseChatClient = { participantId: string; name: string; bookingId: string };
+type ChatAttachmentUpload = {
+  threadKey: string;
+  file: File;
+  type: 'image' | 'video';
+  uploadId: string;
+  path: string;
+  result: { blob: Blob; name: string; size: number };
+};
+
+async function isSameSelectedFile(left: File, right: File): Promise<boolean> {
+  if (left === right) return true;
+  if (
+    left.name !== right.name ||
+    left.size !== right.size ||
+    left.type !== right.type ||
+    left.lastModified !== right.lastModified
+  )
+    return false;
+  // File pickers hand out new File instances. Compare only on a possible retry,
+  // using bounded buffers even for videos.
+  const blockSize = 1024 * 1024;
+  for (let offset = 0; offset < left.size; offset += blockSize) {
+    const [first, second] = await Promise.all([
+      left.slice(offset, offset + blockSize).arrayBuffer(),
+      right.slice(offset, offset + blockSize).arrayBuffer(),
+    ]);
+    const other = new Uint8Array(second);
+    if (!new Uint8Array(first).every((byte, index) => byte === other[index])) return false;
+  }
+  return true;
+}
 
 interface BookingChatModalProps {
   booking: Booking & {
@@ -62,7 +95,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
   fromInstructorPanel = false,
   fromAdminPanel = false,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { alert: alertAdminDialog, dialog: adminDialog } = useAdminDialog();
   const threadKey = JSON.stringify([currentUserProfile.uid, getCourseChatThreadIds(booking)]);
   const [chatHistory, setChatHistory] = useState<{ key: string; rows: ChatMessageRow[] }>();
@@ -84,6 +117,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const pendingUpload = useRef<ChatAttachmentUpload>();
 
   const courseParticipants = useMemo(() => {
     if (!fromInstructorPanel) return [] as CourseChatClient[];
@@ -184,6 +218,43 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const attachMedia = async (file: File, type: 'image' | 'video') => {
+    let attempt = pendingUpload.current;
+    let resume = true;
+    if (
+      attempt?.threadKey !== threadKey ||
+      attempt.type !== type ||
+      !(await isSameSelectedFile(attempt.file, file))
+    ) {
+      resume = false;
+      pendingUpload.current = undefined;
+      const result = await (type === 'image' ? compressImage(file) : compressVideo(file));
+      if (type === 'video' && result.size > 800 * 1024)
+        throw new LocalizedCompressionError('chatOptimizedVideoTooLarge');
+      const name = type === 'image' ? file.name : result.name;
+      const sanitizedName = name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const chatId = resolveChatId(booking);
+      const uploadId = crypto.randomUUID();
+      const scopedPath = resolveBookingChatAttachmentStoragePath(
+        { ...booking, chatId },
+        `${Date.now()}_${sanitizedName}`
+      );
+      attempt = {
+        threadKey,
+        file,
+        type,
+        uploadId,
+        path: scopedPath.startsWith('chat/') ? scopedPath.replace(/[^/]+$/, uploadId) : scopedPath,
+        result,
+      };
+      if (attempt.path.startsWith('chat/')) pendingUpload.current = attempt;
+    }
+    const { path, result, uploadId } = attempt;
+    const url = await uploadChatMedia(result.blob, path, uploadId, resume);
+    if (pendingUpload.current === attempt) pendingUpload.current = undefined;
+    setAttachment({ type, url, name: result.name, size: result.size });
+  };
+
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -191,25 +262,14 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
     setIsCompressing(true);
     setCompressionProgress(t('chatOptimizingImage'));
     try {
-      const result = await compressImage(file);
-      const chatId = resolveChatId(booking);
-      const sanitizedName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-      const path = resolveBookingChatAttachmentStoragePath(
-        { ...booking, chatId },
-        `${Date.now()}_${sanitizedName}`
-      );
-      const downloadUrl = await uploadChatMedia(result.blob, path);
-      setAttachment({
-        type: 'image',
-        url: downloadUrl,
-        name: result.name,
-        size: result.size,
-      });
+      await attachMedia(file, 'image');
     } catch (err: unknown) {
       logger.error(err);
-      if (fromAdminPanel)
-        void alertAdminDialog(formatCompressionError(err, t, 'chatImageProcessingFailed'));
-      else alert(formatCompressionError(err, t, 'chatImageProcessingFailed'));
+      const message =
+        formatMediaUploadLimit(err, language) ??
+        formatCompressionError(err, t, 'chatImageProcessingFailed');
+      if (fromAdminPanel) void alertAdminDialog(message);
+      else alert(message);
     } finally {
       setIsCompressing(false);
       setCompressionProgress('');
@@ -230,32 +290,14 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
     setIsCompressing(true);
     setCompressionProgress(t('chatOptimizingVideo'));
     try {
-      const result = await compressVideo(file);
-
-      if (result.size > 800 * 1024) {
-        if (fromAdminPanel) void alertAdminDialog(t('chatOptimizedVideoTooLarge'));
-        else alert(t('chatOptimizedVideoTooLarge'));
-        return;
-      }
-
-      const chatId = resolveChatId(booking);
-      const sanitizedName = result.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-      const path = resolveBookingChatAttachmentStoragePath(
-        { ...booking, chatId },
-        `${Date.now()}_${sanitizedName}`
-      );
-      const downloadUrl = await uploadChatMedia(result.blob, path);
-      setAttachment({
-        type: 'video',
-        url: downloadUrl,
-        name: result.name,
-        size: result.size,
-      });
+      await attachMedia(file, 'video');
     } catch (err: unknown) {
       logger.error(err);
-      if (fromAdminPanel)
-        void alertAdminDialog(formatCompressionError(err, t, 'chatVideoProcessingFailed'));
-      else alert(formatCompressionError(err, t, 'chatVideoProcessingFailed'));
+      const message =
+        formatMediaUploadLimit(err, language) ??
+        formatCompressionError(err, t, 'chatVideoProcessingFailed');
+      if (fromAdminPanel) void alertAdminDialog(message);
+      else alert(message);
     } finally {
       setIsCompressing(false);
       setCompressionProgress('');

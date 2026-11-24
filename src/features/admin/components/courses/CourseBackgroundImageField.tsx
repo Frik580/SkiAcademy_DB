@@ -4,6 +4,7 @@ import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { useNotifications } from '../../../../features/notifications';
 import { optimizeCourseImage } from './courseImage';
 import { uploadImage } from '../../../../infrastructure/firebase';
+import { formatMediaUploadLimit } from '../../../../lib/mediaUploadError';
 import {
   liveCourseCoverStoragePath,
   parseResourceStorageScope,
@@ -26,7 +27,7 @@ export const CourseBackgroundImageField: React.FC<CourseBackgroundImageFieldProp
   dataScope,
   testSessionId,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { addNotification } = useNotifications();
   const [isUploadingCourseImage, setIsUploadingCourseImage] = useState(false);
   const [isCourseDragOver, setIsCourseDragOver] = useState(false);
@@ -48,7 +49,11 @@ export const CourseBackgroundImageField: React.FC<CourseBackgroundImageFieldProp
       addNotification('success', t('courseBgAttached'), t('courseBgAttachedDesc'));
     } catch (err) {
       logger.error(err);
-      addNotification('error', t('uploadFailed'), t('courseBgFailedDesc'));
+      addNotification(
+        'error',
+        t('uploadFailed'),
+        formatMediaUploadLimit(err, language) ?? t('courseBgFailedDesc')
+      );
     } finally {
       setIsUploadingCourseImage(false);
     }

@@ -1,4 +1,5 @@
 import { app, auth, firebaseEmulatorConfig } from '../../infrastructure/firebase';
+import { MediaUploadLimitError, readMediaUploadLimit } from '../../lib/mediaUploadError';
 
 const CHUNK_SIZE = 8 * 1024 * 1024;
 const marker = 'chat-media:';
@@ -53,34 +54,57 @@ async function requestMedia(
     cache: 'no-store',
     signal,
   });
+  if (response.status === 429 && method === 'POST') throw await readMediaUploadLimit(response);
   if (!response.ok) throw new Error(`Chat media access failed (${response.status})`);
   return response;
 }
 
-export async function uploadChatMedia(blob: Blob, path: string) {
+export async function uploadChatMedia(
+  blob: Blob,
+  path: string,
+  uploadId: string = crypto.randomUUID(),
+  resume = false
+) {
   const limit = MEDIA_LIMITS.get(blob.type) ?? 0;
   if (!limit || !blob.size || blob.size >= limit)
     throw new Error('Invalid chat media format or size');
-  const uploadId = crypto.randomUUID();
   const count = Math.ceil(blob.size / CHUNK_SIZE);
+  const finishQuery = { op: 'finish', uploadId, count: String(count), type: blob.type };
+  if (resume && path.startsWith('chat/')) {
+    const status = await requestMedia(
+      path,
+      { ...finishQuery, checkOnly: 'true' },
+      undefined,
+      'POST'
+    );
+    if (status.status === 201) return `${marker}${path}`;
+  }
   try {
     for (let index = 0; index < count; index++) {
-      await requestMedia(
-        path,
-        { op: 'chunk', uploadId, index: String(index) },
-        blob.slice(index * CHUNK_SIZE, (index + 1) * CHUNK_SIZE),
-        'POST'
-      );
+      const sendChunk = () =>
+        requestMedia(
+          path,
+          {
+            op: 'chunk',
+            uploadId,
+            index: String(index),
+            ...(resume ? { resume: 'true', count: finishQuery.count, type: blob.type } : {}),
+          },
+          blob.slice(index * CHUNK_SIZE, (index + 1) * CHUNK_SIZE),
+          'POST'
+        );
+      const response = await sendChunk().catch((error: unknown) => {
+        if (path.startsWith('chat/') && error instanceof TypeError) return sendChunk();
+        throw error;
+      });
+      if (resume && response.status === 201) return `${marker}${path}`;
     }
-    const finish = () =>
-      requestMedia(
-        path,
-        { op: 'finish', uploadId, count: String(count), type: blob.type },
-        undefined,
-        'POST'
-      );
+    const finish = () => requestMedia(path, finishQuery, undefined, 'POST');
     // The same upload identity lets the server recover a committed response lost in transit.
-    await finish().catch(() => finish());
+    await finish().catch((error: unknown) => {
+      if (error instanceof MediaUploadLimitError) throw error;
+      return finish();
+    });
     return `${marker}${path}`;
   } catch (error) {
     await requestMedia(path, { uploadId }, undefined, 'DELETE').catch(() => undefined);

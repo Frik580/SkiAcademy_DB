@@ -2341,6 +2341,11 @@ export const translations = {
     chatHomeworkSelectStudent: 'Assign to student',
     chatOptimizingImage: 'Optimizing image...',
     chatImageProcessingFailed: 'Failed to process image',
+    mediaUploadBusy: 'An upload is already in progress. Try again when it finishes.',
+    mediaUploadCountLimit: 'You’ve reached the limit on the number of uploads.',
+    mediaUploadBytesLimit: 'You’ve reached the hourly upload size limit.',
+    mediaUploadRequestLimit: 'Too many media requests. Try again shortly.',
+    mediaUploadRetryAt: 'Try again at {time}.',
     chatVideoTooLarge: 'Video file is too large (max 40MB). Please select a shorter clip.',
     chatOptimizingVideo: 'Optimizing video...',
     chatOptimizedVideoTooLarge:
@@ -5068,6 +5073,11 @@ export const translations = {
     chatHomeworkSelectStudent: 'Назначить ученику',
     chatOptimizingImage: 'Оптимизация фото...',
     chatImageProcessingFailed: 'Ошибка обработки фото',
+    mediaUploadBusy: 'Загрузка уже выполняется. Дождитесь её завершения и попробуйте снова.',
+    mediaUploadCountLimit: 'Достигнут лимит количества загрузок.',
+    mediaUploadBytesLimit: 'Достигнут часовой лимит объёма загрузок.',
+    mediaUploadRequestLimit: 'Слишком много запросов на загрузку. Попробуйте чуть позже.',
+    mediaUploadRetryAt: 'Повторите попытку в {time}.',
     chatVideoTooLarge: 'Файл слишком велик (макс. 40 МБ). Выберите более короткий ролик.',
     chatOptimizingVideo: 'Оптимизация видео...',
     chatOptimizedVideoTooLarge:

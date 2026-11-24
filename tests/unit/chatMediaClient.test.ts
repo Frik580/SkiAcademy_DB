@@ -22,6 +22,52 @@ beforeEach(() => {
   mocks.token.mockClear();
 });
 describe('private chat media client', () => {
+  it('recovers a completed LIVE upload before sending any chunks on reselection', async () => {
+    mocks.fetch.mockResolvedValueOnce({ ok: true, status: 201 });
+    const path = 'chat/booking-1/retry.jpg';
+    const uploadId = '11111111-1111-4111-8111-111111111111';
+    await expect(
+      uploadChatMedia(new Blob(['photo'], { type: 'image/jpeg' }), path, uploadId, true)
+    ).resolves.toBe(`chat-media:${path}`);
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    expect(mocks.fetch.mock.calls[0][0]).toContain(`uploadId=${uploadId}`);
+    expect(mocks.fetch.mock.calls[0][0]).toContain('checkOnly=true');
+    expect(mocks.fetch.mock.calls[0][1].body).toBeUndefined();
+  });
+  it('returns a committed attachment when the earlier finish wins the race with a resumed chunk', async () => {
+    mocks.fetch
+      .mockResolvedValueOnce({ ok: true, status: 204 })
+      .mockResolvedValueOnce({ ok: true, status: 201 });
+    const path = 'chat/booking-1/resume.jpg';
+    await expect(
+      uploadChatMedia(new Blob(['photo'], { type: 'image/jpeg' }), path, undefined, true)
+    ).resolves.toBe(`chat-media:${path}`);
+    expect(mocks.fetch).toHaveBeenCalledTimes(2);
+    expect(mocks.fetch.mock.calls[1][0]).toContain('resume=true');
+  });
+  it('retries a transport failure for the same LIVE chunk', async () => {
+    mocks.fetch
+      .mockRejectedValueOnce(new TypeError('Connection lost'))
+      .mockResolvedValue({ ok: true });
+    await expect(
+      uploadChatMedia(new Blob(['photo'], { type: 'image/jpeg' }), 'chat/booking-1/retry.jpg')
+    ).resolves.toBe('chat-media:chat/booking-1/retry.jpg');
+    expect(mocks.fetch.mock.calls[0][0]).toBe(mocks.fetch.mock.calls[1][0]);
+  });
+  it('surfaces a quota response without resending finish', async () => {
+    const retryAt = Date.now() + 60_000;
+    mocks.fetch
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ quota: { reason: 'uploads', retryAt } }), { status: 429 })
+      )
+      .mockResolvedValueOnce({ ok: true });
+    await expect(
+      uploadChatMedia(new Blob(['photo'], { type: 'image/jpeg' }), 'chat/booking-1/limit.jpg')
+    ).rejects.toMatchObject({ reason: 'uploads', retryAt });
+    expect(mocks.fetch).toHaveBeenCalledTimes(3);
+    expect(mocks.fetch.mock.calls[2][1].method).toBe('DELETE');
+  });
   it('retries a lost finish response with the same upload identity', async () => {
     mocks.fetch
       .mockResolvedValueOnce({ ok: true })

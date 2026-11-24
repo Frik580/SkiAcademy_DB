@@ -1,87 +1,92 @@
+import { EventEmitter } from 'node:events';
+import { Readable } from 'node:stream';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import sharp from 'sharp';
-import { fetchImageSource, MAX_SOURCE_BYTES, isAllowedImageSource } from './optimizeImage';
+import { fetchImageSource, lookupPublicImageHost, MAX_SOURCE_BYTES } from './imageSource';
 
-afterEach(() => vi.unstubAllGlobals());
-describe('image source security and native codec regression', () => {
-  it('rejects a redirect to another host before sending a second request', async () => {
-    const fetcher = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(null, {
-          status: 302,
-          headers: { location: 'http://169.254.169.254/metadata' },
-        })
-      );
-    vi.stubGlobal('fetch', fetcher);
-    expect(await fetchImageSource('https://storage.yandexcloud.net/carve/a.png')).toMatchObject({
-      ok: false,
-    });
-    expect(fetcher).toHaveBeenCalledTimes(1);
-    expect(fetcher.mock.calls[0][1]).toMatchObject({ redirect: 'manual' });
+const { get, lookup } = vi.hoisted(() => ({ get: vi.fn(), lookup: vi.fn() }));
+vi.mock('node:https', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('node:https')>()),
+  get,
+}));
+vi.mock('node:dns', () => ({ lookup }));
+
+const SOURCE = 'https://storage.yandexcloud.net/carve/a.png';
+function queueResponse(statusCode: number, headers = {}, body: Buffer[] = []) {
+  const response = Object.assign(Readable.from(body), { statusCode, headers });
+  get.mockImplementationOnce((_url, _options, callback) => {
+    queueMicrotask(() => callback(response));
+    return new EventEmitter();
   });
-  it('accepts a bounded relative redirect within the catalog', async () => {
-    const fetcher = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response(null, { status: 302, headers: { location: '/carve/b.png' } })
-      )
-      .mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3])));
-    vi.stubGlobal('fetch', fetcher);
-    expect(await fetchImageSource('https://storage.yandexcloud.net/carve/a.png')).toEqual(
-      Buffer.from([1, 2, 3])
-    );
-    expect(fetcher.mock.calls[1][0]).toBe('https://storage.yandexcloud.net/carve/b.png');
-  });
-  it('cancels a chunked oversized response without trusting content-length', async () => {
-    const cancel = vi.fn();
-    const body = new ReadableStream({
-      start(controller) {
-        controller.enqueue(new Uint8Array(MAX_SOURCE_BYTES));
-        controller.enqueue(new Uint8Array(1));
-      },
-      cancel,
-    });
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body)));
-    expect(await fetchImageSource('https://storage.yandexcloud.net/carve/a.png')).toMatchObject({
-      status: 413,
-    });
-    expect(cancel).toHaveBeenCalledTimes(1);
-  });
-  it('rejects credentials, alternate ports and redirect loops', async () => {
-    expect(isAllowedImageSource('https://user:pass@storage.yandexcloud.net/carve/a.png')).toBe(
-      false
-    );
-    expect(isAllowedImageSource('https://storage.yandexcloud.net:8443/carve/a.png')).toBe(false);
-    const fetcher = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(null, { status: 302, headers: { location: '/carve/a.png' } })
-      );
-    vi.stubGlobal('fetch', fetcher);
-    expect(await fetchImageSource('https://storage.yandexcloud.net/carve/a.png')).toMatchObject({
-      status: 502,
-    });
-    expect(fetcher).toHaveBeenCalledTimes(4);
-  });
-  it('converts PNG and JPEG to bounded WebP using the installed native codecs', async () => {
-    for (const format of ['png', 'jpeg'] as const) {
-      const source = await sharp({
-        create: { width: 16, height: 8, channels: 3, background: '#336699' },
-      })
-        .toFormat(format)
-        .toBuffer();
-      const result = await sharp(source, { limitInputPixels: 40_000_000 })
-        .rotate()
-        .resize({ width: 480, withoutEnlargement: true, fit: 'inside' })
-        .webp({ quality: 72, effort: 4 })
-        .toBuffer();
-      expect(await sharp(result).metadata()).toMatchObject({
-        format: 'webp',
-        width: 16,
-        height: 8,
-      });
+  return response;
+}
+afterEach(() => vi.resetAllMocks());
+
+describe('public image transport', () => {
+  it('rejects redirects across the origin, bucket, or unsigned URL boundary', async () => {
+    for (const location of [
+      'https://example.com/carve/a.png',
+      '/other/a.png',
+      '/carve/b.png?token=fake',
+    ]) {
+      get.mockClear();
+      queueResponse(302, { location });
+      expect(await fetchImageSource(SOURCE)).toMatchObject({ ok: false, status: 502 });
+      expect(get).toHaveBeenCalledTimes(1);
     }
-    await expect(sharp(Buffer.from('invalid')).webp().toBuffer()).rejects.toThrow();
+  });
+
+  it('checks each bounded same-bucket redirect using the same pinned lookup and deadline', async () => {
+    queueResponse(302, { location: '/carve/b.png' });
+    queueResponse(200, {}, [Buffer.from([1, 2, 3])]);
+    expect(await fetchImageSource(SOURCE)).toEqual({
+      body: Buffer.from([1, 2, 3]),
+      url: 'https://storage.yandexcloud.net/carve/b.png',
+    });
+    expect(get.mock.calls[1][0]).toBe('https://storage.yandexcloud.net/carve/b.png');
+    expect(get.mock.calls[0][1].lookup).toBe(lookupPublicImageHost);
+    expect(get.mock.calls[1][1].signal).toBe(get.mock.calls[0][1].signal);
+
+    get.mockClear();
+    for (let index = 0; index < 4; index++) queueResponse(302, { location: '/carve/a.png' });
+    expect(await fetchImageSource(SOURCE)).toMatchObject({ ok: false, status: 502 });
+    expect(get).toHaveBeenCalledTimes(4);
+  });
+
+  it('closes oversized responses with or without content-length and reports upstream failure', async () => {
+    const declared = queueResponse(200, { 'content-length': String(MAX_SOURCE_BYTES + 1) });
+    expect(await fetchImageSource(SOURCE)).toMatchObject({ status: 413 });
+    expect(declared.destroyed).toBe(true);
+    const chunked = queueResponse(200, {}, [Buffer.alloc(MAX_SOURCE_BYTES), Buffer.alloc(1)]);
+    expect(await fetchImageSource(SOURCE)).toMatchObject({ status: 413 });
+    expect(chunked.destroyed).toBe(true);
+    queueResponse(404);
+    expect(await fetchImageSource(SOURCE)).toMatchObject({ status: 502 });
+  });
+
+  it('passes only public IPv4 and IPv6 candidates to the TLS socket', () => {
+    lookup.mockImplementation((_host, _opts, callback) =>
+      callback(null, [
+        { address: '10.0.0.1', family: 4 },
+        { address: '127.0.0.1', family: 4 },
+        { address: '169.254.169.254', family: 4 },
+        { address: '::1', family: 6 },
+        { address: 'fc00::1', family: 6 },
+        { address: 'fe80::1', family: 6 },
+        { address: '::ffff:169.254.169.254', family: 6 },
+        { address: '8.8.8.8', family: 4 },
+        { address: '2606:4700::1111', family: 6 },
+      ])
+    );
+    const callback = vi.fn();
+    lookupPublicImageHost('storage.yandexcloud.net', { all: true }, callback);
+    expect(callback).toHaveBeenCalledWith(null, [
+      { address: '8.8.8.8', family: 4 },
+      { address: '2606:4700::1111', family: 6 },
+    ]);
+    lookup.mockImplementationOnce((_host, _opts, done) =>
+      done(null, [{ address: '127.0.0.2', family: 4 }])
+    );
+    lookupPublicImageHost('storage.yandexcloud.net', {}, callback);
+    expect(callback).toHaveBeenLastCalledWith(expect.any(Error), '', 0);
   });
 });

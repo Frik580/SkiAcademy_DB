@@ -1,8 +1,7 @@
-import { HttpsError } from 'firebase-functions/v2/https';
-import { admitRequest } from '../security/requestAdmission';
 import { getAdminFirestore } from '../adminFirestore';
 import { onRequest } from 'firebase-functions/v2/https';
-import { optimizeImageFromParams, parseOptimizeImageQuery } from './optimizeImage';
+import { admitImageCacheMiss } from './imageMissAdmission';
+import { CACHE_CONTROL, optimizeImageFromParams, parseOptimizeImageQuery } from './optimizeImage';
 
 /**
  * GET /api/img?u=<https carve url>&w=960|1920&q=72
@@ -13,6 +12,7 @@ export const optimizeImage = onRequest(
     region: 'us-central1',
     memory: '512MiB',
     timeoutSeconds: 60,
+    concurrency: 4,
     maxInstances: 10,
     cors: true,
   },
@@ -36,39 +36,39 @@ export const optimizeImage = onRequest(
       return;
     }
 
+    // A first-party browser image can load the same unsigned public object
+    // directly when capacity is unavailable. The function never fetches it in
+    // this path. Fetch Metadata only selects the response, never admits work.
+    const unavailable = (status: number, message: string, retryAfter: number) => {
+      if (req.get('Sec-Fetch-Dest') === 'image' && req.get('Sec-Fetch-Site') === 'same-origin') {
+        res.setHeader('Referrer-Policy', 'no-referrer');
+        res.status(307).set('Location', parsed.sourceUrl).end();
+      } else {
+        res.setHeader('Retry-After', String(retryAfter));
+        res.status(status).send(message);
+      }
+    };
     try {
-      const result = await optimizeImageFromParams({
-        ...parsed,
-        admitCacheMiss: async () => {
-          await admitRequest(getAdminFirestore(), 'image_global_misses', 120);
-        },
-      });
+      const result = await optimizeImageFromParams(parsed, (key) =>
+        admitImageCacheMiss(getAdminFirestore(), key)
+      );
       if (!result.ok) {
-        res.status(result.status).send(result.message);
+        if (result.retryAfter) unavailable(result.status, result.message, result.retryAfter);
+        else res.status(result.status).send(result.message);
         return;
       }
 
-      res.setHeader('Content-Type', result.contentType);
-      res.setHeader(
-        'Cache-Control',
-        'public, max-age=604800, s-maxage=604800, stale-while-revalidate=86400'
-      );
+      res.setHeader('Content-Type', 'image/webp');
+      res.setHeader('Cache-Control', CACHE_CONTROL);
       res.setHeader('X-Image-Cache', result.cacheHit ? 'HIT' : 'MISS');
       if (req.method === 'HEAD') {
         res.status(200).end();
         return;
       }
       res.status(200).send(result.body);
-    } catch (err) {
-      if (err instanceof HttpsError && err.code === 'resource-exhausted') {
-        res.setHeader('Retry-After', '60');
-        res.status(429).send('Image rate limit exceeded');
-        return;
-      }
-      console.error('optimizeImage failed', {
-        code: err instanceof HttpsError ? err.code : 'processing_error',
-      });
-      res.status(500).send('Image optimization failed');
+    } catch {
+      console.error('optimizeImage cache or admission unavailable');
+      unavailable(503, 'Image optimization unavailable', 5);
     }
   }
 );

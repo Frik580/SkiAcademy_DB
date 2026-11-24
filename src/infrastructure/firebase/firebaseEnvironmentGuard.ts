@@ -12,6 +12,10 @@ const PRODUCTION_HOSTS = new Set([
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 
+export function isFirebaseLoopbackHost(hostname: string): boolean {
+  return LOCAL_HOSTS.has(hostname.trim().toLowerCase());
+}
+
 export class FirebaseEnvironmentGuardError extends Error {
   constructor(message: string) {
     super(message);
@@ -48,7 +52,7 @@ export function assertFirebaseEnvironment(input: FirebaseEnvironmentGuardInput):
   const projectId = input.projectId.trim();
   const onStagingHost = STAGING_HOSTS.has(hostname);
   const onProductionHost = PRODUCTION_HOSTS.has(hostname);
-  const onLocalHost = LOCAL_HOSTS.has(hostname);
+  const onLocalHost = isFirebaseLoopbackHost(hostname);
 
   if (onStagingHost && projectId !== STAGING_FIREBASE_PROJECT_ID) {
     throw new FirebaseEnvironmentGuardError(

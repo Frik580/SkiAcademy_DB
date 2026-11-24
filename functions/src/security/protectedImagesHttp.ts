@@ -4,11 +4,9 @@ import { HttpsError, onRequest } from 'firebase-functions/v2/https';
 import { getOrInitApp } from '../adminApp';
 import { getAdminFirestore } from '../adminFirestore';
 import { admitRequest } from './requestAdmission';
+import { mediaDigest, withLiveMediaUpload } from './liveMediaUploadQuota';
 import { authorizeProtectedImage } from './protectedImageAccess';
-import {
-  assertImageContentMatchesType,
-  isAllowedProtectedImageType,
-} from './mediaTypePolicy';
+import { assertImageContentMatchesType, isAllowedProtectedImageType } from './mediaTypePolicy';
 
 const MAX_BYTES = 5 * 1024 * 1024;
 export const handleProtectedImages: Parameters<typeof onRequest>[0] = async (req, res) => {
@@ -83,42 +81,61 @@ export const handleProtectedImages: Parameters<typeof onRequest>[0] = async (req
     ) {
       throw new HttpsError('invalid-argument', 'Invalid image.');
     }
-    // The declared Content-Type is client controlled: classify the bytes first.
-    await assertImageContentMatchesType(req.rawBody, type);
-    let generation = 0;
-    try {
-      const [old] = await file.getMetadata();
-      generation = Number(old.generation);
-      // Session misc uploads cannot overwrite a different actor's file.
-      if (
-        access.path.includes('/misc/') &&
-        !access.administrator &&
-        old.metadata?.uploaderUid !== identity.uid
-      ) {
-        throw new HttpsError('permission-denied', 'Not the file owner.');
+    const save = async (charge?: (uploads: number, bytes: number) => Promise<void>) => {
+      const digest = charge ? mediaDigest(req.rawBody) : undefined;
+      // Keep the existing TEST validation order and behavior.
+      if (!charge) await assertImageContentMatchesType(req.rawBody, type);
+      let generation = 0;
+      try {
+        const [old] = await file.getMetadata();
+        generation = Number(old.generation);
+        if (
+          digest &&
+          old.metadata?.digest === digest &&
+          old.metadata?.uploaderUid === identity.uid &&
+          old.contentType === type
+        )
+          return;
+        // Session misc uploads cannot overwrite a different actor's file.
+        if (
+          access.path.includes('/misc/') &&
+          !access.administrator &&
+          old.metadata?.uploaderUid !== identity.uid
+        ) {
+          throw new HttpsError('permission-denied', 'Not the file owner.');
+        }
+      } catch (error) {
+        if ((error as { code?: unknown }).code !== 404) throw error;
       }
-    } catch (error) {
-      if ((error as { code?: unknown }).code !== 404) throw error;
+      if (charge) {
+        await charge(1, req.rawBody.length);
+        await assertImageContentMatchesType(req.rawBody, type);
+      }
+      const latest = await authorizeProtectedImage(
+        db,
+        identity.uid,
+        access.path,
+        true,
+        req.query.testSessionId
+      );
+      if (latest.path !== access.path || latest.sessionId !== access.sessionId) {
+        throw new HttpsError('permission-denied', 'Image scope changed.');
+      }
+      await file.save(req.rawBody, {
+        resumable: false,
+        preconditionOpts: { ifGenerationMatch: generation },
+        metadata: {
+          contentType: type,
+          cacheControl: 'private, no-store',
+          metadata: { uploaderUid: identity.uid, ...(digest ? { digest } : {}) },
+        },
+      });
+    };
+    if (access.sessionId) await save();
+    else {
+      const category = access.path.startsWith('participant-avatars/') ? 'avatar' : 'catalog';
+      await withLiveMediaUpload(db, identity.uid, category, save);
     }
-    const latest = await authorizeProtectedImage(
-      db,
-      identity.uid,
-      access.path,
-      true,
-      req.query.testSessionId
-    );
-    if (latest.path !== access.path || latest.sessionId !== access.sessionId) {
-      throw new HttpsError('permission-denied', 'Image scope changed.');
-    }
-    await file.save(req.rawBody, {
-      resumable: false,
-      preconditionOpts: { ifGenerationMatch: generation },
-      metadata: {
-        contentType: type,
-        cacheControl: 'private, no-store',
-        metadata: { uploaderUid: identity.uid },
-      },
-    });
     res.status(201).json({ path: access.path });
   } catch (error) {
     const code = error instanceof HttpsError ? error.code : '';
@@ -134,9 +151,10 @@ export const handleProtectedImages: Parameters<typeof onRequest>[0] = async (req
               : (error as { code?: unknown }).code === 404
                 ? 404
                 : 500;
-    res
-      .status(status)
-      .json({ error: status === 500 ? 'Image request failed.' : code || 'not-found' });
+    res.status(status).json({
+      error: status === 500 ? 'Image request failed.' : code || 'not-found',
+      ...(status === 429 && error instanceof HttpsError ? { quota: error.details } : {}),
+    });
   }
 };
 export const protectedImages = onRequest(

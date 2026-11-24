@@ -5,6 +5,7 @@ import { useLanguage } from '../../../app/providers/LanguageContext';
 import { ActionButton } from '../../../ui/ActionButton';
 import type { UserProfile } from '../../../types';
 import { uploadImage } from '../../../infrastructure/firebase';
+import { formatMediaUploadLimit } from '../../../lib/mediaUploadError';
 import { logger } from '../../../shared';
 import { optimizeProfileImage } from '../../student-cabinet/components/profileImage';
 import type { ManagedParticipantOption } from '../../lesson-bookings/lessonBookingContracts';
@@ -52,7 +53,7 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
   onAvatarUploadSuccess,
   onAvatarUploadError,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { participants, loading, error, reload } = useManagedParticipants(accountId);
   const { createDependentParticipant, updateManagedParticipantProfile } =
     useParticipantManagementCommands(accountId);
@@ -195,10 +196,10 @@ export const ParticipantManagementPanel: React.FC<ParticipantManagementPanelProp
       onAvatarUploadSuccess?.();
     } catch (err) {
       logger.error(err);
-      const presented = presentCanonicalCommandErrorWithContext(err, {
-        t: t as (key: string) => string,
-      });
-      setFormError(presented.message);
+      setFormError(
+        formatMediaUploadLimit(err, language) ??
+          presentCanonicalCommandErrorWithContext(err, { t: t as (key: string) => string }).message
+      );
       onAvatarUploadError?.();
     } finally {
       setIsUploadingAvatar(false);

@@ -45,7 +45,10 @@ let testEnv: RulesTestEnvironment;
 let restoreSetupFetch: (() => void) | undefined;
 
 describe('CA-SEC-05B Account role consistency', () => {
-  const path = () => `lesson-levels/security/${STORAGE_ADMIN_ID}/${randomUUID()}`;
+  const paths = () => [
+    `lesson-levels/security/${STORAGE_ADMIN_ID}/${randomUUID()}`,
+    `kaspi-qr/${STORAGE_ADMIN_ID}/${randomUUID()}`,
+  ];
   it.each([
     ['owner-only', { role: 'user', systemRole: 'owner' }],
     ['legacy administrator', { role: 'admin' }],
@@ -65,9 +68,8 @@ describe('CA-SEC-05B Account role consistency', () => {
     await seedStorageFirestore(testEnv, async (db) =>
       setDoc(doc(db, 'users', STORAGE_ADMIN_ID), profile)
     );
-    await assertFails(
-      uploadImage(testEnv.authenticatedContext(STORAGE_ADMIN_ID, { admin: true }).storage(), path())
-    );
+    const storage = testEnv.authenticatedContext(STORAGE_ADMIN_ID, { admin: true }).storage();
+    for (const path of paths()) await assertFails(uploadImage(storage, path));
   });
 
   it('allows admin without owner and revokes upload after role demotion', async () => {
@@ -78,11 +80,11 @@ describe('CA-SEC-05B Account role consistency', () => {
       )
     );
     const storage = testEnv.authenticatedContext(STORAGE_ADMIN_ID).storage();
-    await assertSucceeds(uploadImage(storage, path()));
+    for (const path of paths()) await assertSucceeds(uploadImage(storage, path));
     await seedStorageFirestore(testEnv, async (db) =>
       setDoc(doc(db, 'users', STORAGE_ADMIN_ID), userProfile(STORAGE_ADMIN_ID, 'admin@example.com'))
     );
-    await assertFails(uploadImage(storage, path()));
+    for (const path of paths()) await assertFails(uploadImage(storage, path));
   });
 });
 
@@ -198,11 +200,19 @@ describe('storage Kaspi immutable QR', () => {
       uploadBytes(ref(admin, path), imageBytes(10), { contentType: 'image/svg+xml' })
     );
     await assertFails(uploadImage(admin, path, 5 * 1024 * 1024));
+    await assertFails(uploadImage(admin, path, 0));
     await assertFails(uploadImage(admin, path.replace(STORAGE_ADMIN_ID, 'another-admin')));
     await assertSucceeds(uploadImage(admin, path));
     await assertFails(uploadImage(admin, path));
     await assertFails(updateMetadata(ref(admin, path), { contentType: 'image/png' }));
     await assertFails(deleteObject(ref(admin, path)));
+  });
+  it('allows only the supported declared image types up to the strict size boundary', async () => {
+    const admin = await adminStorage();
+    const bytes = imageBytes(5 * 1024 * 1024 - 1);
+    for (const contentType of ['image/png', 'image/jpeg', 'image/webp']) {
+      await assertSucceeds(uploadBytes(ref(admin, newPath()), bytes, { contentType }));
+    }
   });
   it('publishes only the configured QR for guest reads, independently from payment availability', async () => {
     const path = newPath();
@@ -233,6 +243,7 @@ describe('storage Kaspi immutable QR', () => {
       await setDoc(doc(db, 'test_actors', STORAGE_ADMIN_ID), { allowed: true });
     });
     await assertFails(getBytes(ref(admin, path)));
+    await assertFails(uploadImage(admin, newPath()));
   });
   it('denies disabled administrator uploads', async () => {
     const path = newPath();

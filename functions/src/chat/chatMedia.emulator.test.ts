@@ -905,6 +905,232 @@ describe('authorized canonical chat media gateway', () => {
   });
 });
 
+describe('CA-SEC-06B LIVE upload quotas', () => {
+  const quota = (category: 'chat' | 'catalog' | 'avatar', uid = STORAGE_USER_ID) =>
+    getAdminFirestore().doc(`security_request_limits/media_upload_${category}_${uid}`);
+  const bucket = () => getStorage(getOrInitApp()).bucket();
+  const chunkQuery = { op: 'chunk', index: '0', uploadId };
+  const finish = { op: 'finish', count: '1', uploadId, type: 'image/jpeg' };
+
+  it('uses three quota reads and writes per new operation and skips charging replayed work', async () => {
+    const target = `${path}.quota-operation-count`;
+    const db = getAdminFirestore();
+    const quotaPath = quota('chat').path;
+    const totals = { reads: 0, writes: 0 };
+    const isQuotaRef = (ref: unknown) =>
+      typeof ref === 'object' && ref !== null && 'path' in ref && ref.path === quotaPath;
+    const runTransaction = db.runTransaction.bind(db);
+    const monitor = vi.spyOn(db, 'runTransaction').mockImplementation((work, options) =>
+      runTransaction(async (tx) => {
+        const get = vi.spyOn(tx, 'get');
+        const set = vi.spyOn(tx, 'set');
+        const update = vi.spyOn(tx, 'update');
+        try {
+          return await work(tx);
+        } finally {
+          totals.reads += get.mock.calls.filter(([ref]) => isQuotaRef(ref)).length;
+          totals.writes += [...set.mock.calls, ...update.mock.calls].filter(([ref]) =>
+            isQuotaRef(ref)
+          ).length;
+        }
+      }, options)
+    );
+    try {
+      expect((await request(STORAGE_USER_ID, 'POST', target, chunkQuery, JPEG)).status).toBe(204);
+      expect(totals).toEqual({ reads: 3, writes: 3 });
+      expect((await request(STORAGE_USER_ID, 'POST', target, finish)).status).toBe(201);
+      expect(totals).toEqual({ reads: 6, writes: 6 });
+      expect(
+        (await request(STORAGE_USER_ID, 'POST', target, { ...finish, checkOnly: 'true' })).status
+      ).toBe(201);
+      expect((await request(STORAGE_USER_ID, 'GET', target)).status).toBe(200);
+      expect(totals).toEqual({ reads: 6, writes: 6 });
+      expect((await request(STORAGE_USER_ID, 'POST', target, finish)).status).toBe(201);
+      expect(totals).toEqual({ reads: 8, writes: 8 });
+      expect((await quota('chat').get()).data()).toMatchObject({
+        bytes: { used: JPEG.length },
+        uploads: { used: 1 },
+        lease: null,
+      });
+    } finally {
+      monitor.mockRestore();
+    }
+  });
+
+  it('charges actual chunk bytes and one publication across identical retries', async () => {
+    const target = `${path}.quota-replay`;
+    const temporary = bucket().file(`_chat-media-uploads/${STORAGE_USER_ID}/0`);
+    expect((await request(STORAGE_USER_ID, 'POST', target, chunkQuery, JPEG)).status).toBe(204);
+    const [first] = await temporary.getMetadata();
+    expect((await request(STORAGE_USER_ID, 'POST', target, chunkQuery, JPEG)).status).toBe(204);
+    expect((await temporary.getMetadata())[0].generation).toBe(first.generation);
+    expect((await request(STORAGE_USER_ID, 'POST', target, finish)).status).toBe(201);
+    expect((await request(STORAGE_USER_ID, 'POST', target, finish)).status).toBe(201);
+    expect((await temporary.exists())[0]).toBe(false);
+    expect(
+      (await request(STORAGE_USER_ID, 'POST', target, { ...finish, checkOnly: 'true' })).status
+    ).toBe(201);
+    const resumedChunk = { ...finish, ...chunkQuery, resume: 'true' };
+    expect((await request(STORAGE_USER_ID, 'POST', target, resumedChunk, JPEG)).status).toBe(201);
+    expect((await temporary.exists())[0]).toBe(false);
+    expect((await quota('chat').get()).data()).toMatchObject({
+      bytes: { used: JPEG.length },
+      uploads: { used: 1 },
+      lease: null,
+    });
+  });
+
+  it('enforces byte quotas before Storage writes and keeps them after cancellation', async () => {
+    const target = `${path}.quota-bytes`;
+    const resetAt = Date.now() + 60_000;
+    const used = 512 * 1024 * 1024 - JPEG.length;
+    await quota('chat').set({ bytes: { used, resetAt } });
+    const query = { ...chunkQuery, quotaOwner: STORAGE_OTHER_USER_ID };
+    expect((await request(STORAGE_USER_ID, 'POST', target, query, JPEG)).status).toBe(204);
+    expect((await request(STORAGE_USER_ID, 'DELETE', target, { uploadId })).status).toBe(204);
+    const denied = await request(STORAGE_USER_ID, 'POST', target, query, JPEG);
+    expect(denied).toMatchObject({
+      status: 429,
+      body: { error: 'resource-exhausted', quota: { reason: 'bytes', retryAt: resetAt } },
+    });
+    expect((await bucket().file(`_chat-media-uploads/${STORAGE_USER_ID}/0`).exists())[0]).toBe(
+      false
+    );
+    expect((await quota('chat', STORAGE_OTHER_USER_ID).get()).exists).toBe(false);
+    await quota('chat').update({ 'bytes.resetAt': Date.now() - 1 });
+    expect((await request(STORAGE_USER_ID, 'POST', target, query, JPEG)).status).toBe(204);
+    expect((await quota('chat').get()).data()?.bytes.used).toBe(JPEG.length);
+  });
+
+  it('rejects publication at the count limit and clears the matching temporary parts', async () => {
+    const target = `${path}.quota-count`;
+    const resetAt = Date.now() + 600_000;
+    await quota('chat').set({ uploads: { used: 60, resetAt } });
+    expect((await request(STORAGE_USER_ID, 'POST', target, chunkQuery, JPEG)).status).toBe(204);
+    expect((await quota('chat').get()).data()?.uploads).toEqual({ used: 60, resetAt });
+    expect(
+      (await request(STORAGE_USER_ID, 'POST', target, { ...finish, checkOnly: 'true' })).status
+    ).toBe(204);
+    expect(await request(STORAGE_USER_ID, 'POST', target, finish)).toMatchObject({
+      status: 429,
+      body: { quota: { reason: 'uploads', retryAt: resetAt } },
+    });
+    expect((await bucket().file(target).exists())[0]).toBe(false);
+    expect((await bucket().file(`_chat-media-uploads/${STORAGE_USER_ID}/0`).exists())[0]).toBe(
+      false
+    );
+    expect((await quota('chat').get()).data()).toMatchObject({
+      uploads: { used: 60 },
+      lease: null,
+    });
+  });
+
+  it('serializes concurrent uploads and releases a failed Storage write for a retry', async () => {
+    const target = `${path}.quota-concurrency`;
+    const temporary = bucket().file(`_chat-media-uploads/${STORAGE_USER_ID}/0`);
+    let startWrite!: () => void;
+    const writing = new Promise<void>((resolve) => {
+      startWrite = resolve;
+    });
+    let failWrite!: () => void;
+    const failure = new Promise<void>((resolve) => {
+      failWrite = resolve;
+    });
+    const save = vi
+      .spyOn(Object.getPrototypeOf(temporary), 'save')
+      .mockImplementationOnce(async () => {
+        startWrite();
+        await failure;
+        throw { code: 503 };
+      });
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const first = request(STORAGE_USER_ID, 'POST', target, chunkQuery, JPEG);
+    try {
+      await Promise.race([
+        writing,
+        first.then(() => {
+          throw new Error('Expected a Storage write');
+        }),
+      ]);
+      const parallel = await request(STORAGE_USER_ID, 'POST', `${target}.other`, chunkQuery, JPEG);
+      expect(parallel).toMatchObject({ status: 429, body: { quota: { reason: 'busy' } } });
+      expect((await quota('chat').get()).data()?.bytes.used).toBe(JPEG.length);
+    } finally {
+      failWrite();
+      await first;
+      save.mockRestore();
+      log.mockRestore();
+    }
+    expect((await first).status).toBe(500);
+    expect((await quota('chat').get()).data()?.lease).toBeNull();
+    expect((await request(STORAGE_USER_ID, 'POST', target, chunkQuery, JPEG)).status).toBe(204);
+    expect((await request(STORAGE_USER_ID, 'POST', target, finish)).status).toBe(201);
+  });
+
+  it('keeps LIVE catalog quota administrator-only and replays or replaces the same object', async () => {
+    const object = 'courses/quota-cover.jpg';
+    const upload = (uid: string | null, body: Buffer) =>
+      request(uid, 'POST', object, {}, body, handleProtectedImages);
+    expect((await upload(null, JPEG)).status).toBe(401);
+    expect((await upload(STORAGE_USER_ID, JPEG)).status).toBe(403);
+    expect((await quota('catalog').get()).exists).toBe(false);
+    expect((await upload(STORAGE_ADMIN_ID, JPEG)).status).toBe(201);
+    const [initial] = await bucket().file(object).getMetadata();
+    expect((await upload(STORAGE_ADMIN_ID, JPEG)).status).toBe(201);
+    expect((await bucket().file(object).getMetadata())[0].generation).toBe(initial.generation);
+    const replacement = await sharp(JPEG).negate().jpeg().toBuffer();
+    expect((await upload(STORAGE_ADMIN_ID, replacement)).status).toBe(201);
+    expect((await bucket().file(object).download())[0]).toEqual(replacement);
+    expect((await quota('catalog', STORAGE_ADMIN_ID).get()).data()).toMatchObject({
+      uploads: { used: 2 },
+      bytes: { used: JPEG.length + replacement.length },
+    });
+    await getAdminFirestore()
+      .doc(`users/${STORAGE_ADMIN_ID}`)
+      .update({ lifecycle: { status: 'disabled' } });
+    expect((await upload(STORAGE_ADMIN_ID, replacement)).status).toBe(403);
+  });
+
+  it('closes the image quota to non-owners and rejects an avatar above its own byte budget', async () => {
+    const participantId = 'quota-avatar';
+    const participantManagementId = 'quota-avatar-management';
+    const avatar = `participant-avatars/${participantId}/avatar.jpg`;
+    const upload = (uid: string) => request(uid, 'POST', avatar, {}, JPEG, handleProtectedImages);
+    await seedStorageFirestore(env, async (db) => {
+      const { createdAt, updatedAt, audit } = canonicalStorageBooking;
+      const metadata = { revision: 1, createdAt, updatedAt, audit };
+      await setDoc(doc(db, 'participants', participantId), {
+        ...metadata,
+        participantId,
+        displayName: 'Quota avatar fixture',
+        age: { kind: 'age_years', years: 12 },
+        skillLevel: 'beginner',
+        discipline: 'ski',
+        management: { kind: 'managed', participantManagementId },
+        lifecycle: { status: 'active' },
+      });
+      await setDoc(doc(db, 'participant_management', participantManagementId), {
+        ...metadata,
+        participantId,
+        participantManagementId,
+        accountId: STORAGE_USER_ID,
+        role: 'owner',
+        authority: 'parent_guardian',
+        status: 'active',
+      });
+    });
+    expect((await upload(STORAGE_OTHER_USER_ID)).status).toBe(403);
+    expect((await quota('avatar', STORAGE_OTHER_USER_ID).get()).exists).toBe(false);
+    const resetAt = Date.now() + 60_000;
+    await quota('avatar').set({ bytes: { used: 64 * 1024 * 1024, resetAt } });
+    expect(await upload(STORAGE_USER_ID)).toMatchObject({
+      status: 429,
+      body: { quota: { reason: 'bytes', retryAt: resetAt } },
+    });
+    expect((await bucket().file(avatar).exists())[0]).toBe(false);
+  });
+});
+
 describe('CA-SEC-06A media upload security', () => {
   const exists = async (target: string) =>
     (await getStorage(getOrInitApp()).bucket().file(target).exists())[0];

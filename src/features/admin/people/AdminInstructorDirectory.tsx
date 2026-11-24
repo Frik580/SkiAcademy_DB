@@ -12,6 +12,7 @@ import { Loader2, Plus, Search, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { uploadImage } from '../../../infrastructure/firebase';
+import { formatMediaUploadLimit } from '../../../lib/mediaUploadError';
 import { toCanonicalCommandClientError } from '../../../lib/canonical/mapCanonicalCommandError';
 import { ACCOUNT_DIRECTORY_SEARCH_DEBOUNCE_MS } from '../identity/accountDirectorySearch';
 import { executeAdminIdentityAttempt } from '../identity/useAdminIdentityCommands';
@@ -104,7 +105,7 @@ function optimizeInstructorImage(file: File): Promise<Blob> {
 }
 
 export function AdminInstructorDirectory({ adminAccountId }: AdminInstructorDirectoryProps) {
-  const { text } = useAdminInstructorTranslations();
+  const { text, language } = useAdminInstructorTranslations();
   const { confirm: confirmAdminDialog, dialog: adminDialog } = useAdminDialog();
   const [, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
@@ -266,8 +267,8 @@ export function AdminInstructorDirectory({ adminAccountId }: AdminInstructorDire
         instructorAssetStoragePath(LIVE_CANONICAL_EXECUTION_SCOPE, instructorIdForPath)
       );
       setProfileDraft((previous) => ({ ...previous, avatarUrl: url }));
-    } catch {
-      setError(text.mutationFailed);
+    } catch (error) {
+      setError(formatMediaUploadLimit(error, language) ?? text.mutationFailed);
     } finally {
       setUploading(false);
     }

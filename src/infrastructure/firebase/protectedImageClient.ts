@@ -1,5 +1,6 @@
 import { app, auth } from './firebase';
 import { firebaseEmulatorConfig } from './firebaseEmulatorConfig';
+import { readMediaUploadLimit } from '../../lib/mediaUploadError';
 
 const marker = 'protected-image:';
 export function protectedImageStoragePath(value: string): string | undefined {
@@ -52,6 +53,7 @@ async function request(path: string, body?: Blob, signal?: AbortSignal) {
       ...(body ? { 'Content-Type': body.type } : {}),
     },
   });
+  if (response.status === 429 && body) throw await readMediaUploadLimit(response);
   if (!response.ok) throw new Error(`Image access denied (${response.status}).`);
   return response;
 }

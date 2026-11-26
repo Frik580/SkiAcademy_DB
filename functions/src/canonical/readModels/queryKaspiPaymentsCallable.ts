@@ -71,7 +71,7 @@ export function createQueryKaspiPaymentsHandler(
     if (!parsed.success) throw new HttpsError('invalid-argument', 'Invalid payment query.');
     const input = parsed.data;
     if (input.scope === 'admin_configuration') {
-      const { readScope } = await resolveAdministratorCanonicalRead(firestore, call.auth?.uid);
+      const { readScope } = await resolveAdministratorCanonicalRead(firestore, call.auth?.uid, undefined, call.auth?.token ?? null);
       if (readScope.dataScope !== 'live')
         throw new HttpsError(
           'failed-precondition',
@@ -159,7 +159,7 @@ export function createQueryKaspiPaymentsHandler(
     if (!call.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in required.');
     const admin = input.scope === 'admin' || input.scope === 'history';
     if (admin) {
-      const { readScope } = await resolveAdministratorCanonicalRead(firestore, call.auth.uid);
+      const { readScope } = await resolveAdministratorCanonicalRead(firestore, call.auth.uid, undefined, call.auth.token ?? null);
       if (readScope.dataScope !== 'live')
         throw new HttpsError(
           'failed-precondition',

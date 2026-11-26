@@ -1,4 +1,5 @@
 import { FieldPath, Timestamp, type Firestore, type Query } from 'firebase-admin/firestore';
+import { requireAdministratorAccountSessionPolicy } from './administratorSession';
 import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
 import { z } from 'zod';
 import {
@@ -105,6 +106,9 @@ export function createQueryScopedClientDocuments(db: Firestore, secret: string) 
       isAdministrator: admin,
       requestedTestSessionId: input.requestedTestSessionId,
     }).catch(rethrowReadScopeHttpsError);
+    if (admin && !publicCollection && scope.dataScope === 'live') {
+      requireAdministratorAccountSessionPolicy(profile, request.auth?.token);
+    }
     if (input.collection === 'users' && scope.dataScope !== 'live') deny();
     const scopeKey = scope.dataScope === 'live' ? 'live' : `test/sessions/${scope.testSessionId}`;
     const runtimePath =
@@ -211,6 +215,9 @@ export function createQueryScopedClientDocuments(db: Firestore, secret: string) 
     if (uid && !bootstrap) {
       const freshProfile = (await db.doc(`users/${uid}`).get()).data();
       requireActiveAccount(uid, freshProfile);
+      if (admin && !publicCollection && scope.dataScope === 'live') {
+        requireAdministratorAccountSessionPolicy(freshProfile, request.auth?.token);
+      }
       for (const field of ['role', 'instructorId', 'revision', 'dataScope', 'testSessionId']) {
         if (freshProfile?.[field] !== profile?.[field]) deny();
       }

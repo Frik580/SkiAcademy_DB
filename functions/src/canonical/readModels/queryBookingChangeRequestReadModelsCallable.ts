@@ -10,6 +10,7 @@ import {
   BookingChangeRequestAdminReadForbiddenError,
   queryBookingChangeRequestReadModels,
 } from './bookingChangeRequestReadModels';
+import { requireAdministratorAccountSessionPolicy } from '../../security/administratorSession';
 import { resolveCallableAdministratorActor } from './resolveCallableAdministrator';
 import {
   readCallableAccountProfile,
@@ -56,6 +57,11 @@ export function createQueryBookingChangeRequestReadModelsHandler(firestore: Fire
           requestedTestSessionId,
         }
       );
+      if (administratorActor && readScope.dataScope === 'live') {
+        requireAdministratorAccountSessionPolicy(
+          (await liveContext.account(administratorActor.accountId)).data(), request.auth?.token
+        );
+      }
       const readContext =
         readScope.dataScope === 'live'
           ? liveContext

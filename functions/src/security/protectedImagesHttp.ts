@@ -33,7 +33,8 @@ export const handleProtectedImages: Parameters<typeof onRequest>[0] = async (req
       identity.uid,
       req.query.path,
       writable,
-      req.query.testSessionId
+      req.query.testSessionId,
+      identity
     );
     const file = getStorage(app).bucket().file(access.path);
     if (!writable) {
@@ -63,7 +64,8 @@ export const handleProtectedImages: Parameters<typeof onRequest>[0] = async (req
         identity.uid,
         access.path,
         false,
-        req.query.testSessionId
+        req.query.testSessionId,
+      identity
       );
       if (latest.path !== access.path || latest.sessionId !== access.sessionId) {
         throw new HttpsError('permission-denied', 'Image scope changed.');
@@ -116,7 +118,8 @@ export const handleProtectedImages: Parameters<typeof onRequest>[0] = async (req
         identity.uid,
         access.path,
         true,
-        req.query.testSessionId
+        req.query.testSessionId,
+      identity
       );
       if (latest.path !== access.path || latest.sessionId !== access.sessionId) {
         throw new HttpsError('permission-denied', 'Image scope changed.');

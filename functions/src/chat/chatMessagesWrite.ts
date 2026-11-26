@@ -71,7 +71,8 @@ export function createMutateChatMessage(db: Firestore) {
               input.isHomework && input.participantIds ? input.participantIds : FieldValue.delete(),
           });
         }
-      }
+      },
+      request.auth.token
     );
     return { saved: true };
   };

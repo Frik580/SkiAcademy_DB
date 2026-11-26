@@ -726,5 +726,7 @@
   "tests/browser/admin-issue-attendance/center.spec.ts": "deferred:browser-fixtures",
   "tests/unit/mediaUploadError.test.ts": "app-unit",
   "functions/src/images/optimizeImage.emulator.test.ts": "canonical-backend",
-  "tests/unit/webAppCheckSdk.test.ts": "app-unit"
+  "tests/unit/webAppCheckSdk.test.ts": "app-unit",
+  "functions/src/security/administratorSession.test.ts": "functions-unit",
+  "tests/unit/administratorStepUp.test.tsx": "app-unit"
 }

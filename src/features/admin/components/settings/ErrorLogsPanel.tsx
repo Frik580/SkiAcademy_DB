@@ -35,7 +35,7 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
   const [cleanupCount, setCleanupCount] = useState(0);
   const [cleanupPending, setCleanupPending] = useState(false);
   const [operationError, setOperationError] = useState<
-    '' | 'errorLogsReadFailed' | 'errorLogDeleteFailed' | 'errorLogsClearFailed'
+    '' | 'errorLogsReadFailed' | 'errorLogDeleteFailed' | 'errorLogsClearFailed' | 'adminRecentAuthRequired'
   >('');
 
   useEffect(() => {
@@ -68,8 +68,12 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
       setSelectedLog((log) => (log?.id === logId ? null : log));
       addNotification('success', t('logDeleted'), t('logDeletedDesc'));
     } catch (error) {
-      logger.error('Failed to delete error log:', error);
-      setOperationError('errorLogDeleteFailed');
+      if ((error as { details?: { code?: string } } | null)?.details?.code === 'ADMIN_RECENT_AUTH_REQUIRED') {
+        setOperationError('adminRecentAuthRequired');
+      } else {
+        logger.error('Failed to delete error log:', error);
+        setOperationError('errorLogDeleteFailed');
+      }
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -95,8 +99,12 @@ export const ErrorLogsPanel: React.FC<ErrorLogsPanelProps> = ({ onRequestConfirm
         setSelectedLog(null);
         addNotification('success', t('logsCleared'), t('logsClearedDesc'));
       } catch (error) {
-        logger.error('Failed to clear error logs:', error);
-        setOperationError('errorLogsClearFailed');
+        if ((error as { details?: { code?: string } } | null)?.details?.code === 'ADMIN_RECENT_AUTH_REQUIRED') {
+          setOperationError('adminRecentAuthRequired');
+        } else {
+          logger.error('Failed to clear error logs:', error);
+          setOperationError('errorLogsClearFailed');
+        }
       } finally {
         busyRef.current = false;
         setBusy(false);

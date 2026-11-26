@@ -10,8 +10,18 @@ import {
 import { httpsCallable } from 'firebase/functions';
 import { type ErrorLog } from '../../types';
 import { QUERY_LIMITS } from '../../shared';
+import { withAdministratorStepUp } from '../../lib/functions/administratorStepUp';
 
 const ERROR_LOGS_COLLECTION = 'error_logs';
+
+export async function revokeOwnAdministratorSessions(expectedUid: string): Promise<void> {
+  const revoke = httpsCallable<{ expectedUid: string }, { revoked: boolean }>(
+    functions,
+    'revokeOwnAdministratorSessions'
+  );
+  const { data } = await withAdministratorStepUp(() => revoke({ expectedUid }));
+  if (data.revoked !== true) throw new Error('Session revocation was not confirmed.');
+}
 
 export function subscribeErrorLogs(
   onLogs: (logs: ErrorLog[], hasMore: boolean) => void,
@@ -39,10 +49,13 @@ export function subscribeErrorLogs(
 }
 
 export async function deleteErrorLog(logId: string): Promise<void> {
-  const result = await httpsCallable<{ id: string }, { deleted: boolean }>(
+  const remove = httpsCallable<{ id: string; expectedAdministratorUid?: string }, { deleted: boolean }>(
     functions,
     'deleteErrorLog'
-  )({ id: logId });
+  );
+  const result = await withAdministratorStepUp((expectedAdministratorUid) =>
+    remove({ id: logId, ...(expectedAdministratorUid ? { expectedAdministratorUid } : {}) })
+  );
   if (result.data.deleted !== true) throw new Error('Error log deletion was not confirmed.');
 }
 
@@ -53,10 +66,16 @@ export interface ErrorLogCleanupResult {
 }
 
 export async function clearErrorLogs(cursor?: string): Promise<ErrorLogCleanupResult> {
-  const result = await httpsCallable<{ cursor?: string }, ErrorLogCleanupResult>(
+  const clear = httpsCallable<{ cursor?: string; expectedAdministratorUid?: string }, ErrorLogCleanupResult>(
     functions,
     'clearErrorLogs'
-  )(cursor ? { cursor } : {});
+  );
+  const result = await withAdministratorStepUp((expectedAdministratorUid) =>
+    clear({
+      ...(cursor ? { cursor } : {}),
+      ...(expectedAdministratorUid ? { expectedAdministratorUid } : {}),
+    })
+  );
   const data = result.data;
   if (
     !Number.isInteger(data.deleted) ||

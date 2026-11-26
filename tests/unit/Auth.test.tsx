@@ -1,8 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { FirebaseError } from 'firebase/app';
+import { GoogleAuthProvider, TotpMultiFactorGenerator, type User } from 'firebase/auth';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { Auth } from '../../src/features/auth';
+import { Auth, reauthenticateAdministrator } from '../../src/features/auth';
+import { AdminTotpEnrollment } from '../../src/features/admin/components/settings/AdminTotpEnrollment';
 import { readUserProfile as realReadUserProfile } from '../../src/infrastructure/firebase/firestoreSchemas';
 import {
   ksushaProductionShapedUserDocument,
@@ -15,6 +18,13 @@ const mockSignInWithEmailAndPassword = vi.fn();
 const mockSendPasswordResetEmail = vi.fn();
 const mockSendEmailVerification = vi.fn();
 const mockSignInWithPopup = vi.fn();
+const mockReauthenticateWithPopup = vi.fn();
+const mockReauthenticateWithCredential = vi.fn();
+const mockMfaResolver = vi.fn();
+const mockMultiFactor = vi.fn();
+const mockFirebaseAuth = vi.hoisted(() => ({
+  currentUser: null as { uid: string; emailVerified: boolean } | null,
+}));
 const mockSetDoc = vi.fn();
 const mockGetDoc = vi.fn();
 const mockMigratePreExistingProfile = vi.fn();
@@ -24,14 +34,15 @@ const mockReadUserProfile = vi.fn();
 const mockLanguage = vi.hoisted(() => ({ current: 'en' as 'en' | 'ru' }));
 
 vi.mock('../../src/infrastructure/firebase', async (importOriginal) => {
+  const { GoogleAuthProvider } = await import('firebase/auth');
   const { omitLegacyAccountProgressFields } =
     await import('../../src/infrastructure/firebase/omitLegacyAccountProgressFields');
 
   return {
     ...(await importOriginal<typeof import('../../src/infrastructure/firebase')>()),
-    auth: {},
+    auth: mockFirebaseAuth,
     db: {},
-    googleProvider: {},
+    googleProvider: new GoogleAuthProvider(),
     signInWithPopup: (...args: any[]) => mockSignInWithPopup(...args),
     doc: () => ({}),
     setDoc: (...args: any[]) => mockSetDoc(...args),
@@ -51,6 +62,10 @@ vi.mock('firebase/auth', async (importOriginal) => ({
   createUserWithEmailAndPassword: (...args: any[]) => mockCreateUserWithEmailAndPassword(...args),
   sendPasswordResetEmail: (...args: any[]) => mockSendPasswordResetEmail(...args),
   sendEmailVerification: (...args: any[]) => mockSendEmailVerification(...args),
+  reauthenticateWithPopup: (...args: any[]) => mockReauthenticateWithPopup(...args),
+  reauthenticateWithCredential: (...args: any[]) => mockReauthenticateWithCredential(...args),
+  getMultiFactorResolver: (...args: any[]) => mockMfaResolver(...args),
+  multiFactor: (...args: any[]) => mockMultiFactor(...args),
 }));
 
 vi.mock('../../src/features/notifications', () => ({
@@ -66,6 +81,7 @@ describe('Auth', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFirebaseAuth.currentUser = null;
     mockLanguage.current = 'en';
     mockMigratePreExistingProfile.mockResolvedValue(null);
     mockGetDoc.mockResolvedValue({ exists: () => false });
@@ -82,6 +98,91 @@ describe('Auth', () => {
     render(<Auth onSuccess={onSuccess} />);
     expect(screen.getByRole('button', { name: /signInBtn/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /noAccount/i })).toBeInTheDocument();
+  });
+
+  it('reauthenticates the current user with GoogleAuthProvider and propagates a UID mismatch', async () => {
+    const user = { uid: 'admin-google', emailVerified: true };
+    mockFirebaseAuth.currentUser = user;
+    const mismatch = new FirebaseError('auth/user-mismatch', 'Wrong Google account');
+    mockReauthenticateWithPopup.mockRejectedValueOnce(mismatch);
+
+    await expect(reauthenticateAdministrator(user as User, 'google.com', '')).rejects.toBe(mismatch);
+    expect(mockReauthenticateWithPopup).toHaveBeenCalledExactlyOnceWith(
+      user,
+      expect.any(GoogleAuthProvider)
+    );
+    expect(mockReauthenticateWithCredential).not.toHaveBeenCalled();
+
+    mockFirebaseAuth.currentUser = { ...user, uid: 'other-admin' };
+    await expect(reauthenticateAdministrator(user as User, 'google.com', '')).rejects.toThrow(
+      'Authentication changed.'
+    );
+    expect(mockReauthenticateWithPopup).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for TOTP before loading the Account and accepts a new code after a rejected code', async () => {
+    mockSignInWithEmailAndPassword.mockRejectedValueOnce(
+      new FirebaseError('auth/multi-factor-auth-required', 'Pending credential')
+    );
+    const resolveSignIn = vi
+      .fn()
+      .mockRejectedValueOnce(new FirebaseError('auth/invalid-verification-code', 'Rejected'))
+      .mockResolvedValueOnce({ user: { uid: 'mfa-admin', emailVerified: true } });
+    mockMfaResolver.mockReturnValue({
+      hints: [{ factorId: 'totp', uid: 'enrollment' }],
+      resolveSignIn,
+    });
+    mockGetDoc.mockResolvedValueOnce({ exists: () => true, data: () => ({}) });
+    mockReadUserProfile.mockReturnValueOnce({
+      success: true,
+      data: { uid: 'mfa-admin', displayName: 'Admin', role: 'admin' },
+    });
+    render(<Auth onSuccess={onSuccess} />);
+    await userEvent.type(screen.getByPlaceholderText('emailAddress'), 'admin@example.com');
+    await userEvent.type(screen.getByPlaceholderText('password'), 'password123');
+    await userEvent.click(screen.getByRole('button', { name: /signInBtn/i }));
+
+    const code = await screen.findByLabelText('authTotpCode');
+    expect(mockGetDoc).not.toHaveBeenCalled();
+    await userEvent.type(code, '111111');
+    await userEvent.click(screen.getByRole('button', { name: 'confirm' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('authTotpInvalid');
+    expect(mockGetDoc).not.toHaveBeenCalled();
+
+    await userEvent.type(code, '222222');
+    await userEvent.click(screen.getByRole('button', { name: 'confirm' }));
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: 'mfa-admin', role: 'admin' })
+    ));
+    expect(resolveSignIn).toHaveBeenCalledTimes(2);
+  });
+
+  it('enrolls an authenticator through the SDK and clears the setup key on success', async () => {
+    mockFirebaseAuth.currentUser = { uid: 'mfa-admin', emailVerified: true };
+    const getSession = vi.fn().mockResolvedValue({ type: 'enroll' });
+    const enroll = vi.fn().mockResolvedValue(undefined);
+    mockMultiFactor.mockReturnValue({ getSession, enroll });
+    const generateSecret = vi
+      .spyOn(TotpMultiFactorGenerator, 'generateSecret')
+      .mockResolvedValue({ secretKey: 'TESTKEY' } as Awaited<ReturnType<typeof TotpMultiFactorGenerator.generateSecret>>);
+    try {
+      render(<AdminTotpEnrollment
+        uid="mfa-admin"
+        labels={{
+          setup: 'Set up', instructions: 'Enter this key', code: 'Code', confirm: 'Confirm setup',
+          cancel: 'Cancel', failed: 'Setup failed', enrolled: 'Setup complete',
+        }}
+      />);
+      await userEvent.click(screen.getByRole('button', { name: 'Set up' }));
+      expect(await screen.findByText('TESTKEY')).toBeInTheDocument();
+      await userEvent.type(screen.getByLabelText('Code'), '123456');
+      await userEvent.click(screen.getByRole('button', { name: 'Confirm setup' }));
+      expect(await screen.findByText('Setup complete')).toBeInTheDocument();
+      expect(screen.queryByText('TESTKEY')).not.toBeInTheDocument();
+      expect(enroll).toHaveBeenCalledTimes(1);
+    } finally {
+      generateSecret.mockRestore();
+    }
   });
 
   it('switches to the sign-up form when the toggle button is clicked', async () => {

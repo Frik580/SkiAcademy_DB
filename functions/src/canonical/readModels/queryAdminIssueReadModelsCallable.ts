@@ -24,7 +24,8 @@ export function createQueryAdminIssueReadModelsHandler(firestore: Firestore) {
       const { actor, readScope, readContext } = await resolveAdministratorCanonicalRead(
         firestore,
         request.auth?.uid,
-        requestedTestSessionId
+        requestedTestSessionId,
+        request.auth?.token ?? null
       );
       return await queryAdminIssueReadModels(firestore, actor, input, { readContext, readScope });
     } catch (error) {

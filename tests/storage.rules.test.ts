@@ -86,6 +86,24 @@ describe('CA-SEC-05B Account role consistency', () => {
     );
     for (const path of paths()) await assertFails(uploadImage(storage, path));
   });
+
+  it('applies the shared administrator cutoff and TOTP claim to privileged uploads', async () => {
+    await seedStorageFirestore(testEnv, async (db) =>
+      setDoc(doc(db, 'users', STORAGE_ADMIN_ID), {
+        ...userProfile(STORAGE_ADMIN_ID, 'admin@example.com', 'admin'),
+        adminSessionsRevokedThrough: 100,
+        adminTotpRequired: true,
+      })
+    );
+    const storage = (authTime: number, factor: string) => {
+      const firebase = { sign_in_provider: 'password', sign_in_second_factor: factor } as const;
+      return testEnv.authenticatedContext(STORAGE_ADMIN_ID, { auth_time: authTime, firebase }).storage();
+    };
+    const [logo, qr] = paths();
+    await assertFails(uploadImage(storage(100, 'totp'), logo));
+    await assertFails(uploadImage(storage(101, 'phone'), qr));
+    await assertSucceeds(uploadImage(storage(101, 'totp'), logo));
+  });
 });
 
 beforeAll(async () => {

@@ -1,4 +1,6 @@
 import type { Firestore } from 'firebase-admin/firestore';
+import type { DecodedIdToken } from 'firebase-admin/auth';
+import { requireAdministratorAccountSessionPolicy } from './administratorSession';
 import { HttpsError } from 'firebase-functions/v2/https';
 import {
   AccountIdSchema,
@@ -45,7 +47,8 @@ export async function authorizeProtectedImage(
   uid: string,
   rawPath: unknown,
   write: boolean,
-  requestedSession?: unknown
+  requestedSession?: unknown,
+  token?: DecodedIdToken
 ) {
   let path = protectedImagePath(rawPath);
   const read = async (name: string) => (await db.doc(name).get()).data();
@@ -107,6 +110,7 @@ export async function authorizeProtectedImage(
       if (!ownership.allowed) forbidden();
     } else {
       if (profile?.role !== 'admin') forbidden();
+      requireAdministratorAccountSessionPolicy(profile, token);
       const id = parts[1].replace(/\.(jpg|jpeg|png|webp)$/i, '');
       const subject = await read(`${parts[0]}/${id}`);
       if (subject && !documentMatchesReadScope(LIVE_CANONICAL_READ_SCOPE, subject)) forbidden();

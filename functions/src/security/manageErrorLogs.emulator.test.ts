@@ -17,8 +17,12 @@ const account = (uid: string, role = 'admin', extra: Record<string, unknown> = {
   audit: { createdByCommandId: 'seed', lastChangedByCommandId: 'seed', correlationId: 'seed' },
   ...extra,
 });
-const request = (data: Record<string, unknown> = {}, uid = 'admin') =>
-  ({ auth: { uid, token: {} }, data }) as CallableRequest<Record<string, unknown>>;
+const checkSession = async () => {};
+const request = (
+  data: Record<string, unknown> = {},
+  uid = 'admin',
+  authTime = Math.floor(Date.now() / 1000)
+) => ({ auth: { uid, token: { auth_time: authTime } }, data }) as CallableRequest<Record<string, unknown>>;
 
 describe('administrator error log cleanup', () => {
   beforeAll(() => {
@@ -33,9 +37,23 @@ describe('administrator error log cleanup', () => {
   });
   afterAll(() => deleteApp(app));
 
+  it('requires a fresh sign-in for every cleanup page and for individual deletion', async () => {
+    const log = db.doc('error_logs/retained');
+    await log.set({ timestamp: '2020-01-01' });
+    const clear = createClearErrorLogsHandler(db, 'secret', checkSession);
+    const start = await clear(request());
+    const oldAuthTime = Math.floor(Date.now() / 1000) - 601;
+    const denied = { details: { code: 'ADMIN_RECENT_AUTH_REQUIRED' } };
+    await expect(clear(request({ cursor: start.cursor }, 'admin', oldAuthTime))).rejects.toMatchObject(denied);
+    await expect(
+      createDeleteErrorLogHandler(db, checkSession)(request({ id: log.id }, 'admin', oldAuthTime))
+    ).rejects.toMatchObject(denied);
+    expect((await log.get()).exists).toBe(true);
+  });
+
   it('deletes by document ID even for old mismatched IDs without deleteAt; rejects missing IDs', async () => {
     await db.doc('error_logs/hashed-id').set({ id: 'original-id', timestamp: '2020-01-01' });
-    const remove = createDeleteErrorLogHandler(db);
+    const remove = createDeleteErrorLogHandler(db, checkSession);
     await expect(remove(request({ id: 'original-id' }))).rejects.toMatchObject({
       code: 'not-found',
     });
@@ -49,8 +67,8 @@ describe('administrator error log cleanup', () => {
 
   it('denies anonymous, ordinary and disabled administrators; preserves other collections', async () => {
     await db.doc('error_logs/log').set({ id: 'log' });
-    const remove = createDeleteErrorLogHandler(db);
-    const clear = createClearErrorLogsHandler(db, 'secret');
+    const remove = createDeleteErrorLogHandler(db, checkSession);
+    const clear = createClearErrorLogsHandler(db, 'secret', checkSession);
     for (const handler of [remove, clear]) {
       await expect(handler({ ...request({ id: 'log' }), auth: undefined })).rejects.toMatchObject({
         code: 'unauthenticated',
@@ -68,23 +86,23 @@ describe('administrator error log cleanup', () => {
   it('requires admin role for owners and rejects malformed lifecycle state', async () => {
     await db.doc('users/owner').set(account('owner', 'user', { systemRole: 'owner' }));
     await expect(
-      createDeleteErrorLogHandler(db)(request({ id: 'old' }, 'owner'))
+      createDeleteErrorLogHandler(db, checkSession)(request({ id: 'old' }, 'owner'))
     ).rejects.toMatchObject({ code: 'permission-denied' });
     await db.doc('users/owner').update({ role: 'admin' });
     await db.doc('error_logs/old').set({ id: 'legacy' });
-    await expect(createDeleteErrorLogHandler(db)(request({ id: 'old' }, 'owner'))).resolves.toEqual(
+    await expect(createDeleteErrorLogHandler(db, checkSession)(request({ id: 'old' }, 'owner'))).resolves.toEqual(
       { deleted: true }
     );
     await db.doc('users/owner').update({ lifecycle: {} });
     await expect(
-      createClearErrorLogsHandler(db, 'secret')(request({}, 'owner'))
+      createClearErrorLogsHandler(db, 'secret', checkSession)(request({}, 'owner'))
     ).rejects.toMatchObject({ code: 'permission-denied' });
     await db.doc('users/owner').update({ lifecycle: null });
     await expect(
-      createClearErrorLogsHandler(db, 'secret')(request({}, 'owner'))
+      createClearErrorLogsHandler(db, 'secret', checkSession)(request({}, 'owner'))
     ).rejects.toMatchObject({ code: 'permission-denied' });
     await expect(
-      createDeleteErrorLogHandler(db)(request({ id: 'missing' }, 'owner'))
+      createDeleteErrorLogHandler(db, checkSession)(request({ id: 'missing' }, 'owner'))
     ).rejects.toMatchObject({ code: 'permission-denied' });
   });
 
@@ -111,7 +129,7 @@ describe('administrator error log cleanup', () => {
     'denies both handlers for %s, including forged scope and a valid LIVE cursor',
     async (_, extra, registered) => {
       await db.doc('error_logs/known-live-id').set({ dataScope: 'live' });
-      const clear = createClearErrorLogsHandler(db, 'secret');
+      const clear = createClearErrorLogsHandler(db, 'secret', checkSession);
       const start = await clear(request());
       const profile: Record<string, unknown> = account('admin', 'admin', extra);
       for (const key of Object.keys(profile)) {
@@ -127,7 +145,7 @@ describe('administrator error log cleanup', () => {
         accountId: 'other-live-admin',
         requestedTestSessionId: 'session',
       };
-      await expect(createDeleteErrorLogHandler(db)(request(forged))).rejects.toMatchObject({
+      await expect(createDeleteErrorLogHandler(db, checkSession)(request(forged))).rejects.toMatchObject({
         code: 'permission-denied',
       });
       await expect(clear(request(forged))).rejects.toMatchObject({ code: 'permission-denied' });
@@ -143,11 +161,11 @@ describe('administrator error log cleanup', () => {
     delete profile.dataScope;
     await db.doc('users/admin').set(profile);
     await db.doc('error_logs/legacy').set({});
-    await expect(createDeleteErrorLogHandler(db)(request({ id: 'legacy' }))).resolves.toEqual({
+    await expect(createDeleteErrorLogHandler(db, checkSession)(request({ id: 'legacy' }))).resolves.toEqual({
       deleted: true,
     });
     await db.doc('error_logs/legacy').set({});
-    const clear = createClearErrorLogsHandler(db, 'secret');
+    const clear = createClearErrorLogsHandler(db, 'secret', checkSession);
     const start = await clear(request());
     await expect(clear(request({ cursor: start.cursor }))).resolves.toMatchObject({
       deleted: 1,
@@ -161,7 +179,7 @@ describe('administrator error log cleanup', () => {
       seed.set(db.doc(`error_logs/log-${String(i).padStart(4, '0')}`), { id: `old-${i}` });
     seed.set(db.doc('error_log_cleanup_sentinel/keep'), { value: 'unchanged' });
     await seed.commit();
-    const clear = createClearErrorLogsHandler(db, 'secret');
+    const clear = createClearErrorLogsHandler(db, 'secret', checkSession);
     const start = await clear(request());
     expect(start).toMatchObject({ done: false, deleted: 0 });
     // New IDs before/inside/after the traversed range must survive.
@@ -197,7 +215,7 @@ describe('administrator error log cleanup', () => {
   });
 
   it('safely replays a page after a lost response and accepts an empty collection', async () => {
-    const clear = createClearErrorLogsHandler(db, 'secret');
+    const clear = createClearErrorLogsHandler(db, 'secret', checkSession);
     expect(await clear(request())).toEqual({ deleted: 0, done: true, cursor: null });
     await db.doc('error_logs/old').set({ id: 'old' });
     const start = await clear(request());

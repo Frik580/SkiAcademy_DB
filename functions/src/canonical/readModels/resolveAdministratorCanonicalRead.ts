@@ -1,4 +1,5 @@
 import type { Firestore } from 'firebase-admin/firestore';
+import type { DecodedIdToken } from 'firebase-admin/auth';
 import {
   type CanonicalReadScope,
   type ReadModelAdministratorActor,
@@ -7,11 +8,13 @@ import { resolveCallableAdministratorActor } from './resolveCallableAdministrato
 import { createReadModelRequestContext, type ReadModelRequestContext } from './readModelRequestContext';
 import { resolveCanonicalReadScope } from '../testSessions/canonicalReadScopeResolver';
 import { createFirestoreCanonicalExecutionScopeStore } from '../testSessions/canonicalExecutionScopeResolver';
+import { requireAdministratorAccountSessionPolicy } from '../../security/administratorSession';
 
 export async function resolveAdministratorCanonicalRead(
   firestore: Firestore,
   authUid: string | undefined,
-  requestedTestSessionId?: unknown
+  requestedTestSessionId?: unknown,
+  token?: DecodedIdToken | null
 ): Promise<{
   readonly actor: ReadModelAdministratorActor;
   readonly readScope: CanonicalReadScope;
@@ -28,6 +31,9 @@ export async function resolveAdministratorCanonicalRead(
       requestedTestSessionId,
     }
   );
+  if (token !== undefined && readScope.dataScope === 'live') {
+    requireAdministratorAccountSessionPolicy((await liveContext.account(actor.accountId)).data(), token ?? undefined);
+  }
   return {
     actor,
     readScope,

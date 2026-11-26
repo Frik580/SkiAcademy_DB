@@ -877,7 +877,7 @@ beforeAll(async () => {
     projectId: PROJECT_ID,
     firestore: {
       host: '127.0.0.1',
-      port: 8080,
+      port: Number(process.env.FIRESTORE_EMULATOR_HOST?.split(':').at(-1) ?? 8080),
       rules: readRepoFile('firestore.rules'),
     },
   });
@@ -2365,7 +2365,27 @@ describe('T32.8A identity authority containment', () => {
 });
 
 describe('resort configuration and error logs', () => {
-  it('restricts log reads and deletes to active administrators and owners', async () => {
+  it('checks the shared administrator revocation cutoff and TOTP claim on direct SDK access', async () => {
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'users', ADMIN_ID), {
+        ...userProfile(ADMIN_ID, 'admin@example.com', 'admin'),
+        adminSessionsRevokedThrough: 100,
+        adminTotpRequired: true,
+      });
+      await setDoc(doc(db, 'error_logs', 'protected'), { id: 'protected' });
+    });
+    const read = (authTime: number, signInSecondFactor = 'phone') => {
+      const firebase = { sign_in_provider: 'password', sign_in_second_factor: signInSecondFactor } as const;
+      const db = testEnv.authenticatedContext(ADMIN_ID, { auth_time: authTime, firebase }).firestore();
+      return getDoc(doc(db, 'error_logs', 'protected'));
+    };
+    await assertFails(read(100, 'totp'));
+    await assertFails(read(101));
+    await assertSucceeds(read(101, 'totp'));
+  });
+
+  it('restricts log reads to active administrators and blocks direct log deletion', async () => {
     await seedData(async (context) => {
       await setDoc(doc(context.firestore(), 'error_logs', 'legacy-log'), {
         id: 'wrong-id',
@@ -2387,9 +2407,9 @@ describe('resort configuration and error logs', () => {
     await assertSucceeds(getDoc(doc(adminDb, 'error_logs', 'legacy-log')));
     await assertFails(updateDoc(doc(adminDb, 'error_logs', 'legacy-log'), { id: 'edited' }));
     await assertFails(setDoc(doc(adminDb, 'error_logs', 'new-log'), { id: 'new-log' }));
-    await assertSucceeds(deleteDoc(doc(adminDb, 'error_logs', 'legacy-log')));
+    await assertFails(deleteDoc(doc(adminDb, 'error_logs', 'legacy-log')));
     const ownerDb = testEnv.authenticatedContext(OWNER_ID).firestore();
-    await assertSucceeds(deleteDoc(doc(ownerDb, 'error_logs', 'already-missing')));
+    await assertFails(deleteDoc(doc(ownerDb, 'error_logs', 'already-missing')));
   });
   it('allows only admins to write resort configuration', async () => {
     const userDb = testEnv.authenticatedContext(USER_ID, { email: 'user@example.com' }).firestore();

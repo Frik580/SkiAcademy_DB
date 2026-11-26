@@ -47,6 +47,7 @@ const maxTwenty = [
   'reportClientErrors',
   'deleteErrorLog',
   'clearErrorLogs',
+  'revokeOwnAdministratorSessions',
   'executeCanonicalCommand',
   'executeGuestCanonicalCommand',
   'executeTestSessionLifecycle',
@@ -106,7 +107,7 @@ function deploymentSpec(): Record<string, Record<string, unknown>> {
 describe('reviewed Functions deployment configuration', () => {
   it('requires the exact scaling map and export inventory in the generated specification', () => {
     const spec = deploymentSpec();
-    expect(Object.keys(spec)).toHaveLength(66);
+    expect(Object.keys(spec)).toHaveLength(67);
     expect(
       Object.fromEntries(Object.entries(spec).map(([name, e]) => [name, e.maxInstances]))
     ).toEqual(expectedCaps);

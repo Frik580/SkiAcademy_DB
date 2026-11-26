@@ -12,8 +12,11 @@ server-generated ISO `timestamp`. Repeated telemetry does not extend retention.
 without deleting anything. Subsequent calls read at most 200 documents ordered
 by document ID and atomically delete only those created by the initial cutoff.
 The signed continuation is tied to the administrator UID. Neither endpoint can
-select another collection. Role and lifecycle are checked on every invocation,
-using the same boundary as the existing Rules (active Admin or Owner).
+select another collection. Every invocation checks the active LIVE administrator
+Account, verifies that Firebase Auth has not revoked the session, and requires a
+sign-in within the past 10 minutes. This applies to each continuation as well.
+Firestore Rules block direct deletion. Committed deletions are recorded in Cloud
+Logging outside the collection, with a shared correlation ID for each cleanup.
 
 The UI keeps confirmation, displays confirmed deletion counts and only announces
 completion after the server returns `done: true`. A failure leaves a continuation
@@ -24,13 +27,19 @@ New logs may remain after a successful cleanup.
 The traversal uses live ascending ID pages; sustained high-volume new writes can
 extend the traversal, but cannot cause an incomplete cleanup to report success.
 
-Resource shape: one bounded initial query (limit 1), then limit 200 per call;
-one account authorization read per call plus existing callable admission.
+The initial query reads at most one document, followed by pages of up to 200.
+Authorization uses up to two Firestore document reads and one Firebase Auth lookup
+per call, alongside existing callable admission. Deletion transactions recheck
+the Account in one additional document read.
 There is an explicit full collection traversal for administrator cleanup, with
 no polling, scheduler, recursive deletion or job persistence. A rate-limit or
 network failure interrupts visibly and permits continuation after recovery.
 
-## Deployment (not executed by this change)
+## Retention deployment
+
+The commands below are for the original retention rollout. Administrator
+step-up and the direct-delete Rules change are covered by CA-SEC-07B.
+[Administrator security audit](../audits/CA-SEC-07B-administrator-security.md)
 
 From PowerShell in the repository root, after normal release approval:
 

@@ -153,11 +153,11 @@ describe.skipIf(!runsOnFirestoreEmulator)('identity administration Firestore emu
           await actorRef.update({ role: 'user' });
           return runTransaction(callback, options);
         });
-      const execute = createExecuteCanonicalCommandHandler(firestore);
+      const execute = createExecuteCanonicalCommandHandler(firestore, async () => {});
       try {
         await expect(
           execute({
-            auth: { uid: adminAccountId },
+            auth: { uid: adminAccountId, token: { auth_time: Math.floor(Date.now() / 1000) } },
             data: {
               kind,
               intent,

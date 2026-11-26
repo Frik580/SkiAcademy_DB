@@ -1,4 +1,6 @@
 import type { Firestore } from 'firebase-admin/firestore';
+import type { DecodedIdToken } from 'firebase-admin/auth';
+import { requireAdministratorAccountSessionPolicy } from '../../security/administratorSession';
 import { createAuthoritativeCommandClock } from './commandClock';
 import { createProductionCanonicalCommands, type CanonicalCommands } from './canonicalCommands';
 import { createFirestoreCanonicalTransactionExecutor } from '../transactions/firestoreTransactionExecutor';
@@ -19,7 +21,9 @@ export interface CanonicalCommandRuntimeOptions {
 
 export interface CanonicalCommandRuntime {
   readonly executor: CanonicalTransactionExecutor;
-  createCommands(scope: CanonicalExecutionScope, administratorId?: AccountId): CanonicalCommands;
+  createCommands(
+    scope: CanonicalExecutionScope, administratorId?: AccountId, liveAdministratorToken?: DecodedIdToken
+  ): CanonicalCommands;
 }
 
 export function createCanonicalCommandRuntime(
@@ -29,17 +33,22 @@ export function createCanonicalCommandRuntime(
   const executor = createFirestoreCanonicalTransactionExecutor(firestore);
   return {
     executor,
-    createCommands(scope: CanonicalExecutionScope, administratorId?: AccountId) {
+    createCommands(scope, administratorId, liveAdministratorToken) {
       const commandExecutor = administratorId
         ? createFirestoreCanonicalTransactionExecutor(firestore, {
             path: accountPath(administratorId),
             allows(data) {
               const account = parseAccount(data);
-              return (
-                isAdministratorProfile(data) &&
-                account?.accountId === administratorId &&
-                account.lifecycle.status === 'active'
-              );
+              if (!isAdministratorProfile(data) || account?.accountId !== administratorId ||
+                  account.lifecycle.status !== 'active') return false;
+              if (scope.dataScope === 'live') {
+                try {
+                  requireAdministratorAccountSessionPolicy(data, liveAdministratorToken);
+                } catch {
+                  return false;
+                }
+              }
+              return true;
             },
           })
         : executor;

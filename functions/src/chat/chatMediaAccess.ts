@@ -1,9 +1,11 @@
 import type { Firestore } from 'firebase-admin/firestore';
+import type { DecodedIdToken } from 'firebase-admin/auth';
 import type { Transaction } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { AccountIdSchema, normalizeFirestoreDocument } from '@ski-academy/shared-domain';
 import { resolveCanonicalExecutionScope } from '../canonical/testSessions/canonicalExecutionScopeResolver';
 import { requireActiveAccount } from '../security/activeAccount';
+import { requireAdministratorAccountSessionPolicy } from '../security/administratorSession';
 
 export function parseChatMediaPath(path: unknown) {
   if (typeof path !== 'string' || path.length > 1024)
@@ -32,7 +34,8 @@ export async function authorizeChatMedia(
   uid: string,
   rawPath: unknown,
   observeRead?: (path: string) => void,
-  onAuthorized?: (tx: Transaction) => Promise<void>
+  onAuthorized?: (tx: Transaction) => Promise<void>,
+  token?: DecodedIdToken
 ) {
   const path = parseChatMediaPath(rawPath);
   return db.runTransaction(async (tx) => {
@@ -85,6 +88,7 @@ export async function authorizeChatMedia(
     ) {
       throw new HttpsError('permission-denied', 'TEST principal on LIVE path');
     }
+    if (admin && !path.sessionId) requireAdministratorAccountSessionPolicy(account, token);
     const booking = await read(`bookings/${path.threadId}`);
     const course = await read(`courses/${path.threadId}`);
     const inScope = (record: FirebaseFirestore.DocumentData) =>

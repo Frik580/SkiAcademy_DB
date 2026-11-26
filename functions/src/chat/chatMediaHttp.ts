@@ -34,7 +34,7 @@ export const handleBookingChatMedia: Parameters<typeof onRequest>[0] = async (re
     const { uid } = identity;
     const db = getAdminFirestore();
     await admitRequest(db, `chat_media_${uid}`, 120);
-    const path = await authorizeChatMedia(db, uid, req.query.path);
+    const path = await authorizeChatMedia(db, uid, req.query.path, undefined, undefined, identity);
     const bucket = getStorage(app).bucket();
     const file = bucket.file(path.path);
     if (req.method === 'GET') {
@@ -215,7 +215,7 @@ export const handleBookingChatMedia: Parameters<typeof onRequest>[0] = async (re
           buffers.push(bytes);
         }
         // Recheck after reading chunks: revocation during upload must prevent publish.
-        await authorizeChatMedia(db, uid, path.path);
+        await authorizeChatMedia(db, uid, path.path, undefined, undefined, identity);
         const bytes = Buffer.concat(buffers);
         // Fail closed on re-labelled payloads (SVG/HTML/other) before publishing.
         await assertChatMediaContentMatchesType(bytes, type);

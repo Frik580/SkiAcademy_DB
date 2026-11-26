@@ -1,18 +1,25 @@
 import { ProtectedImage } from '../../media/ProtectedImage';
 import React, { useState } from 'react';
 import { FirebaseError } from 'firebase/app';
-import type { User } from 'firebase/auth';
+import {
+  TotpMultiFactorGenerator,
+  type MultiFactorError,
+  type MultiFactorResolver,
+  type User,
+} from 'firebase/auth';
 import { UserProfile } from '../../../types';
 import { useNotifications } from '../../../features/notifications';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { logger } from '../../../shared';
 import {
   getUserProfileService,
+  getSignInMfaResolver,
   migrateExistingProfileService,
   requestPasswordResetService,
   requestEmailVerificationService,
   refreshEmailVerificationService,
   saveUserProfileService,
+  resolveTotpSignIn,
   signInWithEmailService,
   signInWithGoogleService,
   signUpWithEmailService,
@@ -43,6 +50,32 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default', onBu
   }, [isLoading, onBusyChange]);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [verificationUser, setVerificationUser] = useState<User | null>(null);
+  const [mfa, setMfa] = useState<{
+    resolver: MultiFactorResolver;
+    method: 'email' | 'google';
+  } | null>(null);
+  const [mfaEnrollment, setMfaEnrollment] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+
+  const startMfa = (error: unknown, method: 'email' | 'google'): boolean => {
+    if (!(error instanceof FirebaseError) || error.code !== 'auth/multi-factor-auth-required') {
+      return false;
+    }
+    setPassword('');
+    try {
+      const resolver = getSignInMfaResolver(error as MultiFactorError);
+      const factor = resolver.hints.find((hint) => hint.factorId === TotpMultiFactorGenerator.FACTOR_ID);
+      if (factor) {
+        setMfa({ resolver, method });
+        setMfaEnrollment(factor.uid);
+        return true;
+      }
+    } catch {
+      // Firebase errors here can carry the pending credential.
+    }
+    setError(t('authTotpUnavailable'));
+    return true;
+  };
 
   const requestVerification = async (user: User) => {
     setVerificationUser(user);
@@ -115,6 +148,106 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default', onBu
     setAvatarSeed(randSeed);
   };
 
+  const finishEmailSignIn = async (user: User) => {
+    // The authenticated UID is authoritative. Load it before considering the
+    // legacy email-claim path so an unrelated `client_*` profile with the same
+    // email cannot overwrite an already-provisioned canonical Account.
+    const existingProfile = await getUserProfileService(user.uid);
+    if (existingProfile) {
+      addNotification(
+        'success',
+        t('authLoggedIn'),
+        `${t('authWelcomeBackName')} ${existingProfile.displayName}!`
+      );
+      onSuccess(existingProfile);
+    } else {
+      if (!user.emailVerified) {
+        await requestVerification(user);
+        return;
+      }
+      // Legacy admin-created profiles are optional compatibility data. A
+      // failed claim must not be mistaken for a successful profile create.
+      let migratedProfile: UserProfile | null = null;
+      try {
+        migratedProfile = await migrateExistingProfileService(user.uid, user.email || email);
+      } catch (mErr) {
+        logger.warn('Could not check/migrate pre-existing profile during sign-in', mErr);
+      }
+
+      if (migratedProfile) {
+        addNotification(
+          'success',
+          t('authWelcomeBack'),
+          `${t('authWelcomeBackName')} ${migratedProfile.displayName}!`
+        );
+        onSuccess(migratedProfile);
+      } else {
+        const seed = (user.displayName || user.uid).replace(/\s+/g, '_').toLowerCase();
+        const fallbackProfile: UserProfile = {
+          uid: user.uid,
+          email: user.email || email,
+          displayName: user.displayName || 'Alpine Glider',
+          role: 'user',
+          avatarUrl:
+            user.photoURL ||
+            `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`,
+          isClientActive: true,
+        };
+        await saveUserProfileService(fallbackProfile);
+        addNotification('info', t('authProfileSetup'), t('authProfileCreated'));
+        onSuccess(fallbackProfile);
+      }
+    }
+  };
+
+  const finishGoogleSignIn = async (user: User) => {
+    const profile = await getUserProfileService(user.uid);
+    if (profile) {
+      addNotification(
+        'success',
+        t('authLoggedIn'),
+        `${t('authWelcomeBackName')} ${profile.displayName}!`
+      );
+      onSuccess(profile);
+    } else {
+      let finalProfile: UserProfile | null = null;
+      try {
+        finalProfile = await migrateExistingProfileService(
+          user.uid,
+          user.email || '',
+          user.displayName || undefined
+        );
+      } catch (err) {
+        logger.warn('Could not check/migrate pre-existing profile on Google login', err);
+      }
+
+      if (!finalProfile) {
+        const seed = (user.displayName || user.uid).replace(/\s+/g, '_').toLowerCase();
+        finalProfile = {
+          uid: user.uid,
+          email: user.email || '',
+          displayName: user.displayName || 'Alpine Glider',
+          role: 'user',
+          avatarUrl:
+            user.photoURL ||
+            `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`,
+          isClientActive: true,
+        };
+
+        await saveUserProfileService(finalProfile);
+        addNotification('success', t('authWelcomeAcademy'), t('authGoogleLinkedCredits'));
+      } else {
+        const actualName = user.displayName || finalProfile.displayName;
+        addNotification(
+          'success',
+          t('authWelcomeBack'),
+          `${t('authGoogleProfileFound')} ${t('authLinkedToName')} "${actualName}".`
+        );
+      }
+      onSuccess(finalProfile);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (verificationUser) return;
@@ -147,57 +280,10 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default', onBu
         // Sign in existing user
         const user = await signInWithEmailService(email, password);
 
-        // The authenticated UID is authoritative. Load it before considering the
-        // legacy email-claim path so an unrelated `client_*` profile with the same
-        // email cannot overwrite an already-provisioned canonical Account.
-        const existingProfile = await getUserProfileService(user.uid);
-        if (existingProfile) {
-          addNotification(
-            'success',
-            t('authLoggedIn'),
-            `${t('authWelcomeBackName')} ${existingProfile.displayName}!`
-          );
-          onSuccess(existingProfile);
-        } else {
-          if (!user.emailVerified) {
-            await requestVerification(user);
-            return;
-          }
-          // Legacy admin-created profiles are optional compatibility data. A
-          // failed claim must not be mistaken for a successful profile create.
-          let migratedProfile: UserProfile | null = null;
-          try {
-            migratedProfile = await migrateExistingProfileService(user.uid, user.email || email);
-          } catch (mErr) {
-            logger.warn('Could not check/migrate pre-existing profile during sign-in', mErr);
-          }
-
-          if (migratedProfile) {
-            addNotification(
-              'success',
-              t('authWelcomeBack'),
-              `${t('authWelcomeBackName')} ${migratedProfile.displayName}!`
-            );
-            onSuccess(migratedProfile);
-          } else {
-            const seed = (user.displayName || user.uid).replace(/\s+/g, '_').toLowerCase();
-            const fallbackProfile: UserProfile = {
-              uid: user.uid,
-              email: user.email || email,
-              displayName: user.displayName || 'Alpine Glider',
-              role: 'user',
-              avatarUrl:
-                user.photoURL ||
-                `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`,
-              isClientActive: true,
-            };
-            await saveUserProfileService(fallbackProfile);
-            addNotification('info', t('authProfileSetup'), t('authProfileCreated'));
-            onSuccess(fallbackProfile);
-          }
-        }
+        await finishEmailSignIn(user);
       }
     } catch (err: unknown) {
+      if (startMfa(err, 'email')) return;
       logger.error(err);
       const errCode = err instanceof FirebaseError ? err.code : '';
       const errMessage = err instanceof Error ? err.message : '';
@@ -250,52 +336,9 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default', onBu
     try {
       const user = await signInWithGoogleService();
 
-      const profile = await getUserProfileService(user.uid);
-      if (profile) {
-        addNotification(
-          'success',
-          t('authLoggedIn'),
-          `${t('authWelcomeBackName')} ${profile.displayName}!`
-        );
-        onSuccess(profile);
-      } else {
-        let finalProfile: UserProfile | null = null;
-        try {
-          finalProfile = await migrateExistingProfileService(
-            user.uid,
-            user.email || '',
-            user.displayName || undefined
-          );
-        } catch (err) {
-          logger.warn('Could not check/migrate pre-existing profile on Google login', err);
-        }
-
-        if (!finalProfile) {
-          const seed = (user.displayName || user.uid).replace(/\s+/g, '_').toLowerCase();
-          finalProfile = {
-            uid: user.uid,
-            email: user.email || '',
-            displayName: user.displayName || 'Alpine Glider',
-            role: 'user',
-            avatarUrl:
-              user.photoURL ||
-              `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`,
-            isClientActive: true,
-          };
-
-          await saveUserProfileService(finalProfile);
-          addNotification('success', t('authWelcomeAcademy'), t('authGoogleLinkedCredits'));
-        } else {
-          const actualName = user.displayName || finalProfile.displayName;
-          addNotification(
-            'success',
-            t('authWelcomeBack'),
-            `${t('authGoogleProfileFound')} ${t('authLinkedToName')} "${actualName}".`
-          );
-        }
-        onSuccess(finalProfile);
-      }
+      await finishGoogleSignIn(user);
     } catch (err: unknown) {
+      if (startMfa(err, 'google')) return;
       logger.error(err);
       const errorCode = err instanceof FirebaseError ? err.code : '';
       const errorMessage = err instanceof Error ? err.message : t('authGoogleInterrupted');
@@ -353,6 +396,85 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, variant = 'default', onBu
     'ui-field-plain focus:outline-none focus:border-[var(--ink)] focus:border-[var(--accent)]';
   const sectionGap = isSidebar ? 'space-y-8' : 'space-y-6';
   const formGap = isSidebar ? 'space-y-5' : 'space-y-4';
+
+  if (mfa) {
+    const factors = mfa.resolver.hints.filter(
+      (hint) => hint.factorId === TotpMultiFactorGenerator.FACTOR_ID
+    );
+    return (
+      <form
+        className={formGap}
+        aria-busy={isLoading}
+        onSubmit={async (event) => {
+          event.preventDefault();
+          if (isLoading) return;
+          setIsLoading(true);
+          setError('');
+          try {
+            const user = await resolveTotpSignIn(mfa.resolver, mfaEnrollment, mfaCode);
+            setMfa(null);
+            setMfaEnrollment('');
+            if (mfa.method === 'google') await finishGoogleSignIn(user);
+            else await finishEmailSignIn(user);
+          } catch (error) {
+            const invalidCode =
+              error instanceof FirebaseError &&
+              (error.code === 'auth/invalid-verification-code' || error.code === 'auth/code-expired');
+            setError(t(invalidCode ? 'authTotpInvalid' : 'authTotpFailed'));
+          } finally {
+            setMfaCode('');
+            setIsLoading(false);
+          }
+        }}
+      >
+        <h2 className="type-section-title">{t('authTotpTitle')}</h2>
+        {factors.length > 1 && (
+          <label className="block">
+            {t('authTotpDevice')}
+            <select className={fieldClass} value={mfaEnrollment} onChange={(e) => setMfaEnrollment(e.target.value)}>
+              {factors.map((factor, index) => (
+                <option key={factor.uid} value={factor.uid}>
+                  {`${factor.displayName || t('authTotpDevice')} ${index + 1}`}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <label className="block">
+          {t('authTotpCode')}
+          <input
+            className={fieldClass}
+            autoComplete="one-time-code"
+            inputMode="numeric"
+            pattern="[0-9]{6}"
+            maxLength={6}
+            required
+            value={mfaCode}
+            onChange={(e) => setMfaCode(e.target.value)}
+          />
+        </label>
+        {error && <p role="alert" className="type-caption text-red-400">{error}</p>}
+        <div className="flex gap-3">
+          <button type="submit" className="btn-primary px-4 py-2" disabled={isLoading}>
+            {t('confirm')}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary px-4 py-2"
+            disabled={isLoading}
+            onClick={() => {
+              setMfa(null);
+              setMfaEnrollment('');
+              setMfaCode('');
+              setError('');
+            }}
+          >
+            {t('authBackToLogin')}
+          </button>
+        </div>
+      </form>
+    );
+  }
 
   return (
     <div className={`flex flex-col bg-transparent animate-fade-in ${sectionGap}`}>

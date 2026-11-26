@@ -1,8 +1,12 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { FieldPath, Timestamp, type Firestore } from 'firebase-admin/firestore';
 import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
-import { documentMatchesReadScope, LIVE_CANONICAL_READ_SCOPE } from '@ski-academy/shared-domain';
-import { requireActiveAccount } from './activeAccount';
+import { info } from 'firebase-functions/logger';
+import {
+  requireCurrentAdministratorSession,
+  requireLiveAdministrator,
+  requireRecentAdministratorAuthentication,
+} from './administratorSession';
 
 const PAGE_SIZE = 200;
 type Cursor = { seconds: number; nanoseconds: number; after: string };
@@ -10,21 +14,18 @@ type Cursor = { seconds: number; nanoseconds: number; after: string };
 // Administrative log access uses the same current Account authority as Rules.
 async function requireAdministrator(
   firestore: Firestore,
-  uid: string | undefined
+  auth: CallableRequest['auth'],
+  checkSession: typeof requireCurrentAdministratorSession,
+  expectedUid: unknown
 ): Promise<string> {
-  if (!uid) throw new HttpsError('unauthenticated', 'Authentication is required.');
-  const profile = (await firestore.collection('users').doc(uid).get()).data();
-  requireActiveAccount(uid, profile);
-  // Registry absence is not LIVE authority: persistent TEST Accounts may have
-  // no actor record. Use the server Account scope, including legacy LIVE policy.
-  if (
-    profile?.role !== 'admin' ||
-    !documentMatchesReadScope(LIVE_CANONICAL_READ_SCOPE, profile) ||
-    (await firestore.doc(`test_actors/${uid}`).get()).exists
-  ) {
-    throw new HttpsError('permission-denied', 'This action is not permitted.');
+  if (!auth?.uid) throw new HttpsError('unauthenticated', 'Authentication is required.');
+  if (expectedUid !== undefined && expectedUid !== auth.uid) {
+    throw new HttpsError('permission-denied', 'The authenticated account has changed.');
   }
-  return uid;
+  await requireLiveAdministrator(firestore, auth.uid, auth.token);
+  await checkSession(auth.token);
+  requireRecentAdministratorAuthentication(auth.token);
+  return auth.uid;
 }
 
 function validId(id: unknown): id is string {
@@ -36,6 +37,17 @@ function validId(id: unknown): id is string {
     id !== '.' &&
     id !== '..'
   );
+}
+
+function auditDeletion(uid: string, correlationId: string, deleted: number, logId?: string): void {
+  info('Administrator error log deletion', {
+    accountReference: createHash('sha256').update(uid).digest('hex'),
+    correlationId,
+    result: 'committed',
+    resource: 'error_logs',
+    deleted,
+    ...(logId ? { logReference: createHash('sha256').update(logId).digest('hex') } : {}),
+  });
 }
 
 function encodeCursor(cursor: Cursor, uid: string, secret: string): string {
@@ -78,18 +90,24 @@ function decodeCursor(value: unknown, uid: string, secret: string): Cursor | und
   }
 }
 
-export function createDeleteErrorLogHandler(firestore: Firestore) {
-  return async (request: CallableRequest<{ id?: unknown }>) => {
-    await requireAdministrator(firestore, request.auth?.uid);
+export function createDeleteErrorLogHandler(
+  firestore: Firestore,
+  checkSession = requireCurrentAdministratorSession
+) {
+  return async (request: CallableRequest<{ id?: unknown; expectedAdministratorUid?: unknown }>) => {
+    const uid = await requireAdministrator(firestore, request.auth, checkSession, request.data?.expectedAdministratorUid);
     const id = request.data?.id;
     if (!validId(id)) throw new HttpsError('invalid-argument', 'Invalid error log ID.');
-    return firestore.runTransaction(async (tx) => {
+    const result = await firestore.runTransaction(async (tx) => {
+      await requireLiveAdministrator(firestore, uid, request.auth?.token, tx);
       const ref = firestore.collection('error_logs').doc(id);
       const snapshot = await tx.get(ref);
       if (!snapshot.exists) throw new HttpsError('not-found', 'Error log no longer exists.');
       tx.delete(ref);
       return { deleted: true };
     });
+    auditDeletion(uid, randomUUID(), 1, id);
+    return result;
   };
 }
 
@@ -97,9 +115,13 @@ export function createDeleteErrorLogHandler(firestore: Firestore) {
  * after a lost response; no persisted job or writes outside error_logs are needed.
  * Use Firestore createTime, not client/legacy timestamp fields, to retain new logs.
  */
-export function createClearErrorLogsHandler(firestore: Firestore, secret: string) {
-  return async (request: CallableRequest<{ cursor?: unknown }>) => {
-    const accountId = await requireAdministrator(firestore, request.auth?.uid);
+export function createClearErrorLogsHandler(
+  firestore: Firestore,
+  secret: string,
+  checkSession = requireCurrentAdministratorSession
+) {
+  return async (request: CallableRequest<{ cursor?: unknown; expectedAdministratorUid?: unknown }>) => {
+    const accountId = await requireAdministrator(firestore, request.auth, checkSession, request.data?.expectedAdministratorUid);
     if (!secret) throw new HttpsError('failed-precondition', 'Cleanup is unavailable.');
     const cursor = decodeCursor(request.data?.cursor, accountId, secret);
     if (!cursor) {
@@ -126,7 +148,8 @@ export function createClearErrorLogsHandler(firestore: Firestore, secret: string
             ),
       };
     }
-    return firestore.runTransaction(async (tx) => {
+    const result = await firestore.runTransaction(async (tx) => {
+      await requireLiveAdministrator(firestore, accountId, request.auth?.token, tx);
       let query = firestore
         .collection('error_logs')
         .orderBy(FieldPath.documentId())
@@ -162,5 +185,10 @@ export function createClearErrorLogsHandler(firestore: Firestore, secret: string
             ),
       };
     });
+    const correlationId = createHash('sha256')
+      .update(`${accountId}:${cursor.seconds}:${cursor.nanoseconds}`)
+      .digest('hex');
+    auditDeletion(accountId, correlationId, result.deleted);
+    return result;
   };
 }

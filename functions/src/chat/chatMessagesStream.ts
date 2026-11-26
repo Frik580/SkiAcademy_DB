@@ -24,7 +24,7 @@ export const handleChatMessagesStream: Parameters<typeof onRequest>[0] = async (
     await admitRequest(db, `chat_stream_${identity.uid}`, 120);
     const paths = new Set<string>();
     const path = `chat/${input.threadId}/authorization`;
-    await authorizeChatMedia(db, identity.uid, path, (name) => paths.add(name));
+    await authorizeChatMedia(db, identity.uid, path, (name) => paths.add(name), undefined, identity);
     res.set('Content-Type', 'text/event-stream');
     res.flushHeaders();
     let closed = false;
@@ -50,11 +50,11 @@ export const handleChatMessagesStream: Parameters<typeof onRequest>[0] = async (
       }
       running = true;
       try {
-        await getAuth(getOrInitApp()).verifyIdToken(bearer[1], true);
+        const currentIdentity = await getAuth(getOrInitApp()).verifyIdToken(bearer[1], true);
         const dependencies = new Set<string>();
-        await authorizeChatMedia(db, identity.uid, path, (name) => dependencies.add(name));
+        await authorizeChatMedia(db, identity.uid, path, (name) => dependencies.add(name), undefined, currentIdentity);
         const result = await createQueryChatMessages(db)({
-          auth: { uid: identity.uid },
+          auth: { uid: currentIdentity.uid, token: currentIdentity },
           data: input,
         } as never);
         if (closed) return;

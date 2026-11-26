@@ -17,6 +17,7 @@ const SECURITY_DENIAL_CODES = new Set([
   'forbidden',
   'blocked_relationship',
   'cross_scope_forbidden',
+  'ADMIN_TOTP_REQUIRED',
   'TEST_SESSION_FORBIDDEN',
   'TEST_ACTOR_DISABLED',
   'TEST_ACTOR_REQUEST_FORBIDDEN',
@@ -57,6 +58,12 @@ export function securityDenialCode(error: unknown): string | undefined {
   if (!(error instanceof HttpsError)) return undefined;
   const details = error.details as { code?: unknown } | undefined;
   if (error.code === 'unauthenticated' && details?.code === 'unauthorized') {
+    return details.code;
+  }
+  if (
+    (error.code === 'unauthenticated' && details?.code === 'ADMIN_SESSION_INVALID') ||
+    (error.code === 'failed-precondition' && details?.code === 'ADMIN_RECENT_AUTH_REQUIRED')
+  ) {
     return details.code;
   }
   if (error.code !== 'permission-denied') return undefined;

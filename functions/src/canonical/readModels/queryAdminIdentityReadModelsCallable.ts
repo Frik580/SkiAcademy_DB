@@ -28,7 +28,8 @@ export function createQueryAdminIdentityReadModelsHandler(firestore: Firestore) 
       const actor = await resolveCallableAdministratorActor(
         firestore,
         request.auth?.uid,
-        readContext
+        readContext,
+        request.auth?.token ?? null
       );
       return await queryAdminIdentityReadModels(firestore, actor, input, { readContext, readScope });
     } catch (error) {

@@ -439,14 +439,43 @@ describe('vite firebase env resolution', () => {
         'Run E2E through npm run test:e2e with the demo emulators.'
       );
     }
-    const playwrightConfig = readFileSync(resolve(repoRoot, 'playwright.config.ts'), 'utf8');
-    expect(playwrightConfig).toMatch(
-      /npm exec vite -- --mode e2e --config e2e\/vite\.live\.config\.ts --host 127\.0\.0\.1 --port \$\{E2E_LIVE_APP_PORT\} --strictPort/
-    );
-    expect(playwrightConfig).toMatch(
-      /npm exec vite -- preview --mode e2e --outDir \.scratch\/e2e-app --host 127\.0\.0\.1/
-    );
   });
+
+  it('configures loopback Playwright servers and supports disabling live fixtures', async () => {
+    vi.stubEnv('CARVE_TEST_HOSTING', 'false');
+    vi.stubEnv('CARVE_E2E_PREVIEW_PORT', '15173');
+    vi.stubEnv('CARVE_E2E_LIVE_PORT', '15174');
+    vi.stubEnv('CARVE_E2E_LIVE_FIXTURES', undefined);
+    try {
+      vi.resetModules();
+      const { default: playwrightConfig } = await import('../../playwright.config');
+      const preview = expect.objectContaining({
+        command: expect.stringMatching(
+          /\s+preview --mode e2e --outDir \.scratch\/e2e-app --host 127\.0\.0\.1 --port 15173 --strictPort$/
+        ),
+        url: 'http://127.0.0.1:15173',
+        reuseExistingServer: false,
+      });
+      expect(playwrightConfig.webServer).toEqual([
+        preview,
+        expect.objectContaining({
+          command: expect.stringMatching(
+            /\s+--mode e2e --config e2e\/vite\.live\.config\.ts --host 127\.0\.0\.1 --port 15174 --strictPort$/
+          ),
+          url: 'http://127.0.0.1:15174/__e2e/cabinet-ready',
+          reuseExistingServer: false,
+        }),
+      ]);
+
+      vi.stubEnv('CARVE_E2E_LIVE_FIXTURES', 'false');
+      vi.resetModules();
+      const { default: previewOnlyConfig } = await import('../../playwright.config');
+      expect(previewOnlyConfig.webServer).toEqual([preview]);
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    }
+  }, 15_000);
 
   it.each([
     {

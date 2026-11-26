@@ -20,7 +20,8 @@ export function createQueryAdminPlannerReadModelsHandler(firestore: Firestore) {
       const { actor, readScope, readContext } = await resolveAdministratorCanonicalRead(
         firestore,
         request.auth?.uid,
-        requestedTestSessionId
+        requestedTestSessionId,
+        request.auth?.token ?? null
       );
       return await queryAdminPlannerReadModels(firestore, actor, input, { readContext, readScope });
     } catch (error) {

@@ -35,6 +35,11 @@ import {
 import { parseAccount } from '../participantAccess/participantAccessStore';
 import { logSecurityCommandEvent, securityDenialCode } from './securityCommandLogging';
 import {
+  requireCurrentAdministratorSession,
+  requireAdministratorAccountSessionPolicy,
+  requireRecentAdministratorAuthentication,
+} from '../../security/administratorSession';
+import {
   CanonicalExecutionScopeError,
   createFirestoreCanonicalExecutionScopeStore,
   resolveCanonicalExecutionScope,
@@ -102,17 +107,49 @@ type CanonicalCallableRequest = CallableRequest<
   }
 >;
 
-export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
+const ADMINISTRATOR_STEP_UP_COMMANDS = new Set<CommandKind>([
+  'change_account_role',
+  'disable_account',
+  'record_manual_wallet_funding',
+  'pay_service_from_wallet_as_administrator',
+  'record_provider_payment_event',
+  'record_financial_correction',
+  'record_audit_correction',
+  'review_kaspi_payment',
+  'save_kaspi_configuration',
+  'set_kaspi_payment_enabled',
+]);
+
+function needsAdministratorStepUp(input: CallableCommandTransportInput<CommandKind>): boolean {
+  if (ADMINISTRATOR_STEP_UP_COMMANDS.has(input.kind)) return true;
+  if (
+    input.kind === 'resolve_booking_cancellation' ||
+    input.kind === 'resolve_course_enrollment_cancellation' ||
+    input.kind === 'resolve_booking_change_request'
+  ) {
+    const amount = (input.intent as { refundAmount?: unknown } | null)?.refundAmount;
+    return typeof amount === 'number' && amount > 0;
+  }
+  return false;
+}
+
+export function createExecuteCanonicalCommandHandler(
+  firestore: Firestore,
+  checkAdministratorSession: typeof requireCurrentAdministratorSession =
+    requireCurrentAdministratorSession
+) {
   const runtime = createCanonicalCommandRuntime(firestore, {
     guestActionTokenSecret: readGuestActionTokenSecret(),
   });
   const executionScopeStore = createFirestoreCanonicalExecutionScopeStore(firestore);
 
   async function execute(
-    authUid: string,
+    auth: NonNullable<CanonicalCallableRequest['auth']>,
     transportInput: ReturnType<typeof parseAuthenticatedCallableCommandTransportInput>,
-    audit: { scope: 'LIVE' | 'TEST' | 'unresolved' }
+    audit: { scope: 'LIVE' | 'TEST' | 'unresolved' },
+    isAdministratorReplay: boolean
   ): Promise<CommandResult<CommandKind>> {
+    const authUid = auth.uid;
     const progressContract = getCommandPolicy(transportInput.kind)?.participantProgressContract;
     // Old tabs silently submitted level assignments through progress updates.
     // Reject before any domain transaction; refreshing loads the canonical UX.
@@ -176,6 +213,17 @@ export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
     }
     audit.scope = executionScope.dataScope === 'test' ? 'TEST' : 'LIVE';
 
+    if (isAdministratorReplay && (executionScope.dataScope !== 'live' || accountContext.source !== 'admin_callable')) {
+      throw new HttpsError('permission-denied', 'The administrative authority has changed.');
+    }
+    if (executionScope.dataScope === 'live' && accountContext.source === 'admin_callable') {
+      requireAdministratorAccountSessionPolicy(userData, auth.token);
+      await checkAdministratorSession(auth.token);
+      if (needsAdministratorStepUp(transportInput)) {
+        requireRecentAdministratorAuthentication(auth.token);
+      }
+    }
+
     if (accountContext.instructorId) {
       const { accountId, instructorId } = accountContext;
       if (!identityDocumentMatchesReadScope(executionScope, userData)) {
@@ -196,7 +244,10 @@ export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
       transportInput.requestedTestSessionId !== undefined;
     const commands = runtime.createCommands(
       executionScope,
-      requiresCurrentAdministrator ? accountContext.accountId : undefined
+      requiresCurrentAdministrator ? accountContext.accountId : undefined,
+      executionScope.dataScope === 'live' && accountContext.source === 'admin_callable'
+        ? auth.token
+        : undefined
     );
 
     try {
@@ -241,18 +292,22 @@ export function createExecuteCanonicalCommandHandler(firestore: Firestore) {
   }
 
   return async (request: CanonicalCallableRequest): Promise<CommandResult<CommandKind>> => {
-    const authUid = request.auth?.uid;
-    if (!authUid) throw new HttpsError('unauthenticated', 'Authentication is required.');
+    const auth = request.auth;
+    if (!auth?.uid) throw new HttpsError('unauthenticated', 'Authentication is required.');
+    const expectedUid = (request.data as { expectedAdministratorUid?: unknown } | null)?.expectedAdministratorUid;
+    if (expectedUid !== undefined && expectedUid !== auth.uid) {
+      throw new HttpsError('permission-denied', 'The authenticated account has changed.');
+    }
 
     const transportInput = parseAuthenticatedCallableCommandTransportInput(request);
     const audit: { scope: 'LIVE' | 'TEST' | 'unresolved' } = { scope: 'unresolved' };
     try {
-      return await execute(authUid, transportInput, audit);
+      return await execute(auth, transportInput, audit, expectedUid !== undefined);
     } catch (error) {
       const resultCode = securityDenialCode(error);
       if (resultCode) {
         logSecurityCommandEvent({
-          actor: { kind: 'account', id: authUid },
+          actor: { kind: 'account', id: auth.uid },
           commandKind: transportInput.kind,
           resultCode,
           scope: audit.scope,

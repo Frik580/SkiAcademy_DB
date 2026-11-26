@@ -108,8 +108,20 @@ service cloud.firestore {
         isLiveResource(get(/databases/$(database)/documents/users/$(request.auth.uid)).data);
     }
 
+    function administratorSessionAllowed(profile) {
+      let revokedThrough = profile.get('adminSessionsRevokedThrough', null);
+      let totpRequired = profile.get('adminTotpRequired', false);
+      return (!('adminSessionsRevokedThrough' in profile) ||
+          (revokedThrough is int && request.auth.token.auth_time is int &&
+            request.auth.token.auth_time > revokedThrough)) &&
+        (totpRequired == false ||
+          (totpRequired == true &&
+            request.auth.token.get('firebase', {}).get('sign_in_second_factor', '') == 'totp'));
+    }
+
     function hasAdminRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin';
+      let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return profile.get('role', '') == 'admin' && administratorSessionAllowed(profile);
     }
 
     function isAdmin() {
@@ -214,6 +226,8 @@ service cloud.firestore {
 
     function selfServiceAccountCreateHasNoCanonicalAuthority() {
       return !('claimedByAccountId' in request.resource.data) &&
+        !('adminSessionsRevokedThrough' in request.resource.data) &&
+        !('adminTotpRequired' in request.resource.data) &&
         !('systemRole' in request.resource.data) &&
         !('instructorId' in request.resource.data) &&
         !('lifecycle' in request.resource.data) &&
@@ -398,7 +412,7 @@ service cloud.firestore {
       let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       let bookingPath = /databases/$(database)/documents/bookings/$(threadId);
       let booking = exists(bookingPath) ? get(bookingPath).data : null;
-      let administrator = profile.get('role', '') == 'admin';
+      let administrator = profile.get('role', '') == 'admin' && administratorSessionAllowed(profile);
       // The server chat path handles parties that exceed the Rules read budget.
       return accountAuthorizationFieldsAreActive(profile) && isLiveResource(profile) && !isRegisteredTestActor() && (
         booking != null
@@ -831,7 +845,7 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow create: if false;
       allow update: if false;
-      allow delete: if isAdmin();
+      allow delete: if false;
     }
 
     // Idempotency records are written by Callables via the Admin SDK.

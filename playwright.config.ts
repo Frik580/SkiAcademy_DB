@@ -4,6 +4,7 @@ import { E2E_LIVE_APP_PORT, E2E_LIVE_APP_URL } from './e2e/emulator-config';
 const port = Number(process.env.CARVE_E2E_PREVIEW_PORT ?? 5173);
 const liveFixtures = process.env.CARVE_E2E_LIVE_FIXTURES !== 'false';
 const hostingSecurity = process.env.CARVE_TEST_HOSTING === 'true';
+const vite = `"${process.execPath}" node_modules/vite/bin/vite.js`;
 
 export default defineConfig({
   testDir: './e2e',
@@ -34,7 +35,7 @@ export default defineConfig({
     ? undefined
     : [
         {
-          command: `npm exec vite -- preview --mode e2e --outDir .scratch/e2e-app --host 127.0.0.1 --port ${port} --strictPort`,
+          command: `${vite} preview --mode e2e --outDir .scratch/e2e-app --host 127.0.0.1 --port ${port} --strictPort`,
           url: `http://127.0.0.1:${port}`,
           reuseExistingServer: false,
           timeout: 120_000,
@@ -42,7 +43,7 @@ export default defineConfig({
         ...(liveFixtures
           ? [
               {
-                command: `npm exec vite -- --mode e2e --config e2e/vite.live.config.ts --host 127.0.0.1 --port ${E2E_LIVE_APP_PORT} --strictPort`,
+                command: `${vite} --mode e2e --config e2e/vite.live.config.ts --host 127.0.0.1 --port ${E2E_LIVE_APP_PORT} --strictPort`,
                 url: `${E2E_LIVE_APP_URL}/__e2e/cabinet-ready`,
                 reuseExistingServer: false,
                 timeout: 120_000,

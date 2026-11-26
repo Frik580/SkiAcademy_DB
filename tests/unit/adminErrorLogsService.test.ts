@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ snapshot: vi.fn(), callable: vi.fn(), call: vi.fn() }));
 vi.mock('../../src/infrastructure/firebase', () => ({
+  auth: { currentUser: null },
   db: {},
   functions: {},
   collection: vi.fn(),

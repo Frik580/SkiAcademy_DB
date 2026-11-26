@@ -7,6 +7,7 @@ import {
   type QueryManagedParticipantPickerReadModelsResult,
 } from '@ski-academy/shared-domain';
 import { queryManagedParticipantPickerReadModels } from './managedParticipantPickerReadModels';
+import { requireAdministratorAccountSessionPolicy } from '../../security/administratorSession';
 import { resolveCallableAdministratorActor } from './resolveCallableAdministrator';
 import { createReadModelRequestContext } from './readModelRequestContext';
 import { parseReadModelCallableData, rethrowReadScopeHttpsError } from './readModelScope';
@@ -29,9 +30,10 @@ export function createQueryManagedParticipantPickerReadModelsHandler(firestore: 
     }
 
     try {
+      const liveContext = createReadModelRequestContext(firestore);
       const isAdministrator = input.accountId !== undefined;
       const actor = isAdministrator
-        ? await resolveCallableAdministratorActor(firestore, request.auth.uid)
+        ? await resolveCallableAdministratorActor(firestore, request.auth.uid, liveContext)
         : undefined;
       const targetAccountId = input.accountId
         ? input.accountId
@@ -51,6 +53,11 @@ export function createQueryManagedParticipantPickerReadModelsHandler(firestore: 
           requestedTestSessionId,
         }
       );
+      if (actor && readScope.dataScope === 'live') {
+        requireAdministratorAccountSessionPolicy(
+          (await liveContext.account(actor.accountId)).data(), request.auth?.token
+        );
+      }
       const readContext = createReadModelRequestContext(firestore, { readScope });
       return await queryManagedParticipantPickerReadModels(firestore, targetAccountId, {
         readContext,

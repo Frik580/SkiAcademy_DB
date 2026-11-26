@@ -24,7 +24,8 @@ export function createQueryAdminFinanceReadModelsHandler(firestore: Firestore) {
       const { actor, readScope, readContext } = await resolveAdministratorCanonicalRead(
         firestore,
         request.auth?.uid,
-        requestedTestSessionId
+        requestedTestSessionId,
+        request.auth?.token ?? null
       );
       return await queryAdminFinanceReadModels(firestore, actor, input, { readContext, readScope });
     } catch (error) {

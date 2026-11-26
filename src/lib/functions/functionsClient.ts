@@ -2,6 +2,7 @@ import { FirebaseError } from 'firebase/app';
 import { httpsCallable } from 'firebase/functions';
 import { logCallableFailure } from '../../features/errors/errorLogService';
 import { functions } from '../../infrastructure/firebase';
+import { withAdministratorStepUp } from './administratorStepUp';
 
 export type FunctionsErrorCode = `functions/${string}` | 'unknown';
 
@@ -129,4 +130,20 @@ const invokeFirebaseCallable: CallableInvoker = async <Input, Output>(
   return data;
 };
 
-export const callFunction = createFunctionsClient({ invoke: invokeFirebaseCallable });
+const callFirebaseFunction = createFunctionsClient({ invoke: invokeFirebaseCallable });
+
+export function callFunction<Input, Output>(
+  name: string,
+  input: Input,
+  options: FunctionsCallOptions
+): Promise<Output> {
+  return name === 'executeCanonicalCommand'
+    ? withAdministratorStepUp((expectedAdministratorUid) =>
+        callFirebaseFunction<Input, Output>(
+          name,
+          expectedAdministratorUid ? { ...input, expectedAdministratorUid } : input,
+          expectedAdministratorUid ? { ...options, maxAttempts: 1 } : options
+        )
+      )
+    : callFirebaseFunction<Input, Output>(name, input, options);
+}

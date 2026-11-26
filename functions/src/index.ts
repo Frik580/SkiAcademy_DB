@@ -8,6 +8,7 @@ import {
 } from 'firebase-functions/v2/https';
 import { admitRequest, requestPrincipalKey } from './security/requestAdmission';
 import { createClaimGuestProfileHandler } from './security/claimGuestProfile';
+import { createRevokeOwnAdministratorSessionsHandler } from './security/administratorSession';
 import { createReportClientErrorsHandler } from './security/reportClientErrors';
 import {
   createQueryScopedClientDocuments,
@@ -203,6 +204,12 @@ export const clearErrorLogs = onCall(
   { ...CANONICAL_CALLABLE_OPTIONS, timeoutSeconds: 120 },
   async (request) =>
     createClearErrorLogsHandler(getAdminFirestore(), guestActionTokenSecret.value())(request)
+);
+
+export const revokeOwnAdministratorSessions = onCall(
+  'revokeOwnAdministratorSessions',
+  CANONICAL_CALLABLE_OPTIONS,
+  (request) => createRevokeOwnAdministratorSessionsHandler(getAdminFirestore())(request)
 );
 
 export const executeCanonicalCommand = onCall(

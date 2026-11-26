@@ -34,9 +34,9 @@ export function createQueryChatMessages(db: Firestore) {
     const input = parsed.data;
     // TEST message client reachability remains deferred, as in the Rules contract.
     const path = `chat/${input.threadId}/authorization`;
-    await authorizeChatMedia(db, uid, path);
+    await authorizeChatMedia(db, uid, path, undefined, undefined, request.auth.token);
     const snapshot = await chatMessagesQuery(db, input).get();
-    await authorizeChatMedia(db, uid, path);
+    await authorizeChatMedia(db, uid, path, undefined, undefined, request.auth.token);
     const selected = snapshot.docs.slice(0, input.take);
     return {
       messages: selected.map((doc) => ({ ...doc.data(), id: doc.id })),

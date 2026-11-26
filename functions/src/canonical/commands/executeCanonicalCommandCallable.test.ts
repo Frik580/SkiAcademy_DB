@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Firestore } from 'firebase-admin/firestore';
 import { CanonicalCommandError, CorrelationIdSchema } from '@ski-academy/shared-domain';
 import { error as logError, warn } from 'firebase-functions/logger';
+import { requireCurrentAdministratorSession } from '../../security/administratorSession';
 import { createExecuteCanonicalCommandHandler } from './executeCanonicalCommandCallable';
 
 const { execute } = vi.hoisted(() => ({ execute: vi.fn() }));
@@ -89,16 +90,30 @@ describe('canonical callable unexpected exception diagnostics', () => {
 describe('canonical callable authorization inputs', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  function call(data: Record<string, unknown>, profile?: Record<string, unknown>) {
+  function call(
+    data: Record<string, unknown>,
+    profile?: Record<string, unknown>,
+    checkAdministratorSession?: typeof requireCurrentAdministratorSession,
+    authTime = 1000,
+    signInSecondFactor?: string
+  ) {
     const get = vi.fn(async () => ({ data: () => profile }));
     const firestore = {
       collection: () => ({ doc: () => ({ get }) }),
     } as unknown as Firestore;
-    const handler = createExecuteCanonicalCommandHandler(firestore);
+    const handler = createExecuteCanonicalCommandHandler(firestore, checkAdministratorSession);
     return {
       get,
       result: handler({
-        auth: { uid: 'account_callable_authorization' },
+        auth: {
+          uid: 'account_callable_authorization',
+          token: {
+            uid: 'account_callable_authorization',
+            auth_time: authTime,
+            iat: Math.floor(Date.now() / 1000),
+            firebase: { sign_in_second_factor: signInSecondFactor },
+          },
+        },
         data: {
           idempotencyKey: 'callable-authorization',
           correlationId: CorrelationIdSchema.parse('correlation_callable_authorization'),
@@ -109,12 +124,99 @@ describe('canonical callable authorization inputs', () => {
     };
   }
 
+  it('checks the trusted authentication time before dispatching a LIVE administrator command', async () => {
+    const timestamp = { seconds: 900, nanoseconds: 0 };
+    const profile = {
+      accountId: 'account_callable_authorization',
+      role: 'admin',
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      audit: {
+        createdByCommandId: 'created',
+        lastChangedByCommandId: 'updated',
+        correlationId: 'correlation',
+      },
+    };
+    const command = { kind: 'confirm_guest_booking' };
+    const getUser = vi.fn().mockResolvedValue({
+      tokensValidAfterTime: new Date(1001 * 1000).toUTCString(),
+    });
+    const verify: typeof requireCurrentAdministratorSession = (token) =>
+      requireCurrentAdministratorSession(token, { getUser });
+
+    await expect(call(command, profile, verify).result).rejects.toMatchObject({
+      code: 'unauthenticated',
+      details: { code: 'ADMIN_SESSION_INVALID' },
+    });
+    expect(execute).not.toHaveBeenCalled();
+    getUser.mockResolvedValue({ tokensValidAfterTime: new Date(999 * 1000).toUTCString() });
+    await expect(call(command, { ...profile, adminTotpRequired: true }, verify).result).rejects.toMatchObject({
+      code: 'permission-denied',
+      details: { code: 'ADMIN_TOTP_REQUIRED' },
+    });
+    await expect(call(command, { ...profile, adminSessionsRevokedThrough: 1000 }, verify, 1000, 'totp').result)
+      .rejects.toMatchObject({ code: 'unauthenticated', details: { code: 'ADMIN_SESSION_INVALID' } });
+    execute.mockResolvedValueOnce({ status: 'success' });
+    await expect(call(command, { ...profile, adminTotpRequired: true }, verify, 1000, 'totp').result)
+      .resolves.toMatchObject({ status: 'success' });
+  });
+
+  it.each(['record_manual_wallet_funding', 'record_financial_correction'])(
+    'requires fresh authentication for %s before dispatch',
+    async (kind) => {
+    const now = Math.floor(Date.now() / 1000);
+    const timestamp = { seconds: now - 700, nanoseconds: 0 };
+    const profile = {
+      accountId: 'account_callable_authorization',
+      role: 'admin',
+      lifecycle: { status: 'active' },
+      revision: 1,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      audit: {
+        createdByCommandId: 'created',
+        lastChangedByCommandId: 'updated',
+        correlationId: 'correlation',
+      },
+    };
+    const command = { kind };
+    const check = vi.fn().mockResolvedValue(undefined);
+    await expect(call(command, profile, check, now - 601).result).rejects.toMatchObject({
+      code: 'failed-precondition',
+      details: { code: 'ADMIN_RECENT_AUTH_REQUIRED' },
+    });
+    expect(check).toHaveBeenCalledTimes(1);
+    expect(execute).not.toHaveBeenCalled();
+
+    execute.mockResolvedValueOnce({ status: 'success' });
+    await expect(call(command, profile, check, now).result).resolves.toMatchObject({ status: 'success' });
+    expect(execute).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        context: expect.objectContaining({ idempotencyKey: 'callable-authorization' }),
+      }),
+      'authenticated_callable'
+    );
+    }
+  );
+
   it('rejects unknown command kinds before an Account read', async () => {
     const { get, result } = call({ kind: 'toString' });
     await expect(result).rejects.toMatchObject({
       code: 'invalid-argument',
       details: { code: 'validation' },
     });
+    expect(get).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('rejects a replay if the Firebase credential belongs to another account', async () => {
+    const { get, result } = call({
+      kind: 'record_manual_wallet_funding',
+      expectedAdministratorUid: 'previous-account',
+    });
+    await expect(result).rejects.toMatchObject({ code: 'permission-denied' });
     expect(get).not.toHaveBeenCalled();
     expect(execute).not.toHaveBeenCalled();
   });
@@ -131,7 +233,7 @@ describe('canonical callable authorization inputs', () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
-  it('keeps the missing Account bootstrap and derives source and actor on the server', async () => {
+  it('keeps Account bootstrap outside the administrator MFA policy', async () => {
     execute.mockResolvedValueOnce({ status: 'success' });
     await expect(
       call({

@@ -163,7 +163,7 @@ describeEmulator('Admin Planner mutations through callable gateway', () => {
       const blockId = AdministrativeAvailabilityBlockIdSchema.parse(
         `block_admin_planner_emulator_${input.kind}`
       );
-      const execute = createExecuteCanonicalCommandHandler(firestore);
+      const execute = createExecuteCanonicalCommandHandler(firestore, async () => {});
       const result = await execute(
         commandRequest({
           kind: 'create_administrative_availability_block',
@@ -210,7 +210,7 @@ describeEmulator('Admin Planner mutations through callable gateway', () => {
   );
 
   it('provisions the payer self Participant, creates a lesson, and exposes its occupancy', async () => {
-    const execute = createExecuteCanonicalCommandHandler(firestore);
+    const execute = createExecuteCanonicalCommandHandler(firestore, async () => {});
     const provision = await executeWithDiagnostics(() =>
       execute(
         commandRequest({
@@ -278,7 +278,7 @@ describeEmulator('Admin Planner mutations through callable gateway', () => {
   });
 
   it('creates a lesson for a selected managed Participant instead of the Account self Participant', async () => {
-    const execute = createExecuteCanonicalCommandHandler(firestore);
+    const execute = createExecuteCanonicalCommandHandler(firestore, async () => {});
     const payer = AccountSchema.parse({
       accountId: payerAccountId,
       lifecycle: { status: 'active' },
@@ -425,7 +425,7 @@ describeEmulator('Admin Planner mutations through callable gateway', () => {
   });
 
   it('reschedules, reassigns, and changes duration through the canonical gateway', async () => {
-    const execute = createExecuteCanonicalCommandHandler(firestore);
+    const execute = createExecuteCanonicalCommandHandler(firestore, async () => {});
     const provision = await executeWithDiagnostics(() =>
       execute(
         commandRequest({

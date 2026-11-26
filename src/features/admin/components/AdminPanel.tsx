@@ -38,6 +38,10 @@ import {
 import { AdminTabNav } from './AdminTabNav';
 import { AdminDisplayChrome } from './finance/AdminDisplayChrome';
 import { AdminMonitorReadModelsProvider } from '../operations/AdminMonitorReadModelsContext';
+import { useAuthStore } from '../../auth';
+import { revokeOwnAdministratorSessions } from '../adminService';
+import { AdminTotpEnrollment } from './settings/AdminTotpEnrollment';
+import { AdministratorStepUpHost } from './AdministratorStepUpHost';
 
 const CanonicalFinancePanel = lazy(() =>
   import('./finance').then((m) => ({
@@ -185,13 +189,44 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     message: string;
     onConfirm: () => void | Promise<void>;
   } | null>(null);
+  const [revokingSessions, setRevokingSessions] = useState(false);
+  const [sessionError, setSessionError] = useState('');
 
   const onRequestConfirm = (message: string, onConfirm: () => void | Promise<void>) => {
     setConfirmModal({ message, onConfirm });
   };
 
+  const confirmSessionRevocation = () => {
+    const user = useAuthStore.getState().firebaseUser;
+    if (!user || revokingSessions) return;
+    setSessionError('');
+    onRequestConfirm(t('adminRevokeSessionsConfirm'), async () => {
+      if (useAuthStore.getState().firebaseUser !== user) return;
+      setRevokingSessions(true);
+      try {
+        await revokeOwnAdministratorSessions(user.uid);
+        if (useAuthStore.getState().firebaseUser === user) {
+          await useAuthStore.getState().handleSignOut();
+        }
+      } catch (error) {
+        const code = (error as { details?: { code?: string } } | null)?.details?.code;
+        const message = code === 'ADMIN_RECENT_AUTH_REQUIRED'
+          ? 'adminRecentAuthRequired'
+          : code === 'ADMIN_SESSION_INVALID'
+            ? 'adminRevokeSessionsSignIn'
+            : 'adminRevokeSessionsFailed';
+        setSessionError(t(message));
+      } finally {
+        setRevokingSessions(false);
+      }
+    });
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
+      {currentUserProfile.role === 'admin' && (
+        <AdministratorStepUpHost key={currentUserProfile.uid} administratorUid={currentUserProfile.uid} />
+      )}
       <AdminDisplayChrome />
 
       <AdminTabNav activeTab={activeTab} onChange={setActiveTab} />
@@ -439,6 +474,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {activeTab === 'system' && (
         <div className="space-y-6">
+          <AdminCollapsibleSection
+            id="administrator_sessions"
+            title={t('adminRevokeSessionsTitle')}
+            icon={Shield}
+            defaultOpen={false}
+          >
+            <button
+              type="button"
+              className="btn-secondary px-4 py-2"
+              disabled={revokingSessions}
+              onClick={confirmSessionRevocation}
+            >
+              {t('adminRevokeSessionsAction')}
+            </button>
+            {sessionError && <p role="alert" className="mt-2 type-caption">{sessionError}</p>}
+            {import.meta.env.VITE_ADMIN_TOTP_ENROLLMENT === 'true' && currentUserProfile?.role === 'admin' && (
+              <AdminTotpEnrollment
+                key={currentUserProfile.uid}
+                uid={currentUserProfile.uid}
+                labels={{
+                  setup: t('adminTotpSetup'),
+                  instructions: t('adminTotpInstructions'),
+                  code: t('authTotpCode'),
+                  confirm: t('confirm'),
+                  cancel: t('cancel'),
+                  failed: t('adminTotpSetupFailed'),
+                  enrolled: t('adminTotpEnrolled'),
+                }}
+              />
+            )}
+          </AdminCollapsibleSection>
           <Suspense fallback={<SectionLoadingFallback label={t('emailDeliveryTitle')} />}>
             <EmailDeliverySettingsSection />
           </Suspense>

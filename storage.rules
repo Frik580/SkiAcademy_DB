@@ -54,10 +54,24 @@ service firebase.storage {
         !('testSessionId' in profile);
     }
 
+    function administratorSessionAllowed(profile) {
+      let revokedThrough = profile.get('adminSessionsRevokedThrough', null);
+      let totpRequired = profile.get('adminTotpRequired', false);
+      return (!('adminSessionsRevokedThrough' in profile) ||
+          (revokedThrough is int && request.auth.token.auth_time is int &&
+            request.auth.token.auth_time > revokedThrough)) &&
+        (totpRequired == false ||
+          (totpRequired == true &&
+            request.auth.token.get('firebase', {}).get('sign_in_second_factor', '') == 'totp'));
+    }
+
+    function hasAdminSession() {
+      let profile = firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+      return profile.get('role', '') == 'admin' && administratorSessionAllowed(profile);
+    }
+
     function isAdmin() {
-      return isAuthenticated() && isLivePrincipal() &&
-        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin' &&
-        !isRegisteredTestActor();
+      return isAuthenticated() && isLivePrincipal() && hasAdminSession() && !isRegisteredTestActor();
     }
 
     function isRegisteredTestActor() {

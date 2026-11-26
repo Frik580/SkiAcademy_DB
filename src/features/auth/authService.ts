@@ -1,10 +1,19 @@
 import {
   createUserWithEmailAndPassword,
+  EmailAuthProvider,
+  getMultiFactorResolver,
+  multiFactor,
+  reauthenticateWithCredential,
+  reauthenticateWithPopup,
   sendPasswordResetEmail,
   sendEmailVerification,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut as fbSignOut,
+  TotpMultiFactorGenerator,
+  type MultiFactorError,
+  type MultiFactorResolver,
+  type TotpSecret,
   type User,
 } from 'firebase/auth';
 import {
@@ -33,6 +42,51 @@ export function getCurrentAuthenticatedUser(): User | null {
 
 export async function signInWithEmailService(email: string, password: string): Promise<User> {
   return (await signInWithEmailAndPassword(auth, email, password)).user;
+}
+
+export function getSignInMfaResolver(error: MultiFactorError): MultiFactorResolver {
+  return getMultiFactorResolver(auth, error);
+}
+
+export async function resolveTotpSignIn(
+  resolver: MultiFactorResolver,
+  enrollmentId: string,
+  code: string
+): Promise<User> {
+  const assertion = TotpMultiFactorGenerator.assertionForSignIn(enrollmentId, code);
+  return (await resolver.resolveSignIn(assertion)).user;
+}
+
+export async function reauthenticateAdministrator(
+  user: User,
+  method: 'password' | 'google.com',
+  password: string
+): Promise<void> {
+  if (auth.currentUser !== user) throw new Error('Authentication changed.');
+  if (method === 'google.com') {
+    await reauthenticateWithPopup(user, googleProvider);
+  } else {
+    if (!user.email) throw new Error('Email unavailable.');
+    await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
+  }
+}
+
+export async function beginAdministratorTotpEnrollment(uid: string): Promise<TotpSecret> {
+  const user = auth.currentUser;
+  if (user?.uid !== uid || !user.emailVerified) throw new Error('Verified email required.');
+  const session = await multiFactor(user).getSession();
+  return TotpMultiFactorGenerator.generateSecret(session);
+}
+
+export async function enrollAdministratorTotp(
+  uid: string,
+  secret: TotpSecret,
+  code: string
+): Promise<void> {
+  const user = auth.currentUser;
+  if (user?.uid !== uid || !user.emailVerified) throw new Error('Verified email required.');
+  const assertion = TotpMultiFactorGenerator.assertionForEnrollment(secret, code);
+  await multiFactor(user).enroll(assertion, 'Carve Academy');
 }
 
 export async function signUpWithEmailService(email: string, password: string): Promise<User> {

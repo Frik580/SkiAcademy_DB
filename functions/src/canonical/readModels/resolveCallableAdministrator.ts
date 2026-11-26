@@ -1,9 +1,11 @@
 import { HttpsError } from 'firebase-functions/v2/https';
 import type { Firestore } from 'firebase-admin/firestore';
+import type { DecodedIdToken } from 'firebase-admin/auth';
 import { AccountIdSchema, type ReadModelAdministratorActor } from '@ski-academy/shared-domain';
 import { isAdministratorProfile } from '../commands/resolveCallableAccountContext';
 import { readCallableAccountProfile } from './resolveCallableInstructorId';
 import { requireActiveAccount } from '../../security/activeAccount';
+import { requireAdministratorAccountSessionPolicy } from '../../security/administratorSession';
 import {
   createReadModelRequestContext,
   type ReadModelRequestContext,
@@ -12,7 +14,8 @@ import {
 export async function resolveCallableAdministratorActor(
   firestore: Firestore,
   authUid: string | undefined,
-  readContext: ReadModelRequestContext = createReadModelRequestContext(firestore)
+  readContext: ReadModelRequestContext = createReadModelRequestContext(firestore),
+  liveToken?: DecodedIdToken | null
 ): Promise<ReadModelAdministratorActor> {
   if (!authUid) {
     throw new HttpsError('unauthenticated', 'Authentication is required.');
@@ -29,6 +32,9 @@ export async function resolveCallableAdministratorActor(
   requireActiveAccount(accountId.data, profileData);
   if (!isAdministratorProfile(profile)) {
     throw new HttpsError('permission-denied', 'This action is not permitted.');
+  }
+  if (liveToken !== undefined && readContext.readScope.dataScope === 'live') {
+    requireAdministratorAccountSessionPolicy(profileData, liveToken ?? undefined);
   }
   // LIVE administrative surfaces must not ignore a registered TEST identity.
   if (

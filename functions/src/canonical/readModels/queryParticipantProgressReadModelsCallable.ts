@@ -1,3 +1,4 @@
+import { requireAdministratorAccountSessionPolicy } from '../../security/administratorSession';
 import { resolveCallableAdministratorActor } from './resolveCallableAdministrator';
 import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https';
 import type { Firestore } from 'firebase-admin/firestore';
@@ -44,9 +45,10 @@ export function createQueryParticipantProgressReadModelsHandler(firestore: Fires
     }
 
     try {
+      const liveContext = createReadModelRequestContext(firestore);
       const administratorActor =
         input.scope === 'admin'
-          ? await resolveCallableAdministratorActor(firestore, request.auth?.uid)
+          ? await resolveCallableAdministratorActor(firestore, request.auth?.uid, liveContext)
           : undefined;
       const readScope = await resolveCanonicalReadScope(
         createFirestoreCanonicalExecutionScopeStore(firestore),
@@ -57,6 +59,11 @@ export function createQueryParticipantProgressReadModelsHandler(firestore: Fires
           requestedTestSessionId,
         }
       );
+      if (administratorActor && readScope.dataScope === 'live') {
+        requireAdministratorAccountSessionPolicy(
+          (await liveContext.account(administratorActor.accountId)).data(), request.auth?.token
+        );
+      }
       const readContext = createReadModelRequestContext(firestore, { readScope });
 
       let instructorId: ReturnType<typeof resolveCallableInstructorId> | undefined;

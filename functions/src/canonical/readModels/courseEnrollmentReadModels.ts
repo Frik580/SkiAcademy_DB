@@ -18,6 +18,7 @@ import {
   type CourseDay,
   type CourseEnrollment,
   type CourseEnrollmentReadModel,
+  type GuestCourseEnrollmentReadModel,
   type CourseEnrollmentReadModelCursor,
   type CourseEnrollmentReadModelLifecycleProjection,
   type CourseEnrollmentReadModelPaymentPresentation,
@@ -46,6 +47,10 @@ import {
   parseParticipantManagement,
 } from '../participantAccess/participantAccessStore';
 import { buildParticipantAccessTopology } from '../participantAccess/participantAccessAuthorization';
+import {
+  courseEnrollmentCreatedGuestParticipant,
+  isUnlinkedGuestCourseEnrollment,
+} from '../participantAccess/guestParticipantOwnership';
 import { parseCourse, parseCourseDays } from '../courses/courseStore';
 import { parseCourseEnrollment } from '../courses/courseEnrollmentStore';
 import { buildCourseScheduleProjectionReadModel } from './courseDayScheduleProjectionSupport';
@@ -649,7 +654,8 @@ export async function queryCourseEnrollmentReadModels(
     const enrollment = parseCourseEnrollment(
       enrollmentSnap.data() as Record<string, unknown> | undefined
     );
-    if (!enrollment) {
+    if (!enrollment || enrollment.enrollmentId !== enrollmentId ||
+        !isUnlinkedGuestCourseEnrollment(enrollment)) {
       return { scope: input.scope, items: [], hasMore: false };
     }
 
@@ -658,20 +664,26 @@ export async function queryCourseEnrollmentReadModels(
     if (!course) {
       return { scope: input.scope, items: [], hasMore: false };
     }
-    const courseDays = await loadCourseDays(firestore, enrollment.courseId, readContext);
-
     const guestSubjectId = guestSubjectIdFromCourseEnrollmentId(enrollmentId);
-    const verification = verifyGuestCourseEnrollmentActionCredentialPartsAuthoritative({
+    const proof = {
       secret: guestActionSecret,
       nonce: input.guestActionNonce!,
       signature: input.guestActionSignature!,
       now,
       expectedEnrollmentId: enrollmentId,
       expectedGuestSubjectId: guestSubjectId,
-      expectedPurpose: 'link_guest_course_enrollment',
       expiresAt: course.scheduleProjection.finalCourseDayEndsAt,
+    };
+    const verifiedReusedParticipant = verifyGuestCourseEnrollmentActionCredentialPartsAuthoritative({
+      ...proof,
+      expectedPurpose: 'read_verified_guest_course_participant',
+      expectedParticipantId: enrollment.participantId,
+    }).valid;
+    const verification = verifyGuestCourseEnrollmentActionCredentialPartsAuthoritative({
+      ...proof,
+      expectedPurpose: 'link_guest_course_enrollment',
     });
-    if (!verification.valid) {
+    if (!verifiedReusedParticipant && !verification.valid) {
       return { scope: input.scope, items: [], hasMore: false };
     }
 
@@ -679,19 +691,23 @@ export async function queryCourseEnrollmentReadModels(
     const participant = parseParticipant(
       participantSnap.data() as Record<string, unknown> | undefined
     );
-    if (!participant) {
-      return { scope: input.scope, items: [], hasMore: false };
+    const canReadParticipant = participant?.participantId === enrollment.participantId &&
+      participant.lifecycle.status === 'active' &&
+      participant.management.kind === 'unmanaged_guest' &&
+      (verifiedReusedParticipant || courseEnrollmentCreatedGuestParticipant(enrollment, participant));
+    const courseDays = await loadCourseDays(firestore, enrollment.courseId, readContext);
+    let courseProgress: CourseEnrollmentProgressProjection | undefined;
+    if (canReadParticipant) {
+      const attendanceSnapshot = await readContext.enrollmentAttendances(enrollment.enrollmentId);
+      const attendanceByEnrollment = groupEnrollmentAttendances(attendanceSnapshot);
+      courseProgress = courseProgressProjection(deriveCourseProgressPresentation({
+        now,
+        enrollment,
+        course,
+        courseDays,
+        attendancesByCourseDayId: attendanceByEnrollment.get(enrollment.enrollmentId) ?? new Map(),
+      }));
     }
-
-    const attendanceSnapshot = await readContext.enrollmentAttendances(enrollment.enrollmentId);
-    const attendanceByEnrollment = groupEnrollmentAttendances(attendanceSnapshot);
-    const progress = deriveCourseProgressPresentation({
-      now,
-      enrollment,
-      course,
-      courseDays,
-      attendancesByCourseDayId: attendanceByEnrollment.get(enrollment.enrollmentId) ?? new Map(),
-    });
     const paymentSnapshot = await readContext.payment(enrollment.paymentId);
     const payment = parsePayment(paymentSnapshot.data() as Record<string, unknown> | undefined);
     if (
@@ -704,20 +720,23 @@ export async function queryCourseEnrollmentReadModels(
         `Canonical guest CourseEnrollment read integrity failure: payments/${enrollment.paymentId}`
       );
     }
-    const item: CourseEnrollmentReadModel = {
+    const item: GuestCourseEnrollmentReadModel = {
       enrollmentId: enrollment.enrollmentId,
       revision: enrollment.revision,
       courseId: enrollment.courseId,
       ...(enrollment.originalCourseId !== enrollment.courseId
         ? { originalCourseId: enrollment.originalCourseId }
         : {}),
-      participant: {
-        participantId: participant.participantId,
-        displayName: participant.displayName,
-        ...(participant.age.kind === 'age_years' ? { ageYears: participant.age.years } : {}),
-        ...(participant.skillLevel ? { skillLevel: participant.skillLevel } : {}),
-        discipline: participant.discipline,
-      },
+      ...(canReadParticipant && participant && courseProgress ? {
+        participant: {
+          participantId: participant.participantId,
+          displayName: participant.displayName,
+          ...(participant.age.kind === 'age_years' ? { ageYears: participant.age.years } : {}),
+          ...(participant.skillLevel ? { skillLevel: participant.skillLevel } : {}),
+          discipline: participant.discipline,
+        },
+        courseProgress,
+      } : {}),
       lifecycle: buildLifecycleProjection(enrollment),
       courseDisplay: { courseId: course.courseId, title: course.title },
       courseSchedule: buildCourseScheduleProjectionReadModel(course, courseDays),
@@ -733,7 +752,6 @@ export async function queryCourseEnrollmentReadModels(
           payment.paidAmount === 0 &&
           compareCanonicalTimestamps(now, enrollment.lifecycle.reservationExpiresAt) < 0,
       },
-      courseProgress: courseProgressProjection(progress),
       updatedAt: enrollment.updatedAt,
     };
     return { scope: input.scope, items: [item], hasMore: false };

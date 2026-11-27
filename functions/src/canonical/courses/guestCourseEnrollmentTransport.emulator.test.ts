@@ -5,6 +5,7 @@ import {
   ADMIN_COURSE_ENROLLMENT_PAGE_SIZE_DEFAULT,
   AggregateRevisionSchema,
   AccountIdSchema,
+  BookingIdSchema,
   canonicalPaths,
   CorrelationIdSchema,
   CourseDayIdSchema,
@@ -20,6 +21,7 @@ import {
   SystemActorIdSchema,
   deriveGuestSubjectIdFromCourseEnrollmentIntent,
   guestCommandActor,
+  guestSubjectIdFromBookingId,
   guestSubjectIdFromCourseEnrollmentId,
   systemCommandActor,
   signGuestCourseEnrollmentActionCredential,
@@ -295,6 +297,8 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
       'courses',
       'course_catalog_content',
       'course_enrollments',
+      'bookings',
+      'booking_occurrences',
       'participants',
       'instructor_relationships',
       'guest_contacts',
@@ -376,8 +380,13 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
       enrollmentId: secondEnrollmentId,
       courseId: secondCourseId,
     });
+    const { nonce, signature, expiresAt } = first.payload!.guestLinkCredentials![0]!;
     const updatedEnvelope = {
       ...secondEnvelope,
+      intent: {
+        ...secondEnvelope.intent,
+        guestParticipantProof: { courseEnrollmentId: enrollmentId, credential: { nonce, signature, expiresAt } },
+      },
       context: {
         ...secondEnvelope.context,
         transportMetadata: {
@@ -390,7 +399,7 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     };
     const peopleRef = firestore.doc(canonicalPaths.adminPeopleRevision().replace(/^\//, ''));
     const peopleBefore = (await peopleRef.get()).data()!.revision;
-    const second = await createCommands('2026-01-02T00:00:00.000Z').execute(updatedEnvelope);
+    const second = await createCommands('2026-01-01T00:01:00.000Z').execute(updatedEnvelope);
     expect(second.status).toBe('success');
     const after = (await participantRef.get()).data()!;
     expect(parseParticipant(after)).toMatchObject({
@@ -408,7 +417,7 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
       age: { kind: 'age_years', years: 43 },
       skillLevel: 'intermediate',
       revision: before.revision + 1,
-      updatedAt: timestampFromDate(new Date('2026-01-02T00:00:00.000Z')),
+      updatedAt: timestampFromDate(new Date('2026-01-01T00:01:00.000Z')),
       audit: {
         ...before.audit,
         lastChangedByCommandId: expect.any(String),
@@ -419,15 +428,16 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     expect(second.payload?.adminPeopleRevision).toBe(peopleBefore + 1);
     expect((await peopleRef.get()).data()?.revision).toBe(peopleBefore + 1);
 
-    const queryGuest = async (created: typeof first, id: CourseEnrollmentId) => {
+    const queryGuest = async (created: typeof first, id: CourseEnrollmentId, reservationOnly = false) => {
       const credential = created.payload!.guestLinkCredentials![0]!;
+      const readCredential = reservationOnly ? credential : credential.participantReadCredential ?? credential;
       return queryCourseEnrollmentReadModels(
         firestore,
         {
           scope: 'guest_single',
           enrollmentId: id,
-          guestActionNonce: credential.nonce,
-          guestActionSignature: credential.signature,
+          guestActionNonce: readCredential.nonce,
+          guestActionSignature: readCredential.signature,
         },
         { guestActionSecret: guestActionTokenSecret, now: new Date('2026-01-02T00:00:00.000Z') }
       );
@@ -438,6 +448,14 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
         participant: expect.objectContaining({ participantId, displayName: 'Ars' }),
       }),
     ]);
+    const reservationOnly = (await queryGuest(second, secondEnrollmentId, true)).items[0];
+    expect(reservationOnly).toMatchObject({
+      enrollmentId: secondEnrollmentId,
+      lifecycle: { status: 'pending' },
+      guestPaymentSummary: expect.objectContaining({ currency: 'KZT' }),
+    });
+    expect(reservationOnly).not.toHaveProperty('participant');
+    expect(reservationOnly).not.toHaveProperty('courseProgress');
     expect((await queryGuest(first, enrollmentId)).items[0]).toMatchObject({
       participant: { participantId, displayName: 'Ars' },
     });
@@ -454,33 +472,122 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     expect(await commands.execute(updatedEnvelope)).toEqual(second);
     expect((await participantRef.get()).data()).toEqual(after);
     expect((await peopleRef.get()).data()?.revision).toBe(peopleBefore + 1);
+
+    const counts = await durableGuestCounts(secondCourseId);
+    expect(await commands.execute({
+      ...updatedEnvelope,
+      intent: { ...updatedEnvelope.intent, guestComment: 'Changed submission' },
+    })).toMatchObject({ status: 'error', error: { code: 'idempotency_conflict' } });
+    expect((await participantRef.get()).data()).toEqual(after);
+
+    await participantRef.update({
+      management: { kind: 'managed', participantManagementId: 'management_reuse_replay_fixture' },
+    });
+    const managed = (await participantRef.get()).data();
+    expect(await commands.execute(updatedEnvelope)).toMatchObject({
+      status: 'error',
+      error: { code: 'unauthorized' },
+    });
+    expect((await participantRef.get()).data()).toEqual(managed);
+    expect(await durableGuestCounts(secondCourseId)).toEqual(counts);
   });
 
   it('leaves an unchanged guest profile and people revision untouched on a new enrollment', async () => {
     const commands = createCommands();
-    expect(
-      (await commands.execute(guestEnrollmentEnvelope('idem-same-profile-first'))).status
-    ).toBe('success');
+    const first = await commands.execute(guestEnrollmentEnvelope('idem-same-profile-first'));
+    expect(first.status).toBe('success');
+    const { nonce, signature, expiresAt } = first.payload!.guestLinkCredentials![0]!;
     const participantRef = firestore.doc(`participants/${participantId}`);
     const before = (await participantRef.get()).data();
     const peopleRef = firestore.doc(canonicalPaths.adminPeopleRevision().replace(/^\//, ''));
     const peopleBefore = (await peopleRef.get()).data();
     const secondCourseId = await seedSecondCourse();
-    const second = await createCommands('2026-01-02T00:00:00.000Z').execute(
-      guestEnrollmentAttemptEnvelope({
-        idempotencyKey: 'idem-same-profile-second',
-        participantId,
-        enrollmentId: CourseEnrollmentIdSchema.parse('enrollment_same_profile_second'),
-        courseId: secondCourseId,
-      })
-    );
+    const attempt = guestEnrollmentAttemptEnvelope({
+      idempotencyKey: 'idem-same-profile-second',
+      participantId,
+      enrollmentId: CourseEnrollmentIdSchema.parse('enrollment_same_profile_second'),
+      courseId: secondCourseId,
+    });
+    const second = await createCommands('2026-01-01T00:01:00.000Z').execute({
+      ...attempt,
+      intent: {
+        ...attempt.intent,
+        guestParticipantProof: { courseEnrollmentId: enrollmentId, credential: { nonce, signature, expiresAt } },
+      },
+    });
     expect(second.status).toBe('success');
     expect(second.payload).not.toHaveProperty('adminPeopleRevision');
     expect((await participantRef.get()).data()).toEqual(before);
     expect((await peopleRef.get()).data()).toEqual(peopleBefore);
   });
 
+  it('verifies originating lesson and course credentials in both reuse directions', async () => {
+    const commands = createCommands();
+    const initialCourse = await commands.execute(guestEnrollmentEnvelope('idem-reuse-course-origin'));
+    expect(initialCourse.status).toBe('success');
+    const courseCredential = initialCourse.payload!.guestLinkCredentials![0]!;
+    const makeLesson = (id: string, target: ParticipantId, localTime: string):
+      CommandEnvelope<'create_guest_booking_request'> => {
+      const bookingId = BookingIdSchema.parse(id);
+      return {
+        kind: 'create_guest_booking_request',
+        context: {
+          ...guestEnrollmentEnvelope(id).context,
+          actor: guestCommandActor(guestSubjectIdFromBookingId(bookingId)),
+          idempotencyKey: 'create-guest-private:39ae19d3fda24338999ceeacfc4ebdf2',
+          calendarInput: { localDate: '2026-01-15', localTime, durationMinutes: 60 },
+          timezone: 'Asia/Almaty',
+        },
+        intent: { bookingId, instructorId, participantIds: [target] },
+      };
+    };
+    const lessonReuse = makeLesson('booking_transport_reuse_course_guest', participantId, '09:00');
+    const fromCourse = await commands.execute({
+      ...lessonReuse,
+      intent: {
+        ...lessonReuse.intent,
+        guestParticipantProof: {
+          courseEnrollmentId: enrollmentId,
+          credential: {
+            nonce: courseCredential.nonce, signature: courseCredential.signature, expiresAt: courseCredential.expiresAt,
+          },
+        },
+      },
+    });
+    expect(fromCourse).toMatchObject({ status: 'success' });
+    expect(fromCourse.payload?.guestActionCredential).not.toHaveProperty('linkCredential');
+
+    const lessonParticipantId = ParticipantIdSchema.parse('participant_transport_lesson_origin');
+    const originalLesson = makeLesson('booking_transport_lesson_origin', lessonParticipantId, '11:00');
+    const lesson = await commands.execute(originalLesson);
+    expect(lesson.status).toBe('success');
+    const attempt = guestEnrollmentAttemptEnvelope({
+      idempotencyKey: 'idem-reuse-lesson-origin',
+      participantId: lessonParticipantId,
+      enrollmentId: CourseEnrollmentIdSchema.parse('enrollment_transport_reuse_lesson_guest'),
+      courseId: await seedSecondCourse(),
+    });
+    const fromLesson = await commands.execute({
+      ...attempt,
+      intent: {
+        ...attempt.intent,
+        guestParticipantProof: {
+          bookingId: originalLesson.intent.bookingId,
+          credential: lesson.payload!.guestActionCredential.linkCredential!,
+        },
+      },
+    });
+    expect(fromLesson).toMatchObject({ status: 'success' });
+    expect(fromLesson.payload?.guestLinkCredentials?.[0]?.participantReadCredential).toBeDefined();
+    expect((await firestore.collection('participants').get()).size).toBe(2);
+  });
+
   it.each([
+    'missing-proof',
+    'wrong-participant',
+    'wrong-purpose',
+    'expired-proof',
+    'stale-attribution',
     'managed',
     'archived',
     'malformed',
@@ -490,10 +597,29 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
   ])(
     'rejects a guest profile update of an existing %s participant without changing it',
     async (invalid) => {
-      expect(
-        (await createCommands().execute(guestEnrollmentEnvelope(`idem-protected-seed-${invalid}`)))
-          .status
-      ).toBe('success');
+      const original = await createCommands().execute(guestEnrollmentEnvelope(`idem-protected-seed-${invalid}`));
+      expect(original.status).toBe('success');
+      let proofEnrollmentId = enrollmentId;
+      const originalCredential = original.payload!.guestLinkCredentials![0]!;
+      let proof = invalid === 'wrong-purpose' ? originalCredential.cancellationCredential! : originalCredential;
+      if (invalid === 'wrong-participant') {
+        proofEnrollmentId = CourseEnrollmentIdSchema.parse('enrollment_other_guest_origin_fixture');
+        const otherGuest = await createCommands().execute(guestEnrollmentAttemptEnvelope({
+          idempotencyKey: 'idem-other-guest-origin-fixture',
+          participantId: ParticipantIdSchema.parse('participant_other_guest_origin_fixture'),
+          enrollmentId: proofEnrollmentId,
+        }));
+        expect(otherGuest.status).toBe('success');
+        proof = otherGuest.payload!.guestLinkCredentials![0]!;
+      }
+      const { nonce, signature, expiresAt } = proof;
+      if (invalid === 'stale-attribution') {
+        await firestore.doc(`course_enrollments/${enrollmentId}`).update({
+          'attribution.bookedBy.guestSubjectId': guestSubjectIdFromCourseEnrollmentId(
+            CourseEnrollmentIdSchema.parse('enrollment_guest_outdated_attribution')
+          ),
+        });
+      }
       const participantRef = firestore.doc(`participants/${participantId}`);
       if (invalid === 'instructor-linked') {
         await firestore.doc('instructor_relationships/relationship_protected_guest').set(
@@ -535,18 +661,32 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
                   : {};
       if (Object.keys(patch).length > 0) await participantRef.update(patch);
       const before = (await participantRef.get()).data();
-      const countsBefore = await durableGuestCounts();
+      const secondCourseId = await seedSecondCourse();
+      const countsBefore = await durableGuestCounts(secondCourseId);
+      const effectCounts = async () => Promise.all(
+        ['resource_claims', 'monetary_events'].map(async (collection) =>
+          (await firestore.collection(collection).count().get()).data().count
+        )
+      );
+      const effectsBefore = await effectCounts();
       const peopleRef = firestore.doc(canonicalPaths.adminPeopleRevision().replace(/^\//, ''));
       const peopleBefore = (await peopleRef.get()).data();
-      const secondCourseId = await seedSecondCourse();
       const secondEnvelope = guestEnrollmentAttemptEnvelope({
         idempotencyKey: `idem-protected-update-${invalid}`,
         participantId,
         enrollmentId: CourseEnrollmentIdSchema.parse(`enrollment_protected_${invalid}`),
         courseId: secondCourseId,
       });
-      const rejected = await createCommands().execute({
+      const rejected = await createCommands(
+        invalid === 'expired-proof' ? '2026-02-02T00:00:00.000Z' : undefined
+      ).execute({
         ...secondEnvelope,
+        intent: {
+          ...secondEnvelope.intent,
+          ...(invalid === 'missing-proof' ? {} : {
+            guestParticipantProof: { courseEnrollmentId: proofEnrollmentId, credential: { nonce, signature, expiresAt } },
+          }),
+        },
         context: {
           ...secondEnvelope.context,
           transportMetadata: {
@@ -557,18 +697,12 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
       });
       expect(rejected).toMatchObject({
         status: 'error',
-        error: {
-          code:
-            invalid === 'managed' || invalid === 'instructor-linked'
-              ? 'forbidden'
-              : invalid === 'mismatched-id'
-                ? 'validation'
-                : 'invalid_transition',
-        },
+        error: { code: invalid === 'instructor-linked' ? 'forbidden' : 'unauthorized' },
       });
       expect((await participantRef.get()).data()).toEqual(before);
       expect((await peopleRef.get()).data()).toEqual(peopleBefore);
-      expect(await durableGuestCounts()).toEqual(countsBefore);
+      expect(await durableGuestCounts(secondCourseId)).toEqual(countsBefore);
+      expect(await effectCounts()).toEqual(effectsBefore);
     }
   );
 
@@ -1201,18 +1335,24 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     const commands = createCommands();
     const first = await commands.execute(guestEnrollmentEnvelope('idem-guest-dup-first'));
     expect(first.status).toBe('success');
+    const { nonce, signature, expiresAt } = first.payload!.guestLinkCredentials![0]!;
 
     const secondEnrollmentId = CourseEnrollmentIdSchema.parse(
       'enrollment_guest_transport_emulator_dup'
     );
-    const second = await commands.execute(
-      guestEnrollmentAttemptEnvelope({
+    const attempt = guestEnrollmentAttemptEnvelope({
         idempotencyKey: 'idem-guest-dup-second',
         participantId,
         enrollmentId: secondEnrollmentId,
         correlationId: CorrelationIdSchema.parse('correlation_guest_transport_emulator_dup'),
-      })
-    );
+    });
+    const second = await commands.execute({
+      ...attempt,
+      intent: {
+        ...attempt.intent,
+        guestParticipantProof: { courseEnrollmentId: enrollmentId, credential: { nonce, signature, expiresAt } },
+      },
+    });
     expect(second.status).toBe('error');
     if (second.status === 'error') {
       expect(second.error.code).toBe('duplicate_active_enrollment');
@@ -1227,18 +1367,34 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
 
   it('serializes concurrent same-guest enrollments to one seat and one payment', async () => {
     const commands = createCommands();
+    const source = guestEnrollmentAttemptEnvelope({
+      idempotencyKey: 'idem-guest-race-origin',
+      participantId,
+      enrollmentId: CourseEnrollmentIdSchema.parse('enrollment_guest_race_origin'),
+      courseId: await seedSecondCourse(),
+    });
+    const origin = await commands.execute(source);
+    expect(origin.status).toBe('success');
+    const { nonce, signature, expiresAt } = origin.payload!.guestLinkCredentials![0]!;
+    const withProof = (envelope: typeof source): typeof source => ({
+      ...envelope,
+      intent: {
+        ...envelope.intent,
+        guestParticipantProof: { courseEnrollmentId: source.intent.enrollmentIds![0]!, credential: { nonce, signature, expiresAt } },
+      },
+    });
     const secondEnrollmentId = CourseEnrollmentIdSchema.parse(
       'enrollment_guest_transport_emulator_race'
     );
     const attempts = await Promise.all([
-      commands.execute(guestEnrollmentEnvelope('idem-guest-race-a')),
+      commands.execute(withProof(guestEnrollmentEnvelope('idem-guest-race-a'))),
       commands.execute(
-        guestEnrollmentAttemptEnvelope({
+        withProof(guestEnrollmentAttemptEnvelope({
           idempotencyKey: 'idem-guest-race-b',
           participantId,
           enrollmentId: secondEnrollmentId,
           correlationId: CorrelationIdSchema.parse('correlation_guest_transport_emulator_race'),
-        })
+        }))
       ),
     ]);
 
@@ -1251,10 +1407,10 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     expect(duplicates).toHaveLength(1);
 
     const state = await durableGuestCounts();
-    expect(state.enrollments).toBe(1);
-    expect(state.payments).toBe(1);
+    expect(state.enrollments).toBe(2);
+    expect(state.payments).toBe(2);
     expect(state.availableSeats).toBe(7);
-    expect(state.enrollmentGuards).toBe(1);
+    expect(state.enrollmentGuards).toBe(2);
   });
 
   it('allows a different guest to enroll the same course when seats remain', async () => {
@@ -1291,15 +1447,21 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     const secondEnrollmentId = CourseEnrollmentIdSchema.parse(
       'enrollment_guest_transport_emulator_course_y'
     );
-    const second = await commands.execute(
-      guestEnrollmentAttemptEnvelope({
+    const attempt = guestEnrollmentAttemptEnvelope({
         idempotencyKey: 'idem-guest-course-y',
         participantId,
         enrollmentId: secondEnrollmentId,
         courseId: secondCourseId,
         correlationId: CorrelationIdSchema.parse('correlation_guest_transport_emulator_y'),
-      })
-    );
+    });
+    const { nonce, signature, expiresAt } = first.payload!.guestLinkCredentials![0]!;
+    const second = await commands.execute({
+      ...attempt,
+      intent: {
+        ...attempt.intent,
+        guestParticipantProof: { courseEnrollmentId: enrollmentId, credential: { nonce, signature, expiresAt } },
+      },
+    });
     if (second.status === 'error') {
       throw new Error(
         `course Y enroll failed: ${second.error.code} ${JSON.stringify(second.error.details)}`
@@ -1353,14 +1515,20 @@ describe.runIf(runsOnFirestoreEmulator)('guest course enrollment transport emula
     const reenrollId = CourseEnrollmentIdSchema.parse(
       'enrollment_guest_transport_emulator_reenter'
     );
-    const reenroll = await createAt.execute(
-      guestEnrollmentAttemptEnvelope({
+    const attempt = guestEnrollmentAttemptEnvelope({
         idempotencyKey: 'idem-guest-expire-reenter',
         participantId,
         enrollmentId: reenrollId,
         correlationId: CorrelationIdSchema.parse('correlation_guest_transport_emulator_reenter'),
-      })
-    );
+    });
+    const { nonce, signature, expiresAt } = credential!;
+    const reenroll = await expireAt.execute({
+      ...attempt,
+      intent: {
+        ...attempt.intent,
+        guestParticipantProof: { courseEnrollmentId: enrollmentId, credential: { nonce, signature, expiresAt } },
+      },
+    });
     expect(reenroll.status).toBe('success');
     const afterReenroll = await durableGuestCounts();
     expect(afterReenroll.enrollments).toBe(2);

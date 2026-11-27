@@ -59,6 +59,10 @@ export function resolveGuestCourseSessionParticipantId(): ParticipantId {
   return deriveGuestCourseSessionParticipantId(sessionSeed);
 }
 
+export function startNewGuestCourseSessionParticipant(): void {
+  localStorage.setItem(GUEST_COURSE_SESSION_STORAGE_KEY, createGuestCourseSessionSeed());
+}
+
 export function deriveAuthenticatedCreateEnrollmentIdempotencyKey(
   courseId: string,
   participantIds: readonly string[]

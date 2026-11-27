@@ -22,7 +22,7 @@ interface GuestReservationStatusProps {
   onCancelPending?: () => Promise<boolean>;
   reservationDetails?: {
     readonly title: string;
-    readonly participantName: string;
+    readonly participantName?: string;
     readonly scheduleLines: readonly CourseEnrollmentScheduleLine[];
   };
   profileCompletion?: ReactNode;
@@ -96,7 +96,7 @@ export function GuestReservationStatus({
       {reservationDetails && (
         <div className="space-y-3 type-compact text-[var(--ink)]">
           <p>{reservationDetails.title}</p>
-          <p>{reservationDetails.participantName}</p>
+          {reservationDetails.participantName && <p>{reservationDetails.participantName}</p>}
           <CourseEnrollmentScheduleList lines={reservationDetails.scheduleLines} />
         </div>
       )}

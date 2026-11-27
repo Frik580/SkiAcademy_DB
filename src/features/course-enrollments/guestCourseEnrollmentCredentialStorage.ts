@@ -1,7 +1,34 @@
 import { GuestCourseEnrollmentLinkCredentialSchema } from '@ski-academy/shared-domain/canonical/commands/commandResultPayloads';
-import { type GuestCourseEnrollmentLinkCredential } from '@ski-academy/shared-domain';
+import { type CommandEnvelope, type GuestCourseEnrollmentLinkCredential } from '@ski-academy/shared-domain';
 
 const STORAGE_KEY_PREFIX = 'ski_academy_guest_course_enrollment_credential:';
+const PARTICIPANT_ORIGIN_KEY = 'ski_academy_guest_course_participant_origin';
+
+export function rememberGuestCourseParticipantOrigin(participantId: string, enrollmentId: string): void {
+  localStorage.setItem(PARTICIPANT_ORIGIN_KEY, JSON.stringify([participantId, enrollmentId]));
+}
+
+export function readGuestCourseParticipantProof(
+  participantId: string,
+  fallbackEnrollmentIds: readonly string[] = []
+): CommandEnvelope<'create_course_enrollments'>['intent']['guestParticipantProof'] {
+  const candidateIds = [...fallbackEnrollmentIds];
+  try {
+    const origin: unknown = JSON.parse(localStorage.getItem(PARTICIPANT_ORIGIN_KEY) ?? 'null');
+    if (Array.isArray(origin) && origin[0] === participantId && typeof origin[1] === 'string') {
+      candidateIds.unshift(origin[1]);
+    }
+  } catch {
+    // Older browser storage may have a credential and no origin reference.
+  }
+  for (const enrollmentId of candidateIds) {
+    const credential = readGuestCourseEnrollmentCredential(enrollmentId).credential;
+    if (credential?.enrollmentId !== enrollmentId || credential.participantReadCredential) continue;
+    const { nonce, signature, expiresAt } = credential;
+    return { courseEnrollmentId: credential.enrollmentId, credential: { nonce, signature, expiresAt } };
+  }
+  return undefined;
+}
 
 export type GuestCourseCredentialStorageError = 'missing' | 'expired' | 'malformed';
 

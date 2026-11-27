@@ -124,7 +124,6 @@ import {
   assertGuestActorMatchesBooking,
   assertGuestBookingRequestContext,
   assertGuestParticipantForBooking,
-  assertGuestParticipantReuseProof,
   assertGuestBookingLinkProof,
   assertLinkGuestBookingAuthorization,
   requireGuestActor,
@@ -136,6 +135,7 @@ import {
   buildLinkGuestBookingAuditPlan,
 } from './guestBookingAudit';
 import { verifyGuestActionCredentialPartsAuthoritative } from './guestCredentialVerification';
+import { assertGuestParticipantReuseProof, rejectGuestParticipantProof } from '../participantAccess/guestParticipantOwnership';
 
 export interface GuestBookingCommandEnvironment extends CommandExecutionEnvironment {
   readonly guestActionTokenSecret?: string;
@@ -241,7 +241,20 @@ function createGuestBookingRequestHandler(
               booking.attribution.bookedBy.guestSubjectId === guestActor.guestSubjectId &&
               booking.party.participantIds.length === 1 &&
               booking.party.participantIds[0] === participantId
-          ) return;
+          ) {
+            session.plan.planRead({ path: participantDocumentPath, category: 'authorization_check' });
+            const participantRead = await session.tx.get({ path: participantDocumentPath });
+            const participant = assertGuestParticipantForBooking(
+              envelope, parseParticipant(participantRead.data), participantId
+            );
+            if (booking.audit.createdByCommandId !== participant.audit.createdByCommandId) {
+              await assertGuestParticipantReuseProof(
+                session, envelope, participant, participantId, envelope.intent.guestParticipantProof,
+                secret, timestampFromDate(environment.clock.now())
+              );
+            }
+            return;
+          }
         }
       }
       throw new CanonicalCommandError('unauthorized', {
@@ -300,6 +313,7 @@ function createGuestBookingRequestHandler(
         participantRead.exists ? participantRead.data : undefined
       );
       if (!participantRead.exists) {
+        if (envelope.intent.guestParticipantProof) rejectGuestParticipantProof(envelope);
         guestParticipantProfile = resolveGuestParticipantProfileForBooking(envelope);
         shouldCreateGuestParticipant = true;
         session.plan.planMutation({
@@ -310,16 +324,9 @@ function createGuestBookingRequestHandler(
         });
       } else {
         const participant = assertGuestParticipantForBooking(envelope, existingParticipant, participantId);
-        const proof = envelope.intent.guestParticipantProof;
-        let originalBooking: Booking | undefined;
-        if (proof) {
-          const path = bookingPath(proof.bookingId);
-          const read = await session.tx.get({ path });
-          session.plan.planRead({ path, category: 'authorization_check' });
-          originalBooking = parseBooking(read.exists ? read.data : undefined);
-        }
-        assertGuestParticipantReuseProof(
-          envelope, participant, originalBooking, environment.guestActionTokenSecret, now
+        await assertGuestParticipantReuseProof(
+          session, envelope, participant, participantId, envelope.intent.guestParticipantProof,
+          environment.guestActionTokenSecret, now
         );
       }
 

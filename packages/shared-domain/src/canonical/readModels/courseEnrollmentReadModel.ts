@@ -225,6 +225,13 @@ export const CourseEnrollmentReadModelSchema = z
 
 export type CourseEnrollmentReadModel = z.output<typeof CourseEnrollmentReadModelSchema>;
 
+const GuestCourseEnrollmentReadModelSchema = CourseEnrollmentReadModelSchema.extend({
+  participant: CourseEnrollmentReadModelParticipantProjectionSchema.optional(),
+  courseProgress: CourseEnrollmentProgressProjectionSchema.optional(),
+});
+
+export type GuestCourseEnrollmentReadModel = z.output<typeof GuestCourseEnrollmentReadModelSchema>;
+
 export const InstructorCourseEnrollmentRosterItemSchema = z
   .object({
     enrollmentId: CourseEnrollmentIdSchema,
@@ -339,8 +346,16 @@ export type QueryCourseEnrollmentReadModelsInput = z.output<
 export const QueryCourseEnrollmentReadModelsResultSchema = z.discriminatedUnion('scope', [
   z
     .object({
-      scope: z.enum(['account_hot', 'account_history', 'guest_single']),
+      scope: z.enum(['account_hot', 'account_history']),
       items: z.array(CourseEnrollmentReadModelSchema),
+      nextCursor: z.string().trim().min(1).max(512).optional(),
+      hasMore: z.boolean(),
+    })
+    .strict(),
+  z
+    .object({
+      scope: z.literal('guest_single'),
+      items: z.array(GuestCourseEnrollmentReadModelSchema),
       nextCursor: z.string().trim().min(1).max(512).optional(),
       hasMore: z.boolean(),
     })

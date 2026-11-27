@@ -132,9 +132,13 @@ import { assertPayerAccountAuthority } from '../testSessions/persistentTestAccou
 import {
   assertGuestActorMatchesEnrollment,
   assertGuestCourseEnrollmentRequestContext,
-  assertGuestParticipantForCourseEnrollment,
   resolveGuestParticipantProfileForCourseEnrollment,
 } from './guestCourseEnrollmentAuthorization';
+import {
+  assertGuestParticipantReuseProof,
+  courseEnrollmentCreatedGuestParticipant,
+  rejectGuestParticipantProof,
+} from '../participantAccess/guestParticipantOwnership';
 import { buildCreateCourseEnrollmentsAuditPlan } from './courseEnrollmentAudit';
 import { verifyGuestCourseEnrollmentActionCredentialPartsAuthoritative } from '../bookings/guestCredentialVerification';
 import type { GuestCourseEnrollmentCommandEnvironment } from './guestCourseEnrollmentLifecycle';
@@ -170,6 +174,7 @@ function guestCourseCredential(input: {
   readonly secret: string;
   readonly linkExpiresAt: CanonicalTimestamp;
   readonly cancellationExpiresAt?: CanonicalTimestamp;
+  readonly verifiedReusedParticipantId?: CourseEnrollment['participantId'];
 }): GuestCourseEnrollmentLinkCredential {
   const guestSubjectId = guestSubjectIdFromCourseEnrollmentId(input.enrollmentId);
   const nonce = createGuestActionTokenNonce();
@@ -183,12 +188,31 @@ function guestCourseCredential(input: {
     nonce,
   });
   const cancellationNonce = input.cancellationExpiresAt ? createGuestActionTokenNonce() : undefined;
+  const participantReadNonce = input.verifiedReusedParticipantId ? createGuestActionTokenNonce() : undefined;
   return {
     enrollmentId: input.enrollmentId,
     guestSubjectId,
     nonce,
     signature,
     expiresAt: input.linkExpiresAt,
+    ...(participantReadNonce && input.verifiedReusedParticipantId
+      ? {
+          participantReadCredential: {
+            nonce: participantReadNonce,
+            signature: signGuestCourseEnrollmentActionCredential(input.secret, {
+              version: GUEST_ACTION_TOKEN_VERSION,
+              subjectKind: 'course_enrollment',
+              enrollmentId: input.enrollmentId,
+              guestSubjectId,
+              participantId: input.verifiedReusedParticipantId,
+              purpose: 'read_verified_guest_course_participant',
+              expiresAt: input.linkExpiresAt,
+              nonce: participantReadNonce,
+            }),
+            expiresAt: input.linkExpiresAt,
+          },
+        }
+      : {}),
     ...(input.cancellationExpiresAt && cancellationNonce
       ? {
           cancellationCredential: {
@@ -476,7 +500,25 @@ async function createCourseEnrollmentsHandler(
             enrollment.attribution.bookingOrigin === 'guest' &&
             enrollment.attribution.bookedBy.kind === 'guest' &&
             enrollment.attribution.bookedBy.guestSubjectId === guestSubjectId
-        ) return;
+        ) {
+          const participantId = enrollment.participantId;
+          const path = participantPath(participantId);
+          session.plan.planRead({ path, category: 'authorization_check' });
+          const participantRead = await session.tx.get({ path });
+          const participant = parseParticipant(participantRead.data);
+          if (!participant || participant.lifecycle.status !== 'active' ||
+              participant.management.kind !== 'unmanaged_guest' ||
+              participant.initialManagementEligibleAccountId !== undefined ||
+              participant.participantId !== participantId) {
+            rejectGuestParticipantProof(envelope);
+          }
+          if (!courseEnrollmentCreatedGuestParticipant(enrollment, participant)) {
+            await assertGuestParticipantReuseProof(
+              session, envelope, participant, participantId, envelope.intent.guestParticipantProof, secret, now
+            );
+          }
+          return;
+        }
       }
       throw new CanonicalCommandError('unauthorized', {
         correlationId: envelope.context.correlationId,
@@ -751,6 +793,7 @@ async function createCourseEnrollmentsHandler(
             });
           }
           if (!participantRead.exists) {
+            if (envelope.intent.guestParticipantProof) rejectGuestParticipantProof(envelope);
             shouldCreateGuestParticipant = true;
             session.plan.planMutation({
               path: participantPath(participantId),
@@ -777,10 +820,9 @@ async function createCourseEnrollmentsHandler(
               audit: revisionAuditLink(envelope, metadata),
             };
           } else {
-            participantRecord = assertGuestParticipantForCourseEnrollment(
-              envelope,
-              existingParticipant,
-              participantId
+            participantRecord = await assertGuestParticipantReuseProof(
+              session, envelope, existingParticipant, participantId, envelope.intent.guestParticipantProof,
+              environment.guestActionTokenSecret, now
             );
             if (
               participantRecord.displayName !== guestParticipantProfile.displayName ||
@@ -1367,6 +1409,7 @@ async function createCourseEnrollmentsHandler(
                 enrollmentId: planned.enrollmentId,
                 secret,
                 linkExpiresAt: courseRecord.scheduleProjection.finalCourseDayEndsAt,
+                verifiedReusedParticipantId: planned.shouldCreateGuestParticipant ? undefined : planned.participantId,
                 cancellationExpiresAt: resolveGuestCourseReservationExpiresAt({
                   createdAt: decidedAt,
                   courseStartsAt: courseRecord.startAt,

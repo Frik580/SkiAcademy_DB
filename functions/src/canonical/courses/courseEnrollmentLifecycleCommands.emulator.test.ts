@@ -208,26 +208,6 @@ function seedParticipantRecord(
   };
 }
 
-function seedGuestParticipantRecord() {
-  return {
-    participantId: guestParticipantId,
-    displayName: 'Guest Lifecycle Participant',
-    age: { kind: 'age_years', years: 18 },
-    skillLevel: 'beginner',
-    discipline: 'ski',
-    management: { kind: 'unmanaged_guest' },
-    lifecycle: { status: 'active' },
-    revision: 1,
-    createdAt: decidedAt,
-    updatedAt: decidedAt,
-    audit: {
-      createdByCommandId: 'command_seed',
-      lastChangedByCommandId: 'command_seed',
-      correlationId,
-    },
-  };
-}
-
 function seedManagementRecord(
   targetManagementId = managementId,
   targetParticipantId = participantId
@@ -327,7 +307,6 @@ async function seedBase(
     includeCourseB?: boolean;
     includeCourseC?: boolean;
     includeParticipantB?: boolean;
-    includeGuestParticipant?: boolean;
     coursePrice?: number;
     courseBPrice?: number;
     courseCPrice?: number;
@@ -350,9 +329,6 @@ async function seedBase(
     await firestore
       .doc(`participant_management/${managementIdB}`)
       .set(seedManagementRecord(managementIdB, participantIdB));
-  }
-  if (options.includeGuestParticipant) {
-    await firestore.doc(`participants/${guestParticipantId}`).set(seedGuestParticipantRecord());
   }
   await firestore.doc(`instructors/${instructorId}`).set({
     id: instructorId,
@@ -711,7 +687,12 @@ async function createGuestEnrollment(
 ): Promise<FundedEnrollment> {
   const envelope = guestEnrollmentEnvelope(idempotencyKey);
   const result = await commands.execute(envelope);
-  expect(result.status).toBe('success');
+  expect(
+    result.status,
+    result.status === 'error'
+      ? `guest enrollment create failed: ${result.error.code} ${JSON.stringify({ field: result.error.details?.field })}`
+      : undefined
+  ).toBe('success');
 
   const enrollmentId = envelope.intent.enrollmentIds![0]!;
   const enrollmentDoc = await firestore.doc(`course_enrollments/${enrollmentId}`).get();
@@ -1412,7 +1393,7 @@ describe.sequential.runIf(runsOnFirestoreEmulator)(
 
     it('O. guest expiry before course start releases seat and claims without wallet', async () => {
       await clearCollections(firestore);
-      await seedBase(0, 8, { includeGuestParticipant: true });
+      await seedBase(0, 8);
 
       const createCommandsAt = createCommands('2026-01-30T03:00:00.000Z');
       const guest = await createGuestEnrollment(createCommandsAt, 'lifecycle-o-guest-create');
@@ -1434,7 +1415,9 @@ describe.sequential.runIf(runsOnFirestoreEmulator)(
 
       const enrollment = await readEnrollment(guest.enrollmentId);
       const state = await durableCounts();
-      const guestWallet = await firestore.doc(`users/${guestSubjectId}/wallet/state`).get();
+      const claims = await listEnrollmentOwnedClaims(guest.enrollmentId);
+      const enrollmentGuestSubjectId = guestSubjectIdFromCourseEnrollmentId(guest.enrollmentId);
+      const guestWallet = await firestore.doc(`users/${enrollmentGuestSubjectId}/wallet/state`).get();
 
       expect(enrollment?.lifecycle).toMatchObject({
         status: 'cancelled',
@@ -1442,13 +1425,26 @@ describe.sequential.runIf(runsOnFirestoreEmulator)(
       });
       expect(state.availableSeats).toBe(8);
       expect(state.enrollmentGuards).toBe(0);
+      expect(claims).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            claimKind: 'course_seat_pre_start',
+            lifecycle: expect.objectContaining({ status: 'released' }),
+          }),
+          expect.objectContaining({
+            claimKind: 'participant_course_day_enrollment',
+            lifecycle: expect.objectContaining({ status: 'released' }),
+          }),
+        ])
+      );
       expect(guestWallet.exists).toBe(false);
+      expect(state.walletBalance).toBe(0);
       expect(state.monetaryEvents).toBe(0);
     }, 30_000);
 
     it('P. guest expiry at course start terminalizes without increasing availableSeats', async () => {
       await clearCollections(firestore);
-      await seedBase(0, 8, { includeGuestParticipant: true });
+      await seedBase(0, 8);
 
       const createCommandsAt = createCommands('2026-01-30T03:00:00.000Z');
       const guest = await createGuestEnrollment(createCommandsAt, 'lifecycle-p-guest-create');

@@ -122,23 +122,6 @@ async function seedFixture() {
       })
     );
   }
-  await firestore.doc(`participants/${guestParticipantId}`).set({
-    participantId: guestParticipantId,
-    displayName: 'Guest Enrollment Emulator',
-    age: { kind: 'age_years', years: 18 },
-    skillLevel: 'beginner',
-    discipline: 'ski',
-    management: { kind: 'unmanaged_guest' },
-    lifecycle: { status: 'active' },
-    revision: 1,
-    createdAt: decidedAt,
-    updatedAt: decidedAt,
-    audit: {
-      createdByCommandId: 'command_seed_guest',
-      lastChangedByCommandId: 'command_seed_guest',
-      correlationId,
-    },
-  });
   await firestore.doc(`participants/${managedParticipantId}`).set({
     participantId: managedParticipantId,
     displayName: 'Managed Enrollment Target',

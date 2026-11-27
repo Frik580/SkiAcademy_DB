@@ -8,7 +8,6 @@ import {
   BookingIdSchema,
   CorrelationIdSchema,
   CourseDayIdSchema,
-  CourseEnrollmentIdSchema,
   CourseIdSchema,
   GuestSubjectIdSchema,
   InstructorIdSchema,
@@ -233,29 +232,6 @@ function seedParticipantRecord(input: {
   };
 }
 
-function seedGuestParticipantRecord(
-  participantIdValue = guestParticipantId,
-  displayName = 'Guest Link Emulator Participant'
-) {
-  return {
-    participantId: participantIdValue,
-    displayName,
-    age: { kind: 'age_years', years: 18 },
-    skillLevel: 'beginner',
-    discipline: 'ski',
-    management: { kind: 'unmanaged_guest' },
-    lifecycle: { status: 'active' },
-    revision: 1,
-    createdAt: decidedAt,
-    updatedAt: decidedAt,
-    audit: {
-      createdByCommandId: 'command_seed',
-      lastChangedByCommandId: 'command_seed',
-      correlationId,
-    },
-  };
-}
-
 function seedManagementRecord(input: {
   managementId: typeof managementId;
   participantId: typeof participantId;
@@ -406,15 +382,6 @@ async function seedBase(
       })
     );
   }
-  await firestore.doc(`participants/${guestParticipantId}`).set(seedGuestParticipantRecord());
-  await firestore
-    .doc(`participants/${guestParticipantIdTwo}`)
-    .set(seedGuestParticipantRecord(guestParticipantIdTwo, 'Guest Link Emulator Participant Two'));
-  await firestore
-    .doc(`participants/${guestParticipantIdThree}`)
-    .set(
-      seedGuestParticipantRecord(guestParticipantIdThree, 'Guest Link Emulator Participant Three')
-    );
   await firestore.doc(`instructors/${instructorId}`).set({
     id: instructorId,
     name: `Instructor ${instructorId}`,
@@ -593,7 +560,12 @@ async function createGuestEnrollment(
 ): Promise<GuestEnrollmentSeed> {
   const envelope = guestEnrollmentEnvelope(idempotencyKey, targetParticipantId);
   const result = await commands.execute(envelope);
-  expect(result.status).toBe('success');
+  expect(
+    result.status,
+    result.status === 'error'
+      ? `guest enrollment create failed: ${result.error.code} ${JSON.stringify({ field: result.error.details?.field })}`
+      : undefined
+  ).toBe('success');
   if (result.status !== 'success') {
     throw new Error('guest enrollment create failed');
   }
@@ -811,63 +783,6 @@ async function setGuestEnrollmentLifecycleForEmulator(
     updatedAt: decidedAt,
   });
   return nextRevision;
-}
-
-async function seedPreExtensionGuestEnrollment(): Promise<{
-  enrollmentId: CourseEnrollmentId;
-  paymentId: ReturnType<typeof paymentIdFromCourseEnrollmentId>;
-}> {
-  const enrollmentId = CourseEnrollmentIdSchema.parse(
-    'course_enrollment_guest_link_emulator_legacy'
-  );
-  const paymentId = paymentIdFromCourseEnrollmentId(enrollmentId);
-  const ephemeralGuestSubjectId = GuestSubjectIdSchema.parse('guest_subject_ephemeral_legacy_01');
-
-  await firestore.doc(`course_enrollments/${enrollmentId}`).set({
-    enrollmentId,
-    participantId: guestParticipantId,
-    courseId,
-    originalCourseId: courseId,
-    attribution: {
-      bookingOrigin: 'guest',
-      bookedBy: { kind: 'guest', guestSubjectId: ephemeralGuestSubjectId },
-    },
-    lifecycle: {
-      status: 'pending',
-      reservationExpiresAt: timestampFromDate(new Date('2026-01-15T00:00:00.000Z')),
-    },
-    paymentId,
-    revision: 1,
-    createdAt: decidedAt,
-    updatedAt: decidedAt,
-    audit: {
-      createdByCommandId: 'command_seed_legacy',
-      lastChangedByCommandId: 'command_seed_legacy',
-      correlationId,
-    },
-  });
-  await firestore.doc(`payments/${paymentId}`).set({
-    paymentId,
-    subjectType: 'course_enrollment',
-    subjectId: enrollmentId,
-    currency: 'KZT',
-    originalPrice: COURSE_PRICE_KZT,
-    price: COURSE_PRICE_KZT,
-    paidAmount: 0,
-    refundedAmount: 0,
-    retainedAmount: 0,
-    settledAmount: 0,
-    writtenOffAmount: 0,
-    outstandingAmount: COURSE_PRICE_KZT,
-    paymentStatus: 'unpaid',
-    incrementalRequirements: [],
-    revision: 1,
-    eventRevision: 0,
-    createdAt: decidedAt,
-    updatedAt: decidedAt,
-  });
-
-  return { enrollmentId, paymentId };
 }
 
 function assertNoUndefinedFields(value: unknown, path = 'root'): void {
@@ -1477,6 +1392,55 @@ describe.skipIf(!runsOnFirestoreEmulator)(
       expect(payment?.payerAccountId).toBe(accountId);
     }, 30_000);
 
+    it('allows only one Account to promote the originating guest Participant concurrently', async () => {
+      await clearCollections(firestore);
+      await seedBase({ includeAccountB: true });
+      const commands = createCommands();
+      const guest = await createGuestEnrollment(commands, 'guest-link-concurrent-promotion-origin');
+      const accounts = [accountId, accountIdB];
+      const results = await Promise.all(accounts.map((actorAccountId, index) =>
+        commands.execute(linkEnvelope({
+          enrollmentId: guest.enrollmentId,
+          credential: guest.credential,
+          idempotencyKey: `guest-link-concurrent-promotion-${index}`,
+          expectedRevision: guest.revision,
+          expectedParticipantManagementRevision: 1,
+          actorAccountId,
+          participantTarget: { kind: 'promote_guest' },
+        }))
+      ));
+      expect(results.filter((result) => result.status === 'success')).toHaveLength(1);
+      const winner = accounts[results.findIndex((result) => result.status === 'success')];
+      const owner = await firestore.doc(`participant_management_active_owner/${guestParticipantId}`).get();
+      expect(owner.data()).toMatchObject({ accountId: winner });
+      const management = await firestore.collection('participant_management')
+        .where('participantId', '==', guestParticipantId).get();
+      expect(management.docs.map((document) => document.data().accountId)).toEqual([winner]);
+    }, 30_000);
+
+    it('rejects promotion when a signed course credential lacks Participant origin authority', async () => {
+      const commands = createCommands();
+      const guest = await createGuestEnrollment(commands, 'guest-link-legacy-origin-fixture');
+      const participantRef = firestore.doc(`participants/${guestParticipantId}`);
+      const enrollmentRef = firestore.doc(`course_enrollments/${guest.enrollmentId}`);
+      const paymentRef = firestore.doc(`payments/${guest.paymentId}`);
+      await participantRef.update({ 'audit.createdByCommandId': 'command_different_origin_fixture' });
+      const before = await firestore.getAll(participantRef, enrollmentRef, paymentRef);
+
+      expect(await commands.execute(linkEnvelope({
+        enrollmentId: guest.enrollmentId,
+        credential: guest.credential,
+        idempotencyKey: 'guest-link-legacy-origin-promotion',
+        expectedRevision: guest.revision,
+        participantTarget: { kind: 'promote_guest' },
+      }))).toMatchObject({ status: 'error', error: { code: 'unauthorized' } });
+
+      const after = await firestore.getAll(participantRef, enrollmentRef, paymentRef);
+      expect(after.map((document) => document.data())).toEqual(before.map((document) => document.data()));
+      expect((await firestore.doc(`participant_management_active_owner/${guestParticipantId}`).get()).exists)
+        .toBe(false);
+    }, 30_000);
+
     it('M. persists linked enrollment without invalid undefined Firestore fields', async () => {
       const commands = createCommands();
       const guest = await createGuestEnrollment(commands, 'guest-link-m-create');
@@ -1666,16 +1630,18 @@ describe.skipIf(!runsOnFirestoreEmulator)(
 
     it('R. rejects pre-extension guest enrollments without durable deterministic guestSubjectId attribution', async () => {
       const commands = createCommands();
-      const legacy = await seedPreExtensionGuestEnrollment();
-      const credential = (await createGuestEnrollment(commands, 'guest-link-r-credential-donor'))
-        .credential;
+      const guest = await createGuestEnrollment(commands, 'guest-link-r-create');
+      const legacyGuestSubjectId = GuestSubjectIdSchema.parse('guest_subject_ephemeral_legacy_01');
+      await firestore.doc(`course_enrollments/${guest.enrollmentId}`).update({
+        'attribution.bookedBy.guestSubjectId': legacyGuestSubjectId,
+      });
 
       const result = await commands.execute(
         linkEnvelope({
-          enrollmentId: legacy.enrollmentId,
-          credential,
+          enrollmentId: guest.enrollmentId,
+          credential: guest.credential,
           idempotencyKey: 'guest-link-r-legacy',
-          expectedRevision: 1,
+          expectedRevision: guest.revision,
           expectedParticipantManagementRevision: 1,
           participantTarget: { kind: 'existing_managed', participantId },
         })
@@ -1683,9 +1649,16 @@ describe.skipIf(!runsOnFirestoreEmulator)(
       expect(result.status).toBe('error');
       if (result.status === 'error') {
         expect(result.error.code).toBe('validation');
+        expect(result.error.details).toMatchObject({
+          resourceKind: 'course_enrollment',
+          reason: 'unsupported',
+        });
       }
 
-      const enrollment = await readEnrollment(legacy.enrollmentId);
+      const enrollment = await readEnrollment(guest.enrollmentId);
+      expect(enrollment?.attribution).toMatchObject({
+        bookedBy: { kind: 'guest', guestSubjectId: legacyGuestSubjectId },
+      });
       expect(enrollment?.guestAccountLink).toBeUndefined();
     }, 30_000);
 

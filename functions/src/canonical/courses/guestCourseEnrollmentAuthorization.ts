@@ -8,10 +8,7 @@ import {
   type CourseEnrollmentId,
   type GuestCourseParticipantProfileFromTransport,
   type GuestSubjectId,
-  type Participant,
 } from '@ski-academy/shared-domain';
-import { assertParticipantActive } from '../participantAccess/participantAccessAuthorization';
-import { parseParticipant } from '../participantAccess/participantAccessStore';
 
 export function requireGuestActor(
   envelope: CommandEnvelope
@@ -80,27 +77,6 @@ export function resolveGuestParticipantProfileForCourseEnrollment(
   return parsed.data;
 }
 
-export function assertGuestParticipantForCourseEnrollment(
-  envelope: CommandEnvelope<'create_course_enrollments'>,
-  participant: Participant | undefined,
-  participantId: Participant['participantId']
-): Participant {
-  const active = assertParticipantActive(envelope, participant);
-  if (active.participantId !== participantId) {
-    throw new CanonicalCommandError('validation', {
-      correlationId: envelope.context.correlationId,
-      details: { field: 'participantIds', reason: 'conflict' },
-    });
-  }
-  if (active.management.kind !== 'unmanaged_guest') {
-    throw new CanonicalCommandError('forbidden', {
-      correlationId: envelope.context.correlationId,
-      details: { resourceKind: 'participant', reason: 'conflict' },
-    });
-  }
-  return active;
-}
-
 export function readGuestLinkCredentialFromTransport(
   envelope: CommandEnvelope
 ): { readonly nonce?: string; readonly signature?: string } {
@@ -108,10 +84,4 @@ export function readGuestLinkCredentialFromTransport(
     nonce: envelope.context.transportMetadata?.[GUEST_ACTION_NONCE_TRANSPORT_KEY],
     signature: envelope.context.transportMetadata?.[GUEST_ACTION_SIGNATURE_TRANSPORT_KEY],
   };
-}
-
-export function parseGuestParticipantForEnrollment(
-  data: Record<string, unknown> | undefined
-): Participant | undefined {
-  return parseParticipant(data);
 }

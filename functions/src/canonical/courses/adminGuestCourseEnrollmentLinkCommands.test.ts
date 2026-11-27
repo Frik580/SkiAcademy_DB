@@ -297,7 +297,9 @@ function runCommands(
 }
 
 async function createGuestEnrollment(extra: Record<string, unknown> = {}) {
-  const executor = createInMemoryCanonicalTransactionExecutor(baseFixture(extra));
+  const fixture = baseFixture(extra);
+  delete fixture[`participants/${guestParticipantId}`];
+  const executor = createInMemoryCanonicalTransactionExecutor(fixture);
   const envelope = guestCreateEnvelope('admin-guest-enroll-create-01');
   const created = await runCommands(executor).execute(envelope);
   expect(created.status, JSON.stringify(created)).toBe('success');

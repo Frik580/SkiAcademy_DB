@@ -7,6 +7,7 @@ import {
   CourseDayIdSchema,
   CourseEnrollmentIdSchema,
   CourseIdSchema,
+  GUEST_ACTION_TOKEN_VERSION,
   InstructorIdSchema,
   ParticipantIdSchema,
   ParticipantManagementIdSchema,
@@ -24,6 +25,7 @@ import {
   monetaryEventIdFromCourseEnrollmentInitialCharge,
   paymentIdFromCourseEnrollmentId,
   resolveCommandIdempotencyIdentity,
+  signGuestCourseEnrollmentActionCredential,
   timestampFromDate,
   estimateTransactionPlan,
   TransactionPlanBuilder,
@@ -430,19 +432,13 @@ describe('create_course_enrollments command', () => {
     'persists parsed guest comment only on the enrollment and preserves replay (%s)',
     async (guestComment) => {
       const enrollmentId = CourseEnrollmentIdSchema.parse('enrollment_guest_comment');
-      const executor = createInMemoryCanonicalTransactionExecutor(
-        baseFixture({
-          [`participants/${participantId}`]: {
-            ...seedParticipant(),
-            management: { kind: 'unmanaged_guest' },
-          },
-        })
-      );
+      const guestParticipantId = ParticipantIdSchema.parse('participant_guest_comment');
+      const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
       const parsed = parseCallableGuestCommandTransport({
         kind: 'create_course_enrollments',
         intent: {
           courseId,
-          participantIds: [participantId],
+          participantIds: [guestParticipantId],
           enrollmentIds: [enrollmentId],
           ...(guestComment === undefined ? {} : { guestComment }),
         },
@@ -468,7 +464,7 @@ describe('create_course_enrollments command', () => {
       if (guestComment === undefined) expect(persisted).not.toHaveProperty('guestComment');
       else expect(persisted?.guestComment).toBe(guestComment.trim());
       expect(
-        executor.snapshot().docs.get(`participants/${participantId}`)?.data
+        executor.snapshot().docs.get(`participants/${guestParticipantId}`)?.data
       ).not.toHaveProperty('guestComment');
       const after = executor.snapshot();
       expect(await commands.execute(envelope)).toEqual(result);
@@ -578,9 +574,38 @@ describe('create_course_enrollments command', () => {
         displayName: 'Petr',
         management: { kind: 'unmanaged_guest' },
       };
+      const originId = CourseEnrollmentIdSchema.parse('enrollment_guest_profile_origin');
+      const originSubjectId = guestSubjectIdFromCourseEnrollmentId(originId);
+      const guestActionTokenSecret = 'guest-profile-plan-secret';
+      const nonce = 'guestProfilePlanFixture';
+      const signature = signGuestCourseEnrollmentActionCredential(guestActionTokenSecret, {
+        version: GUEST_ACTION_TOKEN_VERSION,
+        subjectKind: 'course_enrollment',
+        enrollmentId: originId,
+        guestSubjectId: originSubjectId,
+        nonce,
+        purpose: 'link_guest_course_enrollment',
+        expiresAt: dayOneEnd,
+      });
       const executor = createInMemoryCanonicalTransactionExecutor(
         baseFixture({
           [participantPath]: participant,
+          [`course_enrollments/${originId}`]: CourseEnrollmentSchema.parse({
+            enrollmentId: originId,
+            participantId,
+            courseId,
+            originalCourseId: courseId,
+            attribution: {
+              bookingOrigin: 'guest',
+              bookedBy: { kind: 'guest', guestSubjectId: originSubjectId },
+            },
+            lifecycle: { status: 'cancelled', cancelledAt: decidedAt, reasonCode: 'guest_cancelled' },
+            paymentId: paymentIdFromCourseEnrollmentId(originId),
+            revision: 1,
+            createdAt: decidedAt,
+            updatedAt: decidedAt,
+            audit: participant.audit,
+          }),
           [catalogContentPath]: { ...catalogContent, discipline: 'participant_discipline' in patch ? patch.participant_discipline : 'ski' },
         })
       );
@@ -598,7 +623,7 @@ describe('create_course_enrollments command', () => {
       };
       const enrollmentId = CourseEnrollmentIdSchema.parse('enrollment_guest_profile_plan');
       const commands = createProductionCanonicalCommands(environment(), trackedExecutor, {
-        guestActionTokenSecret: 'guest-profile-plan-secret',
+        guestActionTokenSecret,
       });
       const envelope: CommandEnvelope<'create_course_enrollments'> = {
         kind: 'create_course_enrollments',
@@ -617,7 +642,15 @@ describe('create_course_enrollments command', () => {
             ...patch,
           },
         },
-        intent: { courseId, participantIds: [participantId], enrollmentIds: [enrollmentId] },
+        intent: {
+          courseId,
+          participantIds: [participantId],
+          enrollmentIds: [enrollmentId],
+          guestParticipantProof: {
+            courseEnrollmentId: originId,
+            credential: { nonce, signature, expiresAt: dayOneEnd },
+          },
+        },
       };
       const created = await commands.execute(envelope);
       expect(created).toMatchObject({ status: 'success' });

@@ -84,6 +84,10 @@ import {
 } from './guestCourseEnrollmentLinkAuthorization';
 import { buildLinkGuestCourseEnrollmentAuditPlan } from './guestCourseEnrollmentLinkAudit';
 import type { GuestCourseEnrollmentCommandEnvironment } from './guestCourseEnrollmentLifecycle';
+import {
+  courseEnrollmentCreatedGuestParticipant,
+  rejectGuestParticipantProof,
+} from '../participantAccess/guestParticipantOwnership';
 
 interface CommandMetadata {
   readonly commandId: ReturnType<typeof resolveCommandIdempotencyIdentity>['commandKey'];
@@ -349,6 +353,11 @@ function linkGuestCourseEnrollmentToAccountHandler(
 
         if (linkReplayMode === 'idempotent_replay') {
           return;
+        }
+
+        if (target.kind === 'promote_guest' &&
+            !courseEnrollmentCreatedGuestParticipant(enrollment, guestParticipant)) {
+          rejectGuestParticipantProof(envelope);
         }
 
         if (guestParticipant.management.kind !== 'unmanaged_guest') {

@@ -2,6 +2,7 @@ import type {
   CourseCatalogReadModel,
   CourseEnrollmentLifecycleStatus,
   CourseEnrollmentReadModel,
+  GuestCourseEnrollmentReadModel,
   QueryCourseEnrollmentReadModelsResult,
 } from '@ski-academy/shared-domain';
 import { canonicalTimestampToLocalParts } from '../lesson-bookings/mapCalendarInput';
@@ -118,7 +119,7 @@ function timestampToDateString(seconds: number, nanoseconds: number, timeZone: s
 }
 
 export function mapCourseEnrollmentReadModelToCabinetItem(
-  readModel: CourseEnrollmentReadModel
+  readModel: GuestCourseEnrollmentReadModel & Pick<CourseEnrollmentReadModel, 'participant'>
 ): CourseEnrollmentCabinetItem {
   const firstDay = readModel.courseSchedule.courseDays[0]!;
   const lastDay =
@@ -192,10 +193,13 @@ export function mergeCourseEnrollmentRecords(
   if (incoming.scope === 'instructor_roster') {
     return new Map(existing);
   }
-  const readModels = incoming.items as readonly CourseEnrollmentReadModel[];
   const merged = new Map(existing);
-  for (const readModel of readModels) {
-    const item = mapCourseEnrollmentReadModelToCabinetItem(readModel);
+  for (const readModel of incoming.items) {
+    if (!readModel.participant) continue;
+    const item = mapCourseEnrollmentReadModelToCabinetItem({
+      ...readModel,
+      participant: readModel.participant,
+    });
     const cached = merged.get(item.enrollmentId);
     if (!cached || item.revision >= cached.revision) {
       merged.set(item.enrollmentId, item);

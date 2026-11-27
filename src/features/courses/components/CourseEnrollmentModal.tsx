@@ -20,13 +20,18 @@ import {
   createGuestEnrollmentAttempt,
   deriveRequestCancellationIdempotencyKey,
   resolveGuestCourseSessionParticipantId,
+  startNewGuestCourseSessionParticipant,
   isAnySelectedParticipantEnrolledInCourse,
   selectActiveGuestCourseEnrollment,
   selectCourseEnrollmentItems,
   useCourseEnrollmentCommands,
   useCourseEnrollmentStore,
 } from '../../../features/course-enrollments';
-import { readGuestCourseEnrollmentCredential } from '../../../features/course-enrollments/guestCourseEnrollmentCredentialStorage';
+import {
+  readGuestCourseEnrollmentCredential,
+  readGuestCourseParticipantProof,
+  rememberGuestCourseParticipantOrigin,
+} from '../../../features/course-enrollments/guestCourseEnrollmentCredentialStorage';
 import { presentCanonicalCommandErrorWithContext } from '../../../features/lesson-bookings';
 import type { AuthenticatedCourseEnrollmentSelection } from '../useCourseActions';
 import { ParticipantPicker } from '../../participants/components/ParticipantPicker';
@@ -126,7 +131,12 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   const guestLookupGeneration = useRef(0);
   const dialogGeneration = useRef(0);
   const isSubmittingRef = useRef(false);
-  const guestEnrollmentAttemptKeyRef = useRef<ReturnType<typeof createGuestEnrollmentAttempt> | null>(null);
+  const [guestParticipantProofRequired, setGuestParticipantProofRequired] = useState(false);
+  const guestEnrollmentAttemptKeyRef = useRef<{
+    readonly identity: ReturnType<typeof createGuestEnrollmentAttempt>;
+    readonly participantId: ReturnType<typeof resolveGuestCourseSessionParticipantId>;
+    readonly proof: ReturnType<typeof readGuestCourseParticipantProof>;
+  } | null>(null);
 
   const activeAccountId = authenticatedProfile?.uid;
   const profileAccountId = userProfile?.uid;
@@ -231,6 +241,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     isSubmittingRef.current = false;
     setIsSubmitting(false);
     guestEnrollmentAttemptKeyRef.current = null;
+    setGuestParticipantProofRequired(false);
     setSubmissionError('');
     setGuestQuotaErrorCourseId(null);
     setGuestCreatedEnrollmentId(null);
@@ -276,7 +287,8 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
 
   const handleSubmitGuest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmittingRef.current || isSubmitting || enrollmentBlocked || !guestDiscipline) return;
+    if (isSubmittingRef.current || isSubmitting || enrollmentBlocked || !guestDiscipline ||
+        guestParticipantProofRequired) return;
     if (guestActiveEnrollment) {
       addNotification('warning', t('alreadyEnrolled'), t('alreadyEnrolledDesc'));
       onClose();
@@ -300,14 +312,27 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
     const generation = dialogGeneration.current;
     const isCurrentDialog = () => dialogGeneration.current === generation;
     try {
-      const attempt = guestEnrollmentAttemptKeyRef.current ?? createGuestEnrollmentAttempt();
+      let attempt = guestEnrollmentAttemptKeyRef.current;
+      if (!attempt) {
+        const participantId = resolveGuestCourseSessionParticipantId();
+        attempt = {
+          identity: createGuestEnrollmentAttempt(),
+          participantId,
+          proof: readGuestCourseParticipantProof(
+            participantId,
+            courseEnrollments
+              .filter((item) => item.bookingOrigin === 'guest' && item.participantId === participantId)
+              .map((item) => item.enrollmentId)
+          ),
+        };
+      }
       guestEnrollmentAttemptKeyRef.current = attempt;
-      const participantId = resolveGuestCourseSessionParticipantId();
       const credential = await createGuestEnrollment({
         courseId: course.id,
-        enrollmentId: attempt.enrollmentId,
-        participantId,
-        identity: attempt,
+        enrollmentId: attempt.identity.enrollmentId,
+        participantId: attempt.participantId,
+        guestParticipantProof: attempt.proof,
+        identity: attempt.identity,
         guestDisplayName: submittedName,
         guestDiscipline,
         guestPhone: normalizedPhone,
@@ -315,6 +340,11 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
         ...(guestNotes.trim() ? { guestComment: guestNotes.trim() } : {}),
         notificationLocale: language,
       });
+      if (!attempt.proof || 'courseEnrollmentId' in attempt.proof) {
+        rememberGuestCourseParticipantOrigin(
+          attempt.participantId, attempt.proof?.courseEnrollmentId ?? credential.enrollmentId
+        );
+      }
       rememberGuestReservation('course', course.id, credential.enrollmentId);
       if (!isCurrentDialog()) return;
       setGuestCreatedEnrollmentId(credential.enrollmentId);
@@ -334,6 +364,8 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
       if (presented.code === 'guest_reservation_limit') {
         guestEnrollmentAttemptKeyRef.current = null;
         setGuestQuotaErrorCourseId(course.id);
+      } else if (presented.code === 'unauthorized' && presented.details?.field === 'guestParticipantProof') {
+        setGuestParticipantProofRequired(true);
       } else {
         setSubmissionError(presented.message || t('bookingRecordFailed'));
         addNotification('error', t('bookingError'), presented.message || t('bookingRecordFailed'));
@@ -456,6 +488,9 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
         ageYears,
         skillLevel: guestProfileSkillLevel,
         guestCredential: credential,
+        guestParticipantProof: guestReservation?.participant
+          ? readGuestCourseParticipantProof(guestReservation.participant.participantId)
+          : undefined,
       });
       const refreshed = await loadGuestSingleCourseEnrollment(guestCreatedEnrollmentId);
       setGuestReservation(refreshed);
@@ -542,15 +577,13 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
   const showAuthenticatedEnrollment = Boolean(authenticatedProfile);
   const guestProfileIncomplete =
     Boolean(guestReservation?.participant) &&
-    (guestReservation?.participant.ageYears === undefined ||
-      !guestReservation?.participant.skillLevel);
+    (guestReservation?.participant?.ageYears === undefined ||
+      !guestReservation?.participant?.skillLevel);
   const guestReservationDetails =
-    guestReservation?.courseSchedule &&
-    guestReservation.courseDisplay &&
-    guestReservation.participant
+    guestReservation?.courseSchedule && guestReservation.courseDisplay
       ? {
           title: getGroupCourseLabel(guestReservation.courseDisplay.title, language),
-          participantName: guestReservation.participant.displayName,
+          participantName: guestReservation.participant?.displayName ?? submittedGuest?.name,
           scheduleLines: buildCourseEnrollmentScheduleLines(
             guestReservation.courseSchedule,
             language
@@ -889,6 +922,24 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                           )}
                         </p>
                       )}
+                      {guestParticipantProofRequired && (
+                        <div className="space-y-2">
+                          <p role="alert" className="type-compact text-[var(--ink)]">
+                            {t('guestCourseParticipantProofRequired')}
+                          </p>
+                          <button
+                            type="button"
+                            className="btn-secondary w-full px-4 py-2 type-button"
+                            onClick={() => {
+                              startNewGuestCourseSessionParticipant();
+                              guestEnrollmentAttemptKeyRef.current = null;
+                              setGuestParticipantProofRequired(false);
+                            }}
+                          >
+                            {t('guestCourseStartNewParticipant')}
+                          </button>
+                        </div>
+                      )}
                       <div className="space-y-3">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 items-end">
                           <div className="flex flex-col justify-end">
@@ -1038,7 +1089,7 @@ export const CourseEnrollmentModal: React.FC<CourseEnrollmentModalProps> = ({
                         type="submit"
                         pending={isSubmitting}
                         pendingLabel={t('submitting')}
-                        disabled={enrollmentBlocked || !guestDiscipline || Boolean(guestActiveEnrollment)}
+                        disabled={enrollmentBlocked || !guestDiscipline || Boolean(guestActiveEnrollment) || guestParticipantProofRequired}
                         className="btn-primary w-full py-3"
                       >
                         {guestActiveEnrollment?.lifecycleStatus === 'pending' ? (

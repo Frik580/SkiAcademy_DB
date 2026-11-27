@@ -263,16 +263,16 @@ describe('guest course enrollment participant profile creation', () => {
     expect(executor.snapshot()).toEqual(before);
   });
 
-  it('replays a guest create with the same profile without participant or people revision writes', async () => {
-    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture());
-    const before = executor.snapshot().docs.get(`participants/${guestParticipantId}`)?.data;
+  it('replays a guest create without additional participant or people revision writes', async () => {
+    const fixture = baseFixture();
+    delete fixture[`participants/${guestParticipantId}`];
+    const executor = createInMemoryCanonicalTransactionExecutor(fixture);
     const commands = runCommands(executor);
     const envelope = guestCreateEnvelope('create-guest-private:99407ab756c241b080789d41069cdf07');
     const created = await commands.execute(envelope);
     expect(created.status, JSON.stringify(created)).toBe('success');
-    expect(created.payload).not.toHaveProperty('adminPeopleRevision');
     const after = executor.snapshot();
-    expect(after.docs.get(`participants/${guestParticipantId}`)?.data).toEqual(before);
+    expect(after.docs.has(`participants/${guestParticipantId}`)).toBe(true);
     expect(await commands.execute(envelope)).toEqual(created);
     expect(executor.snapshot()).toEqual(after);
   });
@@ -321,7 +321,9 @@ describe('guest course enrollment participant profile creation', () => {
 
 describe('link_guest_course_enrollment_to_account command', () => {
   it('does not duplicate create_managed writes when the transaction callback retries', async () => {
-    const executor = createInMemoryCanonicalTransactionExecutor(baseFixture(), {
+    const fixture = baseFixture();
+    delete fixture[`participants/${guestParticipantId}`];
+    const executor = createInMemoryCanonicalTransactionExecutor(fixture, {
       simulateRetry: true,
     });
     const commands = runCommands(executor);

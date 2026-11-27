@@ -299,6 +299,17 @@ const recordAuditCorrectionIntent = z.discriminatedUnion('operation', [
     .strict(),
 ]);
 
+const guestParticipantProofIntent = z.union([
+  z.object({
+    bookingId: BookingIdSchema,
+    credential: GuestBookingCredentialPartsSchema,
+  }).strict(),
+  z.object({
+    courseEnrollmentId: CourseEnrollmentIdSchema,
+    credential: GuestBookingCredentialPartsSchema,
+  }).strict(),
+]);
+
 export const CommandIntentSchemaByKind = {
   create_confirmed_booking: z
     .object({
@@ -317,13 +328,7 @@ export const CommandIntentSchemaByKind = {
       bookingId: BookingIdSchema,
       instructorId: InstructorIdSchema,
       participantIds: z.array(ParticipantIdSchema).length(1),
-      guestParticipantProof: z
-        .object({
-          bookingId: BookingIdSchema,
-          credential: GuestBookingCredentialPartsSchema,
-        })
-        .strict()
-        .optional(),
+      guestParticipantProof: guestParticipantProofIntent.optional(),
       discipline: z.enum(['ski', 'snowboard']).optional(),
       difficulty: LessonDifficultySchema.optional(),
       notes: BookingLessonNotesSchema,
@@ -584,6 +589,7 @@ export const CommandIntentSchemaByKind = {
   create_course_enrollments: z
     .object({
       guestComment: GuestCourseCommentSchema.optional(),
+      guestParticipantProof: guestParticipantProofIntent.optional(),
       courseId: CourseIdSchema,
       participantIds: z.array(ParticipantIdSchema).min(1).max(8),
       enrollmentIds: z.array(CourseEnrollmentIdSchema).min(1).max(8).optional(),
@@ -752,6 +758,7 @@ export const CommandIntentSchemaByKind = {
     z
       .object({
         courseEnrollmentId: CourseEnrollmentIdSchema,
+        guestParticipantProof: guestParticipantProofIntent.optional(),
         ageYears: z.number().finite().int().min(0).max(125),
         skillLevel: z.string().trim().min(1).max(64),
       })

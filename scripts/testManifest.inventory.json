@@ -133,6 +133,7 @@
   "functions/src/canonical/identity/identityAdministrationCommands.emulator.test.ts": "canonical-backend",
   "functions/src/canonical/identity/identityAdministrationCommands.test.ts": "functions-unit",
   "functions/src/canonical/lessonFeedback/participantLessonFeedbackCommands.test.ts": "functions-unit",
+  "functions/src/canonical/participantAccess/guestParticipantOwnership.test.ts": "functions-unit",
   "functions/src/canonical/participantAccess/participantAccessCommands.emulator.test.ts": "canonical-backend",
   "functions/src/canonical/participantAccess/participantAccessCommands.test.ts": "functions-unit",
   "functions/src/canonical/participantAccess/participantAccessReadModels.test.ts": "functions-unit",

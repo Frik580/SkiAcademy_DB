@@ -9,7 +9,7 @@ import {
 import { accountCommandActor } from '@ski-academy/shared-domain/canonical/commands/actors';
 import { IdempotencyKeySchema } from '@ski-academy/shared-domain/canonical/commands/commandContext';
 import { parseCommandResultPayload } from '@ski-academy/shared-domain/canonical/commands/commandResultPayloads';
-import { type GuestCourseEnrollmentLinkCredential } from '@ski-academy/shared-domain';
+import { type CommandEnvelope, type GuestCourseEnrollmentLinkCredential } from '@ski-academy/shared-domain';
 import {
   executeAuthenticatedCanonicalCommand,
   executeGuestCanonicalCommand,
@@ -186,6 +186,7 @@ export function useCourseEnrollmentCommands(
             courseId: CourseIdSchema.parse(input.courseId),
             participantIds: [ParticipantIdSchema.parse(input.participantId)],
             enrollmentIds: [CourseEnrollmentIdSchema.parse(input.enrollmentId)],
+            ...(input.guestParticipantProof ? { guestParticipantProof: input.guestParticipantProof } : {}),
             ...(input.guestComment === undefined ? {} : { guestComment: input.guestComment }),
           },
           idempotencyKey: input.identity.idempotencyKey,
@@ -240,6 +241,7 @@ export function useCourseEnrollmentCommands(
       readonly ageYears: number;
       readonly skillLevel: string;
       readonly guestCredential: GuestCourseEnrollmentLinkCredential;
+      readonly guestParticipantProof?: CommandEnvelope<'create_course_enrollments'>['intent']['guestParticipantProof'];
     }): Promise<void> => {
       const idempotencyKey = IdempotencyKeySchema.parse(
         `complete-guest-profile:${input.enrollmentId}`
@@ -250,6 +252,7 @@ export function useCourseEnrollmentCommands(
           courseEnrollmentId: CourseEnrollmentIdSchema.parse(input.enrollmentId),
           ageYears: input.ageYears,
           skillLevel: input.skillLevel,
+          ...(input.guestParticipantProof ? { guestParticipantProof: input.guestParticipantProof } : {}),
         },
         idempotencyKey,
         guestActionNonce: input.guestCredential.nonce,

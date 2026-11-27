@@ -15,6 +15,7 @@ import {
   type CommandEnvelope,
   type CommandExecutionEnvironment,
   type CommandResult,
+  type CourseEnrollment,
   type Participant,
 } from '@ski-academy/shared-domain';
 import type { CommandHandlerMap } from '../commands/canonicalCommands';
@@ -33,6 +34,12 @@ import {
   PARTICIPANT_ACCESS_PLANNING_ESTIMATES,
 } from '../participantAccess/participantAccessStore';
 import { buildParticipantAccessAuditPlan } from '../participantAccess/participantAccessAudit';
+import {
+  assertGuestParticipantReuseProof,
+  courseEnrollmentCreatedGuestParticipant,
+  isUnlinkedGuestCourseEnrollment,
+  rejectGuestParticipantProof,
+} from '../participantAccess/guestParticipantOwnership';
 import { courseEnrollmentPath, parseCourseEnrollment } from './courseEnrollmentStore';
 import { coursePath, parseCourse } from './courseStore';
 import type { GuestCourseEnrollmentCommandEnvironment } from './guestCourseEnrollmentLifecycle';
@@ -45,7 +52,6 @@ function completeGuestParticipantProfileHandler(
   const identity = resolveCommandIdempotencyIdentity(envelope, environment.scope);
 
   let participantRecord!: Participant;
-  let bookingCreationCommandId: CommandId | undefined;
 
   const handler: AuthoritativeIdempotentCanonicalCommandHandler<'complete_guest_participant_profile'> =
     {
@@ -60,6 +66,8 @@ function completeGuestParticipantProfileHandler(
         }
 
         let participantId: Participant['participantId'];
+        let bookingCreationCommandId: CommandId | undefined;
+        let courseEnrollment: CourseEnrollment | undefined;
         const nonce = envelope.context.transportMetadata?.[GUEST_ACTION_NONCE_TRANSPORT_KEY];
         const signature =
           envelope.context.transportMetadata?.[GUEST_ACTION_SIGNATURE_TRANSPORT_KEY];
@@ -78,6 +86,9 @@ function completeGuestParticipantProfileHandler(
           // Cancellation or account linking revokes profile-completion authority.
           if (
             !booking ||
+            booking.bookingId !== envelope.intent.bookingId ||
+            booking.archival?.isDeleted === true ||
+            booking.payerAccountId !== undefined ||
             booking.attribution.bookingOrigin !== 'guest' ||
             booking.attribution.bookedBy.kind !== 'guest' ||
             booking.attribution.bookedBy.guestSubjectId !== expectedGuestSubjectId ||
@@ -130,6 +141,9 @@ function completeGuestParticipantProfileHandler(
           );
           if (
             !enrollment ||
+            enrollment.enrollmentId !== envelope.intent.courseEnrollmentId ||
+            enrollment.lifecycle.status === 'cancelled' ||
+            enrollment.lifecycle.status === 'withdrawn' ||
             enrollment.attribution.bookingOrigin !== 'guest' ||
             enrollment.attribution.bookedBy.kind !== 'guest'
           ) {
@@ -176,6 +190,7 @@ function completeGuestParticipantProfileHandler(
             });
           }
           participantId = enrollment.participantId;
+          courseEnrollment = enrollment;
         }
 
         const participantRead = await session.tx.get({
@@ -190,6 +205,7 @@ function completeGuestParticipantProfileHandler(
         );
         if (
           !participant ||
+          participant.participantId !== participantId ||
           participant.management.kind !== 'unmanaged_guest' ||
           participant.lifecycle.status !== 'active'
         ) {
@@ -209,6 +225,16 @@ function completeGuestParticipantProfileHandler(
             currentRevision: participant.revision,
             requireExpectedRevision: true,
           });
+        } else if (courseEnrollment) {
+          if (!isUnlinkedGuestCourseEnrollment(courseEnrollment)) {
+            rejectGuestParticipantProof(envelope);
+          }
+          if (!courseEnrollmentCreatedGuestParticipant(courseEnrollment, participant)) {
+            await assertGuestParticipantReuseProof(
+              session, envelope, participant, participantId, envelope.intent.guestParticipantProof,
+              environment.guestActionTokenSecret, timestampFromDate(environment.clock.decidedAt())
+            );
+          }
         }
         participantRecord = participant;
 

@@ -1,5 +1,6 @@
 import type {
   CanonicalTimestamp,
+  CommandEnvelope,
   CourseEnrollmentLifecycleStatus,
   CourseEnrollmentProgressProjection,
   CourseEnrollmentReadModelAuthorizedActions,
@@ -107,6 +108,7 @@ export interface GuestCourseEnrollmentInput {
   readonly courseId: string;
   readonly enrollmentId: string;
   readonly participantId: string;
+  readonly guestParticipantProof?: CommandEnvelope<'create_course_enrollments'>['intent']['guestParticipantProof'];
   readonly identity: CourseEnrollmentSubmissionIdentity;
   readonly guestDisplayName: string;
   readonly guestPhone: string;

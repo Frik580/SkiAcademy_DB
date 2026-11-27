@@ -7,9 +7,11 @@ import {
   BookingIdSchema,
   CourseEnrollmentIdSchema,
   GuestSubjectIdSchema,
+  ParticipantIdSchema,
   type BookingId,
   type CourseEnrollmentId,
   type GuestSubjectId,
+  type ParticipantId,
 } from './identifiers';
 import {
   CanonicalTimestampSchema,
@@ -38,6 +40,7 @@ export function createGuestReservationPrivateCreateKey(): string | undefined {
 export const GUEST_ACTION_TOKEN_PURPOSES = [
   'cancel_pending_reservation',
   'link_guest_course_enrollment',
+  'read_verified_guest_course_participant',
 ] as const;
 export type GuestActionTokenPurpose = (typeof GUEST_ACTION_TOKEN_PURPOSES)[number];
 
@@ -74,11 +77,16 @@ const GuestActionTokenPayloadSchema = z.discriminatedUnion('subjectKind', [
       subjectKind: z.literal('course_enrollment'),
       enrollmentId: CourseEnrollmentIdSchema,
       guestSubjectId: GuestSubjectIdSchema,
+      participantId: ParticipantIdSchema.optional(),
       purpose: z.enum(GUEST_ACTION_TOKEN_PURPOSES),
       expiresAt: CanonicalTimestampSchema,
       nonce: guestActionNonceSchema,
     })
-    .strict(),
+    .strict()
+    .refine((payload) =>
+      (payload.purpose === 'read_verified_guest_course_participant') ===
+      (payload.participantId !== undefined)
+    ),
 ]);
 
 export type GuestActionTokenPayload = Readonly<z.output<typeof GuestActionTokenPayloadSchema>>;
@@ -209,6 +217,7 @@ export function verifyGuestCourseEnrollmentActionCredentialParts(input: {
   readonly expectedEnrollmentId: CourseEnrollmentId;
   readonly expectedGuestSubjectId: GuestSubjectId;
   readonly expectedPurpose: GuestActionTokenPurpose;
+  readonly expectedParticipantId?: ParticipantId;
   readonly expiresAt: CanonicalTimestamp;
   readonly compareSignatures: CompareHmacSha256Signatures;
 }): GuestCourseEnrollmentActionTokenVerificationResult {
@@ -217,6 +226,7 @@ export function verifyGuestCourseEnrollmentActionCredentialParts(input: {
     subjectKind: 'course_enrollment',
     enrollmentId: input.expectedEnrollmentId,
     guestSubjectId: input.expectedGuestSubjectId,
+    ...(input.expectedParticipantId === undefined ? {} : { participantId: input.expectedParticipantId }),
     purpose: input.expectedPurpose,
     expiresAt: input.expiresAt,
     nonce: input.nonce,

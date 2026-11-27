@@ -376,16 +376,17 @@ export async function loadGuestSingleCourseEnrollment(enrollmentId: string) {
   if (!stored.credential) {
     throw new Error(stored.error ?? 'missing');
   }
+  const credential = stored.credential.participantReadCredential ?? stored.credential;
   const result = await queryCourseEnrollmentReadModels({
     scope: 'guest_single',
     enrollmentId: CourseEnrollmentIdSchema.parse(enrollmentId),
-    guestActionNonce: stored.credential.nonce,
-    guestActionSignature: stored.credential.signature,
+    guestActionNonce: credential.nonce,
+    guestActionSignature: credential.signature,
   });
   if (useAuthStore.getState().authGeneration !== authGeneration) {
     throw new Error('Session changed while loading the guest enrollment.');
   }
-  if (result.items.length === 0) {
+  if (result.scope !== 'guest_single' || result.items.length === 0) {
     throw new Error('Guest course enrollment read model was not found.');
   }
   const merged = mergeCourseEnrollmentRecords(useCourseEnrollmentStore.getState().items, result);

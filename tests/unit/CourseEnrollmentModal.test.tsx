@@ -1012,6 +1012,14 @@ describe('CourseEnrollmentModal guest enrollment', () => {
         ageYears: 12,
         skillLevel: 'intermediate',
         guestCredential,
+        guestParticipantProof: {
+          courseEnrollmentId: guestCredential.enrollmentId,
+          credential: {
+            nonce: guestCredential.nonce,
+            signature: guestCredential.signature,
+            expiresAt: guestCredential.expiresAt,
+          },
+        },
       })
     );
     await waitFor(() =>

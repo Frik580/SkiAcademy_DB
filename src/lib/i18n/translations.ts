@@ -2722,6 +2722,8 @@ export const translations = {
     guestPreviousUnavailable:
       'Your previous request is no longer available. You can create a new request.',
     guestStatusRefreshFailed: 'Could not refresh the reservation status. Please try again.',
+    guestCourseParticipantProofRequired: 'We couldn’t verify access to your saved guest profile. You can start a new profile to enroll.',
+    guestCourseStartNewParticipant: 'Use a new guest profile',
     postCreateRefreshFailedTitle: 'Request created',
     postCreateRefreshFailedLessonTitle: 'Booking created',
     postCreateRefreshFailedCourseTitle: 'Course application created',
@@ -5470,6 +5472,8 @@ export const translations = {
     guestPreviousUnavailable:
       'Предыдущая заявка больше недоступна. Вы можете создать новую заявку.',
     guestStatusRefreshFailed: 'Не удалось обновить статус бронирования. Попробуйте ещё раз.',
+    guestCourseParticipantProofRequired: 'Не удалось подтвердить доступ к сохранённому гостевому профилю. Для записи можно создать новый профиль.',
+    guestCourseStartNewParticipant: 'Использовать новый гостевой профиль',
     postCreateRefreshFailedTitle: 'Заявка создана',
     postCreateRefreshFailedLessonTitle: 'Бронирование создано',
     postCreateRefreshFailedCourseTitle: 'Заявка на курс создана',

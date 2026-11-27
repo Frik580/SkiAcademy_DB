@@ -170,30 +170,9 @@ function participantId(suffix: string): ParticipantId {
   return ParticipantIdSchema.parse(`participant_guest_course_expiry_${suffix}`);
 }
 
-async function seedGuestParticipant(id: ParticipantId): Promise<void> {
-  await firestore.doc(`participants/${id}`).set({
-    participantId: id,
-    displayName: `Guest ${id}`,
-    age: { kind: 'age_years', years: 24 },
-    skillLevel: 'beginner',
-    discipline: 'ski',
-    management: { kind: 'unmanaged_guest' },
-    lifecycle: { status: 'active' },
-    revision: 1,
-    createdAt,
-    updatedAt: createdAt,
-    audit: {
-      createdByCommandId: 'command_seed',
-      lastChangedByCommandId: 'command_seed',
-      correlationId,
-    },
-  });
-}
-
 async function createGuestEnrollment(suffix: string, at: string): Promise<CourseEnrollmentId> {
   const id = enrollmentId(suffix);
   const participant = participantId(suffix);
-  await seedGuestParticipant(participant);
   const envelope: CommandEnvelope<'create_course_enrollments'> = {
     kind: 'create_course_enrollments',
     context: {

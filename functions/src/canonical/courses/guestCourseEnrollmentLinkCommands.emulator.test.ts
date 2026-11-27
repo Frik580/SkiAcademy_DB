@@ -8,7 +8,6 @@ import {
   BookingIdSchema,
   CorrelationIdSchema,
   CourseDayIdSchema,
-  CourseEnrollmentIdSchema,
   CourseIdSchema,
   GuestSubjectIdSchema,
   InstructorIdSchema,
@@ -221,29 +220,6 @@ function seedParticipantRecord(input: {
     skillLevel: 'beginner',
     discipline: 'ski',
     management: { kind: 'managed', participantManagementId: input.managementId },
-    lifecycle: { status: 'active' },
-    revision: 1,
-    createdAt: decidedAt,
-    updatedAt: decidedAt,
-    audit: {
-      createdByCommandId: 'command_seed',
-      lastChangedByCommandId: 'command_seed',
-      correlationId,
-    },
-  };
-}
-
-function seedGuestParticipantRecord(
-  participantIdValue = guestParticipantId,
-  displayName = 'Guest Link Emulator Participant'
-) {
-  return {
-    participantId: participantIdValue,
-    displayName,
-    age: { kind: 'age_years', years: 18 },
-    skillLevel: 'beginner',
-    discipline: 'ski',
-    management: { kind: 'unmanaged_guest' },
     lifecycle: { status: 'active' },
     revision: 1,
     createdAt: decidedAt,
@@ -584,7 +560,12 @@ async function createGuestEnrollment(
 ): Promise<GuestEnrollmentSeed> {
   const envelope = guestEnrollmentEnvelope(idempotencyKey, targetParticipantId);
   const result = await commands.execute(envelope);
-  expect(result.status).toBe('success');
+  expect(
+    result.status,
+    result.status === 'error'
+      ? `guest enrollment create failed: ${result.error.code} ${JSON.stringify({ field: result.error.details?.field })}`
+      : undefined
+  ).toBe('success');
   if (result.status !== 'success') {
     throw new Error('guest enrollment create failed');
   }
@@ -802,64 +783,6 @@ async function setGuestEnrollmentLifecycleForEmulator(
     updatedAt: decidedAt,
   });
   return nextRevision;
-}
-
-async function seedPreExtensionGuestEnrollment(): Promise<{
-  enrollmentId: CourseEnrollmentId;
-  paymentId: ReturnType<typeof paymentIdFromCourseEnrollmentId>;
-}> {
-  const enrollmentId = CourseEnrollmentIdSchema.parse(
-    'course_enrollment_guest_link_emulator_legacy'
-  );
-  const paymentId = paymentIdFromCourseEnrollmentId(enrollmentId);
-  const ephemeralGuestSubjectId = GuestSubjectIdSchema.parse('guest_subject_ephemeral_legacy_01');
-  await firestore.doc(`participants/${guestParticipantId}`).set(seedGuestParticipantRecord());
-
-  await firestore.doc(`course_enrollments/${enrollmentId}`).set({
-    enrollmentId,
-    participantId: guestParticipantId,
-    courseId,
-    originalCourseId: courseId,
-    attribution: {
-      bookingOrigin: 'guest',
-      bookedBy: { kind: 'guest', guestSubjectId: ephemeralGuestSubjectId },
-    },
-    lifecycle: {
-      status: 'pending',
-      reservationExpiresAt: timestampFromDate(new Date('2026-01-15T00:00:00.000Z')),
-    },
-    paymentId,
-    revision: 1,
-    createdAt: decidedAt,
-    updatedAt: decidedAt,
-    audit: {
-      createdByCommandId: 'command_seed_legacy',
-      lastChangedByCommandId: 'command_seed_legacy',
-      correlationId,
-    },
-  });
-  await firestore.doc(`payments/${paymentId}`).set({
-    paymentId,
-    subjectType: 'course_enrollment',
-    subjectId: enrollmentId,
-    currency: 'KZT',
-    originalPrice: COURSE_PRICE_KZT,
-    price: COURSE_PRICE_KZT,
-    paidAmount: 0,
-    refundedAmount: 0,
-    retainedAmount: 0,
-    settledAmount: 0,
-    writtenOffAmount: 0,
-    outstandingAmount: COURSE_PRICE_KZT,
-    paymentStatus: 'unpaid',
-    incrementalRequirements: [],
-    revision: 1,
-    eventRevision: 0,
-    createdAt: decidedAt,
-    updatedAt: decidedAt,
-  });
-
-  return { enrollmentId, paymentId };
 }
 
 function assertNoUndefinedFields(value: unknown, path = 'root'): void {
@@ -1707,16 +1630,18 @@ describe.skipIf(!runsOnFirestoreEmulator)(
 
     it('R. rejects pre-extension guest enrollments without durable deterministic guestSubjectId attribution', async () => {
       const commands = createCommands();
-      const legacy = await seedPreExtensionGuestEnrollment();
-      const credential = (await createGuestEnrollment(commands, 'guest-link-r-credential-donor'))
-        .credential;
+      const guest = await createGuestEnrollment(commands, 'guest-link-r-create');
+      const legacyGuestSubjectId = GuestSubjectIdSchema.parse('guest_subject_ephemeral_legacy_01');
+      await firestore.doc(`course_enrollments/${guest.enrollmentId}`).update({
+        'attribution.bookedBy.guestSubjectId': legacyGuestSubjectId,
+      });
 
       const result = await commands.execute(
         linkEnvelope({
-          enrollmentId: legacy.enrollmentId,
-          credential,
+          enrollmentId: guest.enrollmentId,
+          credential: guest.credential,
           idempotencyKey: 'guest-link-r-legacy',
-          expectedRevision: 1,
+          expectedRevision: guest.revision,
           expectedParticipantManagementRevision: 1,
           participantTarget: { kind: 'existing_managed', participantId },
         })
@@ -1724,9 +1649,16 @@ describe.skipIf(!runsOnFirestoreEmulator)(
       expect(result.status).toBe('error');
       if (result.status === 'error') {
         expect(result.error.code).toBe('validation');
+        expect(result.error.details).toMatchObject({
+          resourceKind: 'course_enrollment',
+          reason: 'unsupported',
+        });
       }
 
-      const enrollment = await readEnrollment(legacy.enrollmentId);
+      const enrollment = await readEnrollment(guest.enrollmentId);
+      expect(enrollment?.attribution).toMatchObject({
+        bookedBy: { kind: 'guest', guestSubjectId: legacyGuestSubjectId },
+      });
       expect(enrollment?.guestAccountLink).toBeUndefined();
     }, 30_000);
 

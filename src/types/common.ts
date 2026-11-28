@@ -7,6 +7,10 @@ export interface ChatMessage {
   senderRole?: 'client' | 'instructor' | 'admin';
   /** Instructor profile id when message is sent from the instructor panel. */
   senderInstructorId?: string;
+  /** Archived content has no verified sender attribution. */
+  archived?: boolean;
+  /** An archived row's stored UID matches the current viewer. */
+  ownedByViewer?: boolean;
   text: string;
   timestamp: string;
   attachmentType?: 'image' | 'video' | 'link';

@@ -23,33 +23,22 @@ const e2eBucket = () => getAdminStorage().bucket(`${E2E_PROJECT_ID}.appspot.com`
 
 test.beforeAll(async () => {
   test.setTimeout(120_000);
-  // Each callable has a separate cold worker. Warm this workflow sequentially
-  // instead of letting the first login start many complete Functions runtimes.
+  // Global setup checks Functions readiness. Warm only the booking and chat
+  // callables that gate this media scenario before the first file selection.
   // An invalid callable envelope is rejected before admission/domain mutations.
   for (const name of [
     'queryLessonBookingReadModels',
-    'queryCourseEnrollmentReadModels',
-    'queryBookingProposalReadModels',
-    'queryBookingChangeRequestReadModels',
-    'queryParticipantProgressReadModels',
-    'queryParticipantAchievementsReadModels',
-    'queryInstructorReviewReadModels',
-    'queryParticipantLessonFeedbackReadModels',
-    'queryCourseCatalogReadModels',
-    'queryBookingInstructorCatalogueReadModels',
     'queryLessonPricingSettingsReadModel',
-    'queryInstructorOccupancyReadModels',
-    'queryManagedParticipantPickerReadModels',
-    'queryAdminPlannerReadModels',
-    'queryAdminIdentityReadModels',
-    'queryAdminCourseReadModels',
-    'resolveInstructorLessonRevenue',
+    'queryChatMessages',
+    'mutateChatMessage',
   ]) {
     const response = await fetch(functionsCallableUrl(name), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: '{}',
       signal: AbortSignal.timeout(15_000),
+    }).catch((error: unknown) => {
+      throw new Error(`Functions readiness failed for ${name}`, { cause: error });
     });
     expect(response.status, `${name} emulator readiness`).toBe(400);
   }
@@ -133,6 +122,18 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
     console.log('request failed', new URL(request.url()).pathname, request.failure()?.errorText);
   });
   page.on('pageerror', (error) => console.log('browser error', error.message));
+  page.on('response', (response) => {
+    const url = new URL(response.url());
+    if (url.pathname.endsWith('/bookingChatMedia')) {
+      console.log(
+        'Browser media response',
+        response.request().method(),
+        url.searchParams.get('op') ?? 'read',
+        response.status(),
+        response.headers()['content-type']
+      );
+    }
+  });
   await page.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, (route) => route.abort());
   const runtime = loadRuntimeConfig();
   expect(runtime.projectId).toBe(E2E_PROJECT_ID);
@@ -216,6 +217,19 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
   };
   let chat = await openChat();
   console.log('Browser: authenticated student opened canonical Booking chat');
+  const studentText = 'Student chat regression check';
+  await chat.locator('input[type=text]').fill(studentText);
+  await chat.locator('input[type=text]').press('Enter');
+  await expect(chat.getByText(studentText, { exact: true })).toBeVisible();
+  const studentMessage = await getFirestore()
+    .doc(`bookings/${booking.bookingId}`)
+    .collection('verified_chat_messages')
+    .where('text', '==', studentText)
+    .get();
+  expect(studentMessage.docs.map((message) => message.data())).toMatchObject([
+    { senderId: runtime.studentUid, senderRole: 'client', senderName: runtime.studentDisplayName },
+  ]);
+  console.log('Browser: authenticated student sent verified text');
   const image = Buffer.from(
     await page.evaluate(async () => {
       const canvas = document.createElement('canvas');
@@ -334,14 +348,19 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
   const messages = await getFirestore()
     .collection('bookings')
     .doc(booking.bookingId)
-    .collection('messages')
+    .collection('verified_chat_messages')
     .limit(10)
     .get();
-  const attachments = messages.docs.map((doc) => doc.data().attachmentUrl).filter(Boolean);
+  const attachments = messages.docs.map((doc) => doc.data()).filter((message) => message.attachmentUrl);
   expect(attachments).toHaveLength(2);
-  expect(
-    attachments.every((value: string) => value.startsWith(`chat-media:chat/${booking.bookingId}/`))
-  ).toBe(true);
+  for (const attachment of attachments) {
+    expect(attachment).toMatchObject({
+      senderId: runtime.studentUid,
+      senderRole: 'client',
+      senderName: runtime.studentDisplayName,
+    });
+    expect(attachment.attachmentUrl).toMatch(new RegExp(`^chat-media:chat/${booking.bookingId}/`));
+  }
   console.log(
     'Browser: playback, mobile RU reload, Blob cleanup and authorized error retry passed; private references persisted'
   );
@@ -464,7 +483,7 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
     const homeworkFixture = await getFirestore()
       .collection('bookings')
       .doc(booking.bookingId)
-      .collection('messages')
+      .collection('verified_chat_messages')
       .where('text', '==', 'Coach homework E2E')
       .limit(1)
       .get();
@@ -525,10 +544,8 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
     const galleryImage = page.getByRole('img', { name: coachImageName, exact: true });
     await expect(galleryImage).toBeVisible();
     await expect(galleryImage).toHaveAttribute('src', /^blob:/);
-    const mislabeledVideo = page.getByRole('button', { name: mislabeledVideoName, exact: true });
-    await mislabeledVideo.click();
-    await expect(mislabeledVideo).toHaveText(/↻/);
-    await expect(page.locator('video[src^="blob:"]')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: mislabeledVideoName, exact: true })).toHaveCount(0);
+    await expect(page.getByRole('img', { name: svgName, exact: true })).toHaveCount(0);
     const viewerOpened = page.waitForEvent('popup');
     await page.getByRole('button', { name: coachImageName, exact: true }).click();
     const viewer = await viewerOpened;
@@ -538,25 +555,19 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
     );
     expect(viewer.url()).toBe('about:blank');
     await viewer.close();
-    await expect(page.getByRole('img', { name: svgName, exact: true })).toBeVisible();
-    const svgViewerOpened = page.waitForEvent('popup');
-    await page.getByRole('button', { name: svgName, exact: true }).click();
-    const svgViewer = await svgViewerOpened;
-    expect(svgViewer.url()).toBe('about:blank');
-    await expect
-      .poll(() =>
-        svgViewer
-          .getByRole('img', { name: svgName, exact: true })
-          .evaluate((element) => (element as HTMLImageElement).naturalWidth)
-      )
-      .toBe(16);
-    expect(await svgViewer.evaluate(() => localStorage.getItem('h1-svg-executed'))).toBeNull();
-    expect(await page.evaluate(() => localStorage.getItem('h1-svg-executed'))).toBeNull();
-    await svgViewer.close();
-    // Exercise the same raw-URL navigation as the native "Open image in new tab" action.
-    const displayedSvg = await page
-      .getByRole('img', { name: svgName, exact: true })
-      .getAttribute('src');
+    await page.goto('/cabinet', { waitUntil: 'domcontentloaded' });
+    const homeworkHistory = page.getByRole('region', { name: 'Homework', exact: true });
+    await expect(homeworkHistory.getByText(/Archived homework/).first()).toBeVisible();
+    const mislabeledVideo = homeworkHistory.getByRole('button', { name: mislabeledVideoName, exact: true });
+    await mislabeledVideo.click();
+    await expect(mislabeledVideo).toHaveText(/↻/);
+    await expect(homeworkHistory.locator('video[src^="blob:"]')).toHaveCount(0);
+    const archivedImage = homeworkHistory.getByRole('img', { name: svgName, exact: true });
+    await expect(archivedImage).toBeVisible();
+    // Archive cards render inline. Exercise native "Open image in new tab"
+    // using the exact Blob URL displayed by that card.
+    await expect(archivedImage).toHaveAttribute('src', /^blob:/);
+    const displayedSvg = await archivedImage.getAttribute('src');
     expect(
       await page.evaluate(async (url) => (await (await fetch(url!)).blob()).type, displayedSvg)
     ).toBe('image/png');
@@ -569,6 +580,7 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
           .evaluate((element) => (element as HTMLImageElement).naturalWidth)
       )
       .toBe(16);
+    expect(await nativeImageViewer.evaluate(() => localStorage.getItem('h1-svg-executed'))).toBeNull();
     expect(await page.evaluate(() => localStorage.getItem('h1-svg-executed'))).toBeNull();
     await nativeImageViewer.close();
     expect(directUrls).toEqual([]);
@@ -581,20 +593,29 @@ test('authenticated lesson chat uploads, sends and reloads a private image and p
     const plannerDate = new Intl.DateTimeFormat('sv-SE', {
       timeZone: adminBooking.occurrence.timeZone,
     }).format(new Date(adminBooking.occurrence.interval.startsAt.seconds * 1000));
-    await admin.page.goto(`/admin?tab=operations&plannerDate=${plannerDate}`, {
+    const planner = new URLSearchParams({
+      tab: 'operations',
+      plannerDate,
+      plannerBooking: booking.bookingId,
+    });
+    await admin.page.goto(`/admin?${planner}`, {
       waitUntil: 'domcontentloaded',
     });
-    await admin.page
-      .locator('#admin_planner')
-      .getByText(runtime.studentDisplayName, { exact: true })
-      .filter({ visible: true })
-      .first()
-      .click();
     await admin.page.getByRole('button', { name: 'Open Chat / Discussion', exact: true }).click();
-    await expectBlobImage(
-      admin.page.getByRole('dialog', { name: 'Lesson Discussion' }),
-      'private-photo.jpg'
-    );
+    const adminChat = admin.page.getByRole('dialog', { name: 'Lesson Discussion' });
+    await expectBlobImage(adminChat, 'private-photo.jpg');
+    const adminText = 'Administration chat regression check';
+    await adminChat.locator('input[type=text]').fill(adminText);
+    await adminChat.locator('input[type=text]').press('Enter');
+    await expect(adminChat.getByText(adminText, { exact: true })).toBeVisible();
+    const adminMessage = await getFirestore()
+      .doc(`bookings/${booking.bookingId}`)
+      .collection('verified_chat_messages')
+      .where('text', '==', adminText)
+      .get();
+    expect(adminMessage.docs.map((message) => message.data())).toMatchObject([
+      { senderRole: 'admin', senderName: runtime.adminDisplayName },
+    ]);
     await admin.page.screenshot({ path: testInfo.outputPath('admin-chat-desktop-en.png') });
     const outsider = await login(runtime.studentBEmail, runtime.studentBPassword, '/cabinet');
     expect((await browserRead(outsider.page, outsider.token, livePath)).status).toBe(403);

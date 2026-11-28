@@ -710,26 +710,11 @@ service cloud.firestore {
 
       // Booking specific chat messages
       match /messages/{messageId} {
+        allow read, write: if false;
+      }
+      match /verified_chat_messages/{messageId} {
         allow read: if isAuthenticated() && canAccessChatMessages(bookingId);
-        allow create: if isAuthenticated() &&
-          request.resource.data.senderId == request.auth.uid &&
-          canAccessChatMessages(bookingId) &&
-          !('homeworkForUserIds' in request.resource.data) && isLiveResource(request.resource.data);
-        allow update: if isAuthenticated() && canAccessChatMessages(bookingId) && (hasAdminRole() || (
-          isAuthenticated() &&
-          resource.data.senderId == request.auth.uid &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isHomework', 'homeworkForParticipantIds']) &&
-          !('homeworkForUserIds' in request.resource.data) &&
-          (
-            !('isHomework' in request.resource.data) ||
-            request.resource.data.isHomework is bool
-          ) &&
-          (
-            !('homeworkForParticipantIds' in request.resource.data) ||
-            request.resource.data.homeworkForParticipantIds is list
-          )
-        ));
-        allow delete: if false;
+        allow create, update, delete: if false;
       }
     }
 

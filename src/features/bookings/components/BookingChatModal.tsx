@@ -1,13 +1,12 @@
 import { useAdminDialog } from '../../admin/components/useAdminDialog';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Booking, UserProfile, ChatMessage, Instructor, Course } from '../../../types';
+import { Booking, UserProfile, Instructor, Course } from '../../../types';
 import { uploadChatMedia } from '../../chat/chatMediaClient';
 import { formatMediaUploadLimit } from '../../../lib/mediaUploadError';
 import { useLanguage } from '../../../app/providers/LanguageContext';
 import { logger } from '../../../shared';
 import { resolveChatId, getCourseChatThreadIds } from '../../../domain/chat';
-import { resolveProfileSenderRole } from '../../../domain/chat';
 import { buildHomeworkForParticipantIds } from '../../../domain/chat';
 import {
   createChatMessage,
@@ -89,9 +88,6 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
   booking,
   currentUserProfile,
   onClose,
-  usersList = [],
-  instructors = [],
-  courses = [],
   fromInstructorPanel = false,
   fromAdminPanel = false,
 }) => {
@@ -334,49 +330,39 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
     setIsSending(true);
     const chatId = resolveChatId(booking);
     try {
-      const outgoingRole = fromInstructorPanel
+      const context = fromInstructorPanel
         ? 'instructor'
-        : resolveProfileSenderRole(currentUserProfile);
-
-      const newMessage: Omit<ChatMessage, 'id'> = {
-        bookingId: booking.id,
-        senderId: currentUserProfile.uid,
-        senderName: currentUserProfile.displayName || currentUserProfile.email,
-        senderAvatar: currentUserProfile.avatarUrl || '',
-        senderRole: outgoingRole,
+        : fromAdminPanel
+          ? 'administration'
+          : 'participant';
+      const message = {
         text: inputText.trim(),
-        timestamp: new Date().toISOString(),
+        ...(attachment
+          ? {
+              attachmentType: attachment.type,
+              attachmentUrl: attachment.url,
+              attachmentName: attachment.name,
+              ...(attachment.size === undefined ? {} : { attachmentSize: attachment.size }),
+            }
+          : {}),
       };
 
-      if (
-        currentUserProfile.instructorId &&
-        (fromInstructorPanel || outgoingRole === 'instructor')
-      ) {
-        newMessage.senderInstructorId = currentUserProfile.instructorId;
-      }
+      const assignHomework = sendAsHomework && fromInstructorPanel;
+      const targets = assignHomework
+        ? buildHomeworkForParticipantIds(
+            homeworkAllStudents ? null : homeworkTargetParticipantIds,
+            courseParticipants.length,
+            courseParticipantIds
+          )
+        : undefined;
 
-      if (attachment) {
-        newMessage.attachmentType = attachment.type;
-        newMessage.attachmentUrl = attachment.url;
-        newMessage.attachmentName = attachment.name;
-        if (attachment.size !== undefined) {
-          newMessage.attachmentSize = attachment.size;
-        }
-      }
-
-      if (sendAsHomework && fromInstructorPanel) {
-        newMessage.isHomework = true;
-        const targets = buildHomeworkForParticipantIds(
-          homeworkAllStudents ? null : homeworkTargetParticipantIds,
-          courseParticipants.length,
-          courseParticipantIds
-        );
-        if (targets) {
-          newMessage.homeworkForParticipantIds = targets;
-        }
-      }
-
-      await createChatMessage(chatId, newMessage);
+      await createChatMessage(
+        chatId,
+        currentUserProfile.uid,
+        message,
+        context,
+        assignHomework ? (targets ? { participantIds: targets } : {}) : undefined
+      );
       setInputText('');
       setSendAsHomework(false);
       resetHomeworkTargets();
@@ -392,9 +378,9 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
     try {
       if (checked) {
         const targets = buildHomeworkForParticipantIds(null, courseParticipants.length);
-        await setChatMessageHomework(threadId, msg.id, true, targets);
+        await setChatMessageHomework(threadId, msg.id, currentUserProfile.uid, true, targets);
       } else {
-        await setChatMessageHomework(threadId, msg.id, false);
+        await setChatMessageHomework(threadId, msg.id, currentUserProfile.uid, false);
       }
     } finally {
       setHomeworkTogglingId(null);
@@ -407,11 +393,7 @@ export const BookingChatModal: React.FC<BookingChatModalProps> = ({
       <ChatMessageList
         messages={messages}
         isLoading={isLoading}
-        booking={booking}
-        currentUserProfile={currentUserProfile}
-        usersList={usersList}
-        instructors={instructors}
-        courses={courses}
+        currentUserId={currentUserProfile.uid}
         fromInstructorPanel={fromInstructorPanel}
         homeworkTogglingId={homeworkTogglingId}
         onToggleHomework={handleToggleHomework}

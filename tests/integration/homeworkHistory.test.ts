@@ -1,12 +1,14 @@
 import { doc, writeBatch } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { assertFails } from '@firebase/rules-unit-testing';
-import { createHomeworkHistory, getHomeworkPage } from '../../src/features/chat/homeworkHistory';
+import { createRequire } from 'node:module';
+import { createHomeworkHistory, type HomeworkCursor, type HomeworkPage } from '../../src/features/chat/homeworkHistory';
+import { createQueryChatMessages } from '../../functions/src/chat/chatMessagesRead';
 import { getStudentHomeworkSources } from '../../src/features/student-cabinet/components/student/studentHomeworkSources';
 import type { CabinetSessionItem } from '../../src/features/course-enrollments';
 import { confirmLegacyHomeworkSources, getLegacyHomeworkCandidates } from '../../src/features/student-cabinet/components/student/useStudentHomeworkSources';
 import {
   clearIntegrationFirestore,
+  PROJECT_ID,
   integrationTestEnv,
   seedData,
   setupIntegrationTestEnvironment,
@@ -14,8 +16,28 @@ import {
   userProfile,
 } from './helpers';
 
+const adminRequire = createRequire(new URL('../../functions/package.json', import.meta.url));
+const { initializeApp, deleteApp } = adminRequire('firebase-admin/app');
+const { getFirestore } = adminRequire('firebase-admin/firestore');
+
 describe('homework Firestore query and authorization contracts', () => {
-  beforeAll(setupIntegrationTestEnvironment, 60_000);
+  let app: ReturnType<typeof initializeApp>;
+  let query: ReturnType<typeof createQueryChatMessages>;
+  const getHomeworkPage = (
+    threadId: string,
+    cursor: HomeworkCursor | null,
+    uid: string | null,
+    take = 20
+  ) => query({
+    ...(uid ? { auth: { uid } } : {}),
+    data: { threadId, take, homeworkOnly: true, includeArchivedHomework: true, ...(cursor ? { cursor } : {}) },
+  } as never) as Promise<HomeworkPage>;
+
+  beforeAll(async () => {
+    await setupIntegrationTestEnvironment();
+    app = initializeApp({ projectId: PROJECT_ID }, 'homework-query-tests');
+    query = createQueryChatMessages(getFirestore(app));
+  }, 60_000);
   beforeEach(async () => {
     await clearIntegrationFirestore();
     await seedData(async (context) => {
@@ -57,7 +79,10 @@ describe('homework Firestore query and authorization contracts', () => {
       await batch.commit();
     });
   });
-  afterAll(teardownIntegrationTestEnvironment);
+  afterAll(async () => {
+    if (app) await deleteApp(app);
+    await teardownIntegrationTestEnvironment();
+  });
 
   it('reads only participant-scoped course sources, never an enrollment-only orphan chat', async () => {
     await seedData(async (context) => {
@@ -85,11 +110,11 @@ describe('homework Firestore query and authorization contracts', () => {
       const ids = getStudentHomeworkSources(sessions, participant).map((source) => source.threadId);
       expect(ids).toEqual([`course-${participant}`]);
       const page = await createHomeworkHistory(ids, (id, cursor, size) =>
-        getHomeworkPage(id, cursor, firestore, size)
+        getHomeworkPage(id, cursor, 'account', size)
       ).next();
       expect(page.messages.map((item) => item.text)).toEqual([`course-${participant}`]);
     }
-    await assertFails(getHomeworkPage('enrollment-a', null, firestore));
+    await expect(getHomeworkPage('enrollment-a', null, 'account')).rejects.toMatchObject({ code: 'permission-denied' });
     const candidates = getLegacyHomeworkCandidates(sessions, 'a');
     expect((await confirmLegacyHomeworkSources(candidates, 'account', firestore)).sources).toEqual([]);
     await seedData(async (context) => {
@@ -101,7 +126,7 @@ describe('homework Firestore query and authorization contracts', () => {
     });
     const confirmed = await confirmLegacyHomeworkSources(candidates, 'account', firestore);
     expect(confirmed.sources.map((source) => source.threadId)).toEqual(['enrollment-a']);
-    expect((await getHomeworkPage(confirmed.sources[0].threadId, null, firestore)).messages[0].text).toBe('Must not be read');
+    expect((await getHomeworkPage(confirmed.sources[0].threadId, null, 'account')).messages[0].text).toBe('Must not be read');
     await seedData(async (context) => {
       const batch = writeBatch(context.firestore());
       batch.update(doc(context.firestore(), 'bookings', 'enrollment-a'), { userId: 'stranger' });
@@ -133,20 +158,19 @@ describe('homework Firestore query and authorization contracts', () => {
                 : `2026-01-${String(1 + ((index + n) % 7)).padStart(2, '0')}T00:00:00.000Z`;
             const item = { id: String(n), timestamp, threadId: id };
             expected.push(item);
-            batch.set(doc(firestore, 'bookings', id, 'messages', item.id), {
+            batch.set(doc(firestore, 'bookings', id, 'verified_chat_messages', item.id), {
               timestamp,
               text: item.id,
               isHomework: true,
             });
           }
-          batch.set(doc(firestore, 'bookings', id, 'messages', 'ordinary'), {
+          batch.set(doc(firestore, 'bookings', id, 'verified_chat_messages', 'ordinary'), {
             timestamp: '2028-01-01T00:00:00.000Z',
             isHomework: false,
           });
         }
         await batch.commit();
       });
-      const firestore = integrationTestEnv().authenticatedContext('account').firestore();
       let running = 0;
       let peak = 0;
       const pager = createHomeworkHistory(
@@ -155,7 +179,7 @@ describe('homework Firestore query and authorization contracts', () => {
           running++;
           peak = Math.max(peak, running);
           try {
-            return await getHomeworkPage(id, cursor, firestore, size);
+            return await getHomeworkPage(id, cursor, 'account', size);
           } finally {
             running--;
           }
@@ -182,10 +206,12 @@ describe('homework Firestore query and authorization contracts', () => {
       expect(new Set(actual.map((m) => `${m.threadId}/${m.id}`)).size).toBe(count * 5);
       expect(peak).toBeLessThanOrEqual(4);
     },
-    30_000
+    // The 50-thread case traverses two server-side ACL transactions per callable
+    // page and intentionally keeps the four-request concurrency cap.
+    60_000
   );
 
-  it('uses instructor Rules for family lessons and Course IDs and observes revocation', async () => {
+  it('authorizes the instructor callable for family lessons and Course IDs and observes revocation', async () => {
     await seedData(async (context) => {
       const firestore = context.firestore();
       const batch = writeBatch(firestore);
@@ -207,18 +233,17 @@ describe('homework Firestore query and authorization contracts', () => {
       });
       await batch.commit();
     });
-    const firestore = integrationTestEnv().authenticatedContext('coach-account').firestore();
-    const family = await getHomeworkPage('first', null, firestore);
+    const family = await getHomeworkPage('first', null, 'coach-account');
     expect(family.messages).toHaveLength(20);
     // Course ID is a thread ID even without a Booking document of that ID.
-    expect((await getHomeworkPage('course-id', null, firestore)).messages[0].id).toBe(
+    expect((await getHomeworkPage('course-id', null, 'coach-account')).messages[0].id).toBe(
       'group-homework'
     );
-    // Rules authorize the common chat, not individual homework audiences.
+    // Callable access is scoped to the chat. The audience remains in the DTO.
     expect(
-      (await getHomeworkPage('course-id', null, firestore)).messages[0].homeworkForParticipantIds
+      (await getHomeworkPage('course-id', null, 'coach-account')).messages[0].homeworkForParticipantIds
     ).toEqual(['child-b']);
-    await assertFails(getHomeworkPage('foreign-instructor', null, firestore));
+    await expect(getHomeworkPage('foreign-instructor', null, 'coach-account')).rejects.toMatchObject({ code: 'permission-denied' });
     await seedData(async (context) => {
       const batch = writeBatch(context.firestore());
       batch.update(doc(context.firestore(), 'bookings', 'first'), {
@@ -226,12 +251,11 @@ describe('homework Firestore query and authorization contracts', () => {
       });
       await batch.commit();
     });
-    await assertFails(getHomeworkPage('first', family.cursor, firestore));
+    await expect(getHomeworkPage('first', family.cursor, 'coach-account')).rejects.toMatchObject({ code: 'permission-denied' });
   });
 
   it('returns all 45 old assignments despite 300 later messages; value cursors survive deletion', async () => {
-    const firestore = integrationTestEnv().authenticatedContext('account').firestore();
-    const first = await getHomeworkPage('first', null, firestore);
+    const first = await getHomeworkPage('first', null, 'account');
     expect(first.messages).toHaveLength(20);
     expect(first.messages.map((m) => m.id)).toEqual(
       Array.from({ length: 20 }, (_, i) => String(44 - i).padStart(4, '0'))
@@ -241,8 +265,8 @@ describe('homework Firestore query and authorization contracts', () => {
       batch.delete(doc(context.firestore(), 'bookings', 'first', 'messages', first.cursor!.id));
       await batch.commit();
     });
-    const second = await getHomeworkPage('first', first.cursor, firestore);
-    const third = await getHomeworkPage('first', second.cursor, firestore);
+    const second = await getHomeworkPage('first', first.cursor, 'account');
+    const third = await getHomeworkPage('first', second.cursor, 'account');
     expect(
       [...first.messages, ...second.messages, ...third.messages].map((m) => m.id)
     ).toHaveLength(45);
@@ -252,11 +276,10 @@ describe('homework Firestore query and authorization contracts', () => {
     expect(third.hasMore).toBe(false);
   });
 
-  it('merges separate lessons and skips denied/deleted threads under existing Rules', async () => {
-    const firestore = integrationTestEnv().authenticatedContext('account').firestore();
+  it('merges separate lessons and skips denied/deleted threads', async () => {
     const history = createHomeworkHistory(
       ['first', 'second', 'foreign', 'deleted'],
-      (thread, cursor) => getHomeworkPage(thread, cursor, firestore)
+      (thread, cursor) => getHomeworkPage(thread, cursor, 'account')
     );
     const all = [];
     let page;
@@ -265,17 +288,10 @@ describe('homework Firestore query and authorization contracts', () => {
       all.push(...page.messages);
     } while (page.hasMore);
     expect(all).toHaveLength(46);
-    expect(all.at(-1)?.threadId).toBe('second');
+    expect(all.filter((m) => m.threadId === 'second').map((m) => m.id)).toEqual(['older']);
+    expect(all.every((m) => m.archived && !m.senderId && !m.senderInstructorId)).toBe(true);
     expect(all.some((m) => ['foreign', 'deleted'].includes(m.threadId))).toBe(false);
-    await assertFails(
-      getHomeworkPage(
-        'first',
-        null,
-        integrationTestEnv().authenticatedContext('stranger').firestore()
-      )
-    );
-    await assertFails(
-      getHomeworkPage('first', null, integrationTestEnv().unauthenticatedContext().firestore())
-    );
+    await expect(getHomeworkPage('first', null, 'stranger')).rejects.toMatchObject({ code: 'permission-denied' });
+    await expect(getHomeworkPage('first', null, null)).rejects.toMatchObject({ code: 'unauthenticated' });
   });
 });

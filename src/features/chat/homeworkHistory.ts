@@ -1,60 +1,25 @@
-import {
-  collection,
-  db,
-  documentId,
-  getDocs,
-  limit,
-  orderBy,
-  query,
-  startAfter,
-  where,
-} from '../../infrastructure/firebase';
-import type { Firestore } from 'firebase/firestore';
 import type { ChatMessage } from '../../types';
 import { callFunction } from '../../lib/functions/functionsClient';
 
 export const HOMEWORK_PAGE_SIZE = 20;
-export type HomeworkCursor = { timestamp: string; id: string };
+export type HomeworkCursor = { timestamp: string; id: string; source?: string };
 export type HomeworkPage = {
   messages: ChatMessage[];
   cursor: HomeworkCursor | null;
   hasMore: boolean;
 };
 
-/** Existing message authority and Rules apply; ordinary chat messages are never read. */
+/** Homework pages only read homework records. */
 export async function getHomeworkPage(
   threadId: string,
   cursor: HomeworkCursor | null = null,
-  firestore: Firestore = db,
   pageSize = HOMEWORK_PAGE_SIZE
 ): Promise<HomeworkPage> {
-  let snapshot;
-  try {
-    snapshot = await getDocs(
-      query(
-        collection(firestore, 'bookings', threadId, 'messages'),
-        where('isHomework', '==', true),
-        orderBy('timestamp', 'desc'),
-        orderBy(documentId(), 'desc'),
-        ...(cursor ? [startAfter(cursor.timestamp, cursor.id)] : []),
-        limit(pageSize)
-      )
-    );
-  } catch (error) {
-    if (firestore !== db || (error as { code?: string }).code !== 'permission-denied') throw error;
-    return callFunction(
-      'queryChatMessages',
-      { threadId, take: pageSize, homeworkOnly: true, ...(cursor ? { cursor } : {}) },
-      { idempotencyKey: `read:chat-homework:${Date.now()}`, maxAttempts: 1 }
-    );
-  }
-  const messages = snapshot.docs.map((item) => ({ ...item.data(), id: item.id }) as ChatMessage);
-  const last = messages.at(-1);
-  return {
-    messages,
-    cursor: last ? { timestamp: last.timestamp, id: last.id } : cursor,
-    hasMore: messages.length >= pageSize,
-  };
+  return callFunction(
+    'queryChatMessages',
+    { threadId, take: pageSize, homeworkOnly: true, includeArchivedHomework: true, ...(cursor ? { cursor } : {}) },
+    { idempotencyKey: `read:chat-homework:${Date.now()}`, maxAttempts: 1 }
+  );
 }
 
 export type HomeworkHistoryMessage = ChatMessage & { threadId: string };
@@ -74,7 +39,7 @@ function compareString(a: string, b: string) {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-// Firestore getDocs cannot be aborted. Share permits across surfaces/generations so
+// Share permits across surfaces/generations so
 // a replacement Participant session waits for old in-flight reads to settle.
 let activeReads = 0;
 const readWaiters: (() => void)[] = [];
@@ -100,7 +65,7 @@ async function withReadPermit<T>(isActive: () => boolean, read: () => Promise<T>
 export function createHomeworkHistory(
   threadIds: string[],
   readPage = (id: string, cursor: HomeworkCursor | null, pageSize: number) =>
-    getHomeworkPage(id, cursor, db, pageSize),
+    getHomeworkPage(id, cursor, pageSize),
   onDenied?: (threadId: string) => void
 ) {
   const denied = new Set<string>();

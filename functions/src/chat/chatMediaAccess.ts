@@ -2,10 +2,21 @@ import type { Firestore } from 'firebase-admin/firestore';
 import type { DecodedIdToken } from 'firebase-admin/auth';
 import type { Transaction } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
-import { AccountIdSchema, normalizeFirestoreDocument } from '@ski-academy/shared-domain';
+import {
+  AccountIdSchema,
+  normalizeFirestoreDocument,
+  type Account,
+} from '@ski-academy/shared-domain';
 import { resolveCanonicalExecutionScope } from '../canonical/testSessions/canonicalExecutionScopeResolver';
 import { requireActiveAccount } from '../security/activeAccount';
 import { requireAdministratorAccountSessionPolicy } from '../security/administratorSession';
+
+export type AuthorizedChatContext = {
+  account: Account;
+  profile: FirebaseFirestore.DocumentData;
+  assignedInstructor: boolean;
+  hasParticipantAccess: () => Promise<boolean>;
+};
 
 export function parseChatMediaPath(path: unknown) {
   if (typeof path !== 'string' || path.length > 1024)
@@ -34,15 +45,12 @@ export async function authorizeChatMedia(
   uid: string,
   rawPath: unknown,
   observeRead?: (path: string) => void,
-  onAuthorized?: (tx: Transaction) => Promise<void>,
-  token?: DecodedIdToken
+  onAuthorized?: (tx: Transaction, context: AuthorizedChatContext) => Promise<void>,
+  token?: DecodedIdToken,
+  messageAccess = false
 ) {
   const path = parseChatMediaPath(rawPath);
-  return db.runTransaction(async (tx) => {
-    const permit = async () => {
-      await onAuthorized?.(tx);
-      return path;
-    };
+  const authorize = async (tx: Transaction) => {
     const read = async (name: string) => {
       observeRead?.(name);
       return (await tx.get(db.doc(name))).data();
@@ -99,44 +107,74 @@ export async function authorizeChatMedia(
     const subject = booking ?? course;
     if (!subject || !inScope(subject) || (booking && course && !inScope(course)))
       throw new HttpsError('permission-denied', 'Invalid media scope');
-    if (admin) return permit();
-    if (booking) {
-      if (!booking.party || !booking.occurrence) {
-        // Existing historical chat only; canonical/mixed records never fall back.
-        if (
-          !('party' in booking) &&
-          !('occurrence' in booking) &&
-          (booking.userId === uid ||
-            (typeof account.instructorId === 'string' &&
-              booking.instructorId === account.instructorId))
-        )
-          return permit();
-      } else {
-        if (
-          typeof account.instructorId === 'string' &&
-          account.instructorId === booking.occurrence.instructorId
-        )
-          return permit();
-        const ids: unknown = booking.party.participantIds;
-        if (Array.isArray(ids) && ids.length <= 8) {
-          for (const id of ids) {
-            if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(id)) continue;
-            const guard = await read(`participant_management_active_owner/${id}`);
-            if (guard?.accountId === uid) return permit();
+    const canonicalBooking = booking?.party && booking.occurrence;
+    // Existing historical chat only; canonical/mixed records never fall back.
+    const legacyBooking = booking && !('party' in booking) && !('occurrence' in booking);
+    const instructorIds = booking
+      ? [canonicalBooking?.instructorId ?? (legacyBooking ? booking.instructorId : undefined)]
+      : (course?.instructorRosterIds ?? course?.instructorIds ?? []);
+    let assignedInstructor =
+      typeof account.instructorId === 'string' &&
+      Array.isArray(instructorIds) &&
+      instructorIds.includes(account.instructorId);
+    // The existing Rules allow this branch for legacy enrollment messages.
+    if (
+      messageAccess &&
+      !assignedInstructor &&
+      legacyBooking &&
+      typeof account.instructorId === 'string' &&
+      typeof booking.instructorId === 'string' &&
+      booking.instructorId.startsWith('course_') &&
+      booking.status !== 'cancelled' &&
+      booking.isDeleted !== true &&
+      typeof booking.courseId === 'string' &&
+      /^[A-Za-z0-9_-]+$/.test(booking.courseId)
+    ) {
+      const linkedCourse = await read(`courses/${booking.courseId}`);
+      const roster = linkedCourse?.instructorRosterIds ?? linkedCourse?.instructorIds;
+      assignedInstructor =
+        !!linkedCourse &&
+        inScope(linkedCourse) &&
+        Array.isArray(roster) &&
+        roster.includes(account.instructorId);
+    }
+    let participantAccess: Promise<boolean> | undefined;
+    const hasParticipantAccess = () =>
+      (participantAccess ??= (async () => {
+        if (!booking) return !!(await read(`course_chat_access/${uid}/courses/${path.threadId}`));
+        if (legacyBooking) return booking.userId === uid;
+        if (canonicalBooking) {
+          const ids: unknown = booking.party.participantIds;
+          if (Array.isArray(ids) && (messageAccess || ids.length <= 8)) {
+            for (const id of ids.slice(0, 8)) {
+              if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(id)) continue;
+              const guard = await read(`participant_management_active_owner/${id}`);
+              if (guard?.accountId === uid) return true;
+            }
           }
         }
-      }
-    } else if (course) {
-      const access = await read(`course_chat_access/${uid}/courses/${path.threadId}`);
-      const instructors = course.instructorRosterIds ?? course.instructorIds ?? [];
-      if (
-        access ||
-        (typeof account.instructorId === 'string' && instructors.includes(account.instructorId))
-      )
-        return permit();
+        return false;
+      })());
+    // Keep the course-access dependency for existing read and media callers.
+    if (
+      admin ||
+      (booking && assignedInstructor) ||
+      (await hasParticipantAccess()) ||
+      assignedInstructor
+    ) {
+      await onAuthorized?.(tx, {
+        account: canonicalAccount,
+        profile: account,
+        assignedInstructor,
+        hasParticipantAccess,
+      });
+      return path;
     }
     throw new HttpsError('permission-denied', 'Not a current chat participant');
-  });
+  };
+  return onAuthorized
+    ? db.runTransaction(authorize)
+    : db.runTransaction(authorize, { readOnly: true });
 }
 
 export function mediaSizeLimit(contentType: string) {

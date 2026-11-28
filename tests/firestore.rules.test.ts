@@ -430,18 +430,18 @@ describe('CA-SEC-05B direct wallet and chat scope boundaries', () => {
           dataScope: 'test',
           testSessionId: sessionId,
         });
-        await setDoc(doc(db, 'bookings/scoped_chat/messages/known_message'), {
+        await setDoc(doc(db, 'bookings/scoped_chat/verified_chat_messages/known_message'), {
           senderId: actorId,
           text: 'private',
         });
       });
       const db = testEnv.authenticatedContext(actorId).firestore();
-      const message = doc(db, 'bookings/scoped_chat/messages/known_message');
+      const message = doc(db, 'bookings/scoped_chat/verified_chat_messages/known_message');
       await assertFails(getDoc(message));
-      await assertFails(getDocs(collection(db, 'bookings/scoped_chat/messages')));
+      await assertFails(getDocs(collection(db, 'bookings/scoped_chat/verified_chat_messages')));
       await assertFails(updateDoc(message, { isHomework: true }));
       await assertFails(
-        setDoc(doc(db, 'bookings/scoped_chat/messages/new_message'), {
+        setDoc(doc(db, 'bookings/scoped_chat/verified_chat_messages/new_message'), {
           senderId: actorId,
           text: 'new',
         })
@@ -458,15 +458,15 @@ describe('CA-SEC-05B direct wallet and chat scope boundaries', () => {
         instructorId: 'coach',
         status: 'confirmed',
       });
-      await setDoc(doc(db, 'bookings/live_chat/messages/message'), {
+      await setDoc(doc(db, 'bookings/live_chat/verified_chat_messages/message'), {
         senderId: actorId,
         text: 'hello',
       });
     });
     const db = testEnv.authenticatedContext(actorId).firestore();
-    const path = 'bookings/live_chat/messages/message';
+    const path = 'bookings/live_chat/verified_chat_messages/message';
     await assertSucceeds(getDoc(doc(db, path)));
-    await assertSucceeds(getDocs(collection(db, 'bookings/live_chat/messages')));
+    await assertSucceeds(getDocs(collection(db, 'bookings/live_chat/verified_chat_messages')));
     await seedData(async (c) =>
       updateDoc(doc(c.firestore(), `users/${actorId}`), { lifecycle: { status: 'disabled' } })
     );
@@ -527,7 +527,7 @@ describe('CA-SEC-05B direct wallet and chat scope boundaries', () => {
           accountId: index === 7 ? actorId : OTHER_USER_ID,
         });
       }
-      await setDoc(doc(db, 'bookings/eight_person_chat/messages/message'), {
+      await setDoc(doc(db, 'bookings/eight_person_chat/verified_chat_messages/message'), {
         senderId: OTHER_USER_ID,
         text: 'hello',
       });
@@ -536,7 +536,7 @@ describe('CA-SEC-05B direct wallet and chat scope boundaries', () => {
       getDoc(
         doc(
           testEnv.authenticatedContext(actorId).firestore(),
-          'bookings/eight_person_chat/messages/message'
+          'bookings/eight_person_chat/verified_chat_messages/message'
         )
       )
     );
@@ -562,15 +562,15 @@ describe('CA-SEC-05B direct wallet and chat scope boundaries', () => {
           doc(db, `participant_management_active_owner/${booking.party.participantIds[0]}`),
           { accountId: actorId }
         );
-        await setDoc(doc(db, 'bookings/canonical_test_chat/messages/message'), {
+        await setDoc(doc(db, 'bookings/canonical_test_chat/verified_chat_messages/message'), {
           senderId: actorId,
           text: 'private',
         });
       });
       const db = testEnv.authenticatedContext(actorId).firestore();
-      await assertFails(getDoc(doc(db, 'bookings/canonical_test_chat/messages/message')));
-      await assertFails(getDocs(collection(db, 'bookings/canonical_test_chat/messages')));
-      await assertFails(getDocs(collectionGroup(db, 'messages')));
+      await assertFails(getDoc(doc(db, 'bookings/canonical_test_chat/verified_chat_messages/message')));
+      await assertFails(getDocs(collection(db, 'bookings/canonical_test_chat/verified_chat_messages')));
+      await assertFails(getDocs(collectionGroup(db, 'verified_chat_messages')));
       await assertFails(getDocs(collectionGroup(db, 'courses')));
     }
   );
@@ -1357,13 +1357,13 @@ describe('bookings', () => {
   it('denies Admin client deletion of authoritative bookings and messages', async () => {
     const adminDb = testEnv.authenticatedContext(OWNER_ID).firestore();
     await seedData(async (context) => {
-      await setDoc(doc(context.firestore(), 'bookings', 'booking-1', 'messages', 'message-1'), {
+      await setDoc(doc(context.firestore(), 'bookings', 'booking-1', 'verified_chat_messages', 'message-1'), {
         senderId: ADMIN_ID,
         text: 'Protected history',
       });
     });
 
-    await assertFails(deleteDoc(doc(adminDb, 'bookings', 'booking-1', 'messages', 'message-1')));
+    await assertFails(deleteDoc(doc(adminDb, 'bookings', 'booking-1', 'verified_chat_messages', 'message-1')));
     await assertFails(deleteDoc(doc(adminDb, 'bookings', 'booking-1')));
     await assertSucceeds(getDoc(doc(adminDb, 'bookings', 'booking-1')));
   });
@@ -2612,7 +2612,7 @@ describe('release identity and course access security', () => {
             courseId: id,
             activeCount: 1,
           });
-          await setDoc(doc(db, 'bookings', id, 'messages', 'message'), {
+          await setDoc(doc(db, 'bookings', id, 'verified_chat_messages', 'message'), {
             senderId: USER_ID,
             text: 'Private',
           });
@@ -2626,7 +2626,7 @@ describe('release identity and course access security', () => {
         getDoc(doc(instructorDb, 'course_chat_access', USER_ID, 'courses', 'other-course'))
       );
       await assertFails(
-        getDoc(doc(instructorDb, 'bookings', 'other-course', 'messages', 'message'))
+        getDoc(doc(instructorDb, 'bookings', 'other-course', 'verified_chat_messages', 'message'))
       );
       await assertSucceeds(
         getDoc(
@@ -2660,11 +2660,12 @@ describe('release identity and course access security', () => {
         testEnv.authenticatedContext(USER_ID).firestore(),
         'bookings',
         'own-course',
-        'messages',
+        'verified_chat_messages',
         'message'
       );
+      await assertSucceeds(getDoc(message));
       await assertFails(updateDoc(message, { addedAuthority: 'forged' }));
-      await assertSucceeds(updateDoc(message, { isHomework: true }));
+      await assertFails(updateDoc(message, { isHomework: true }));
     }
   );
 });
@@ -2845,7 +2846,7 @@ describe('booking chat messages', () => {
     });
   });
 
-  it('allows booking participants to read and create chat messages', async () => {
+  it('allows booking participants to read server-written messages and denies direct writes', async () => {
     const ownerDb = testEnv
       .authenticatedContext(USER_ID, { email: 'user@example.com' })
       .firestore();
@@ -2855,7 +2856,7 @@ describe('booking chat messages', () => {
     const otherDb = testEnv
       .authenticatedContext(OTHER_USER_ID, { email: 'other@example.com' })
       .firestore();
-    const messageRef = doc(ownerDb, 'bookings', 'booking-chat-1', 'messages', 'message-1');
+    const messageRef = doc(ownerDb, 'bookings', 'booking-chat-1', 'verified_chat_messages', 'message-1');
     const message = {
       id: 'message-1',
       bookingId: 'booking-chat-1',
@@ -2866,13 +2867,21 @@ describe('booking chat messages', () => {
       timestamp: '2026-12-01T09:00:00.000Z',
     };
 
-    await assertSucceeds(setDoc(messageRef, message));
+    await assertFails(setDoc(messageRef, message));
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'bookings', 'booking-chat-1', 'verified_chat_messages', 'message-1'), message);
+      await setDoc(doc(db, 'bookings', 'booking-chat-1', 'messages', 'archive-1'), message);
+    });
+    const archiveRef = doc(ownerDb, 'bookings', 'booking-chat-1', 'messages', 'archive-1');
+    await assertFails(getDoc(archiveRef));
+    await assertFails(updateDoc(archiveRef, { text: 'Changed outside callable' }));
     await assertSucceeds(
-      getDoc(doc(instructorDb, 'bookings', 'booking-chat-1', 'messages', 'message-1'))
+      getDoc(doc(instructorDb, 'bookings', 'booking-chat-1', 'verified_chat_messages', 'message-1'))
     );
-    await assertFails(getDoc(doc(otherDb, 'bookings', 'booking-chat-1', 'messages', 'message-1')));
+    await assertFails(getDoc(doc(otherDb, 'bookings', 'booking-chat-1', 'verified_chat_messages', 'message-1')));
     await assertFails(
-      setDoc(doc(otherDb, 'bookings', 'booking-chat-1', 'messages', 'message-2'), {
+      setDoc(doc(otherDb, 'bookings', 'booking-chat-1', 'verified_chat_messages', 'message-2'), {
         ...message,
         id: 'message-2',
         senderId: OTHER_USER_ID,
@@ -2880,7 +2889,7 @@ describe('booking chat messages', () => {
     );
   });
 
-  it('allows homework targeting by participant ids and rejects leftover user-id targeting', async () => {
+  it('allows homework reads and denies direct homework writes', async () => {
     const instructorDb = testEnv
       .authenticatedContext(INSTRUCTOR_USER_ID, { email: 'instructor@example.com' })
       .firestore();
@@ -2899,23 +2908,27 @@ describe('booking chat messages', () => {
       homeworkForParticipantIds: ['participant_child_1'],
     };
 
-    await assertSucceeds(
-      setDoc(doc(instructorDb, 'bookings', 'booking-chat-1', 'messages', 'homework-1'), homework)
-    );
     await assertFails(
-      setDoc(doc(instructorDb, 'bookings', 'booking-chat-1', 'messages', 'homework-legacy'), {
+      setDoc(doc(instructorDb, 'bookings', 'booking-chat-1', 'verified_chat_messages', 'homework-1'), homework)
+    );
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'bookings', 'booking-chat-1', 'verified_chat_messages', 'homework-1'), homework);
+    });
+    await assertFails(
+      setDoc(doc(instructorDb, 'bookings', 'booking-chat-1', 'verified_chat_messages', 'homework-legacy'), {
         ...homework,
         id: 'homework-legacy',
         homeworkForUserIds: [USER_ID],
       })
     );
     await assertFails(
-      updateDoc(doc(instructorDb, 'bookings', 'booking-chat-1', 'messages', 'homework-1'), {
+      updateDoc(doc(instructorDb, 'bookings', 'booking-chat-1', 'verified_chat_messages', 'homework-1'), {
         homeworkForUserIds: [USER_ID],
       })
     );
     await assertSucceeds(
-      getDoc(doc(studentDb, 'bookings', 'booking-chat-1', 'messages', 'homework-1'))
+      getDoc(doc(studentDb, 'bookings', 'booking-chat-1', 'verified_chat_messages', 'homework-1'))
     );
   });
 
@@ -2942,7 +2955,7 @@ describe('booking chat messages', () => {
     );
   });
 
-  it('allows course group chat participants to read and create messages', async () => {
+  it('allows course group participants to read server-written messages', async () => {
     await seedData(async (context) => {
       const db = context.firestore();
       await setDoc(doc(db, 'courses', 'course-group-1'), {
@@ -2979,25 +2992,38 @@ describe('booking chat messages', () => {
       timestamp: '2026-12-01T09:00:00.000Z',
     };
 
-    await assertSucceeds(
-      setDoc(doc(studentDb, 'bookings', 'course-group-1', 'messages', 'course-message-1'), message)
+    await assertFails(
+      setDoc(doc(studentDb, 'bookings', 'course-group-1', 'verified_chat_messages', 'course-message-1'), message)
     );
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'bookings', 'course-group-1', 'verified_chat_messages', 'course-message-1'), message);
+    });
     await assertSucceeds(
-      getDoc(doc(instructorDb, 'bookings', 'course-group-1', 'messages', 'course-message-1'))
+      getDoc(doc(instructorDb, 'bookings', 'course-group-1', 'verified_chat_messages', 'course-message-1'))
     );
-    await assertSucceeds(
-      setDoc(doc(instructorDb, 'bookings', 'course-group-1', 'messages', 'course-message-2'), {
+    await assertFails(
+      setDoc(doc(instructorDb, 'bookings', 'course-group-1', 'verified_chat_messages', 'course-message-2'), {
         ...message,
         id: 'course-message-2',
         senderId: INSTRUCTOR_USER_ID,
         text: 'Welcome to the course',
       })
     );
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'bookings', 'course-group-1', 'verified_chat_messages', 'course-message-2'), {
+        ...message,
+        id: 'course-message-2',
+        senderId: INSTRUCTOR_USER_ID,
+        text: 'Welcome to the course',
+      });
+    });
     await assertSucceeds(
-      getDoc(doc(studentDb, 'bookings', 'course-group-1', 'messages', 'course-message-2'))
+      getDoc(doc(studentDb, 'bookings', 'course-group-1', 'verified_chat_messages', 'course-message-2'))
     );
     await assertFails(
-      getDoc(doc(otherDb, 'bookings', 'course-group-1', 'messages', 'course-message-1'))
+      getDoc(doc(otherDb, 'bookings', 'course-group-1', 'verified_chat_messages', 'course-message-1'))
     );
   });
 
@@ -3080,25 +3106,38 @@ describe('booking chat messages', () => {
       timestamp: '2026-12-01T09:00:00.000Z',
     };
 
+    await assertFails(
+      setDoc(doc(studentOneDb, 'bookings', courseId, 'verified_chat_messages', 'shared-message-1'), sharedMessage)
+    );
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'bookings', courseId, 'verified_chat_messages', 'shared-message-1'), sharedMessage);
+    });
     await assertSucceeds(
-      setDoc(doc(studentOneDb, 'bookings', courseId, 'messages', 'shared-message-1'), sharedMessage)
+      getDoc(doc(studentTwoDb, 'bookings', courseId, 'verified_chat_messages', 'shared-message-1'))
     );
     await assertSucceeds(
-      getDoc(doc(studentTwoDb, 'bookings', courseId, 'messages', 'shared-message-1'))
+      getDoc(doc(instructorOneDb, 'bookings', courseId, 'verified_chat_messages', 'shared-message-1'))
     );
-    await assertSucceeds(
-      getDoc(doc(instructorOneDb, 'bookings', courseId, 'messages', 'shared-message-1'))
-    );
-    await assertSucceeds(
-      setDoc(doc(instructorTwoDb, 'bookings', courseId, 'messages', 'shared-message-2'), {
+    await assertFails(
+      setDoc(doc(instructorTwoDb, 'bookings', courseId, 'verified_chat_messages', 'shared-message-2'), {
         ...sharedMessage,
         id: 'shared-message-2',
         senderId: INSTRUCTOR_USER_ID_2,
         text: 'Reply from second instructor',
       })
     );
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'bookings', courseId, 'verified_chat_messages', 'shared-message-2'), {
+        ...sharedMessage,
+        id: 'shared-message-2',
+        senderId: INSTRUCTOR_USER_ID_2,
+        text: 'Reply from second instructor',
+      });
+    });
     await assertSucceeds(
-      getDoc(doc(studentOneDb, 'bookings', courseId, 'messages', 'shared-message-2'))
+      getDoc(doc(studentOneDb, 'bookings', courseId, 'verified_chat_messages', 'shared-message-2'))
     );
 
     const legacyMessage = {
@@ -3111,30 +3150,37 @@ describe('booking chat messages', () => {
       timestamp: '2026-12-01T09:05:00.000Z',
     };
 
-    await assertSucceeds(
+    await assertFails(
       setDoc(
-        doc(studentOneDb, 'bookings', studentOneBookingId, 'messages', 'legacy-message-1'),
+        doc(studentOneDb, 'bookings', studentOneBookingId, 'verified_chat_messages', 'legacy-message-1'),
         legacyMessage
       )
     );
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(
+        doc(db, 'bookings', studentOneBookingId, 'verified_chat_messages', 'legacy-message-1'),
+        legacyMessage
+      );
+    });
     await assertSucceeds(
-      getDoc(doc(instructorOneDb, 'bookings', studentOneBookingId, 'messages', 'legacy-message-1'))
+      getDoc(doc(instructorOneDb, 'bookings', studentOneBookingId, 'verified_chat_messages', 'legacy-message-1'))
     );
     await assertSucceeds(
-      getDoc(doc(instructorTwoDb, 'bookings', studentOneBookingId, 'messages', 'legacy-message-1'))
+      getDoc(doc(instructorTwoDb, 'bookings', studentOneBookingId, 'verified_chat_messages', 'legacy-message-1'))
     );
   });
 
-  it('allows Admin message edits but contains destructive message deletion', async () => {
+  it('denies direct message edits and deletes, including Admin', async () => {
     const ownerDb = testEnv
       .authenticatedContext(USER_ID, { email: 'user@example.com' })
       .firestore();
     const adminDb = testEnv
       .authenticatedContext(OWNER_ID, { email: 'owner@example.com' })
       .firestore();
-    const messageRef = doc(ownerDb, 'bookings', 'booking-chat-1', 'messages', 'message-admin');
+    const messageRef = doc(ownerDb, 'bookings', 'booking-chat-1', 'verified_chat_messages', 'message-admin');
 
-    await assertSucceeds(
+    await assertFails(
       setDoc(messageRef, {
         id: 'message-admin',
         bookingId: 'booking-chat-1',
@@ -3145,15 +3191,27 @@ describe('booking chat messages', () => {
         timestamp: '2026-12-01T09:00:00.000Z',
       })
     );
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'bookings', 'booking-chat-1', 'verified_chat_messages', 'message-admin'), {
+        id: 'message-admin',
+        bookingId: 'booking-chat-1',
+        senderId: USER_ID,
+        senderName: USER_ID,
+        senderAvatar: '',
+        text: 'Original text',
+        timestamp: '2026-12-01T09:00:00.000Z',
+      });
+    });
 
     await assertFails(updateDoc(messageRef, { text: 'Edited by participant' }));
-    await assertSucceeds(
-      updateDoc(doc(adminDb, 'bookings', 'booking-chat-1', 'messages', 'message-admin'), {
+    await assertFails(
+      updateDoc(doc(adminDb, 'bookings', 'booking-chat-1', 'verified_chat_messages', 'message-admin'), {
         text: 'Edited by admin',
       })
     );
     await assertFails(
-      deleteDoc(doc(adminDb, 'bookings', 'booking-chat-1', 'messages', 'message-admin'))
+      deleteDoc(doc(adminDb, 'bookings', 'booking-chat-1', 'verified_chat_messages', 'message-admin'))
     );
   });
 });
@@ -3299,18 +3357,25 @@ describe('canonical booking chat messages', () => {
       timestamp: '2026-12-01T09:00:00.000Z',
     };
 
-    await assertSucceeds(
+    await assertFails(
       setDoc(
-        doc(customerDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages', 'canonical-message-1'),
+        doc(customerDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'verified_chat_messages', 'canonical-message-1'),
         message
       )
     );
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(
+        doc(db, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'verified_chat_messages', 'canonical-message-1'),
+        message
+      );
+    });
     await assertSucceeds(
-      getDocs(collection(customerDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages'))
+      getDocs(collection(customerDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'verified_chat_messages'))
     );
     await assertSucceeds(
       getDoc(
-        doc(customerDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages', 'canonical-message-1')
+        doc(customerDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'verified_chat_messages', 'canonical-message-1')
       )
     );
   });
@@ -3321,14 +3386,14 @@ describe('canonical booking chat messages', () => {
       .firestore();
 
     await assertFails(
-      getDocs(collection(otherDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages'))
+      getDocs(collection(otherDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'verified_chat_messages'))
     );
     await assertFails(
-      getDoc(doc(otherDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages', 'canonical-message-1'))
+      getDoc(doc(otherDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'verified_chat_messages', 'canonical-message-1'))
     );
     await assertFails(
       setDoc(
-        doc(otherDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages', 'canonical-message-2'),
+        doc(otherDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'verified_chat_messages', 'canonical-message-2'),
         {
           id: 'canonical-message-2',
           bookingId: CANONICAL_CHAT_BOOKING_ID,
@@ -3346,7 +3411,7 @@ describe('canonical booking chat messages', () => {
     await seedData(async (context) => {
       const db = context.firestore();
       await setDoc(
-        doc(db, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages', 'canonical-message-1'),
+        doc(db, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'verified_chat_messages', 'canonical-message-1'),
         {
           id: 'canonical-message-1',
           bookingId: CANONICAL_CHAT_BOOKING_ID,
@@ -3374,16 +3439,16 @@ describe('canonical booking chat messages', () => {
 
     await assertSucceeds(
       getDoc(
-        doc(instructorDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages', 'canonical-message-1')
+        doc(instructorDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'verified_chat_messages', 'canonical-message-1')
       )
     );
-    await assertSucceeds(
+    await assertFails(
       setDoc(
         doc(
           instructorDb,
           'bookings',
           CANONICAL_CHAT_BOOKING_ID,
-          'messages',
+          'verified_chat_messages',
           'canonical-message-instructor'
         ),
         {
@@ -3397,13 +3462,33 @@ describe('canonical booking chat messages', () => {
         }
       )
     );
+    await seedData(async (context) => {
+      const db = context.firestore();
+      await setDoc(
+        doc(db,
+          'bookings',
+          CANONICAL_CHAT_BOOKING_ID,
+          'verified_chat_messages',
+          'canonical-message-instructor'
+        ),
+        {
+          id: 'canonical-message-instructor',
+          bookingId: CANONICAL_CHAT_BOOKING_ID,
+          senderId: CANONICAL_CHAT_INSTRUCTOR_USER_ID,
+          senderName: CANONICAL_CHAT_INSTRUCTOR_USER_ID,
+          senderAvatar: '',
+          text: 'Instructor reply',
+          timestamp: '2026-12-01T09:10:00.000Z',
+        }
+      );
+    });
     await assertFails(
       getDoc(
         doc(
           unrelatedInstructorDb,
           'bookings',
           CANONICAL_CHAT_BOOKING_ID,
-          'messages',
+          'verified_chat_messages',
           'canonical-message-1'
         )
       )
@@ -3414,7 +3499,7 @@ describe('canonical booking chat messages', () => {
     await seedData(async (context) => {
       const db = context.firestore();
       await setDoc(
-        doc(db, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages', 'canonical-message-admin'),
+        doc(db, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'verified_chat_messages', 'canonical-message-admin'),
         {
           id: 'canonical-message-admin',
           bookingId: CANONICAL_CHAT_BOOKING_ID,
@@ -3431,12 +3516,12 @@ describe('canonical booking chat messages', () => {
 
     await assertSucceeds(
       getDoc(
-        doc(adminDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages', 'canonical-message-admin')
+        doc(adminDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'verified_chat_messages', 'canonical-message-admin')
       )
     );
     await assertFails(
       deleteDoc(
-        doc(adminDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'messages', 'canonical-message-admin')
+        doc(adminDb, 'bookings', CANONICAL_CHAT_BOOKING_ID, 'verified_chat_messages', 'canonical-message-admin')
       )
     );
   });
@@ -3527,20 +3612,24 @@ describe('production-shaped canonical booking chat messages', () => {
       .firestore();
 
     for (const bookingId of [PROD_SHAPED_SELF_BOOKING_ID, PROD_SHAPED_DEPENDENT_BOOKING_ID]) {
-      await assertSucceeds(getDocs(collection(customerDb, 'bookings', bookingId, 'messages')));
-      await assertSucceeds(
-        setDoc(doc(customerDb, 'bookings', bookingId, 'messages', `message-${bookingId}`), {
-          id: `message-${bookingId}`,
-          bookingId,
-          senderId: PROD_SHAPED_ACCOUNT_ID,
-          senderName: PROD_SHAPED_ACCOUNT_ID,
-          senderAvatar: '',
-          text: 'Production-shaped canonical chat',
-          timestamp: '2026-12-01T09:00:00.000Z',
-        })
+      await assertSucceeds(getDocs(collection(customerDb, 'bookings', bookingId, 'verified_chat_messages')));
+      const message = {
+        id: `message-${bookingId}`,
+        bookingId,
+        senderId: PROD_SHAPED_ACCOUNT_ID,
+        senderName: PROD_SHAPED_ACCOUNT_ID,
+        senderAvatar: '',
+        text: 'Production-shaped canonical chat',
+        timestamp: '2026-12-01T09:00:00.000Z',
+      };
+      await assertFails(
+        setDoc(doc(customerDb, 'bookings', bookingId, 'verified_chat_messages', message.id), message)
       );
+      await seedData(async (context) => {
+        await setDoc(doc(context.firestore(), 'bookings', bookingId, 'verified_chat_messages', message.id), message);
+      });
       await assertSucceeds(
-        getDoc(doc(customerDb, 'bookings', bookingId, 'messages', `message-${bookingId}`))
+        getDoc(doc(customerDb, 'bookings', bookingId, 'verified_chat_messages', `message-${bookingId}`))
       );
     }
   });
@@ -3551,7 +3640,7 @@ describe('production-shaped canonical booking chat messages', () => {
       .firestore();
 
     for (const bookingId of [PROD_SHAPED_SELF_BOOKING_ID, PROD_SHAPED_DEPENDENT_BOOKING_ID]) {
-      await assertFails(getDocs(collection(otherDb, 'bookings', bookingId, 'messages')));
+      await assertFails(getDocs(collection(otherDb, 'bookings', bookingId, 'verified_chat_messages')));
     }
   });
 
@@ -3573,10 +3662,10 @@ describe('production-shaped canonical booking chat messages', () => {
     await assertFails(getDocs(collection(customerDb, 'participant_management_active_owner')));
 
     await assertSucceeds(
-      getDocs(collection(customerDb, 'bookings', PROD_SHAPED_SELF_BOOKING_ID, 'messages'))
+      getDocs(collection(customerDb, 'bookings', PROD_SHAPED_SELF_BOOKING_ID, 'verified_chat_messages'))
     );
     await assertSucceeds(
-      getDocs(collection(customerDb, 'bookings', PROD_SHAPED_DEPENDENT_BOOKING_ID, 'messages'))
+      getDocs(collection(customerDb, 'bookings', PROD_SHAPED_DEPENDENT_BOOKING_ID, 'verified_chat_messages'))
     );
   });
 });

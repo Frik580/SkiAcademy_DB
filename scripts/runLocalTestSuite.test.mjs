@@ -16,7 +16,7 @@ function reportFor(kind) {
             'runs the actual CLI twice and requires explicit cutover',
           ],
           ['bookingAttendanceCommands.emulator.test.ts', 30],
-          ['chatMedia.emulator.test.ts', 32],
+          ['chatMedia.emulator.test.ts', 35],
         ]
       : [
           ['dataReset.emulator.test.ts', 20],

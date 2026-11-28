@@ -1,4 +1,5 @@
 import { beforeAll, beforeEach, afterAll, describe, expect, it, vi } from 'vitest';
+import { EventEmitter } from 'node:events';
 import { initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing';
 import sharp from 'sharp';
 import { getAuth } from 'firebase-admin/auth';
@@ -28,6 +29,8 @@ import { handleProtectedImages } from '../security/protectedImagesHttp';
 import { authorizeProtectedImage } from '../security/protectedImageAccess';
 import { getAdminFirestore } from '../adminFirestore';
 import { createQueryChatMessages } from './chatMessagesRead';
+import { createMutateChatMessage } from './chatMessagesWrite';
+import { handleChatMessagesStream } from './chatMessagesStream';
 import {
   TestActorSchema,
   TestActorAssignmentSchema,
@@ -157,6 +160,252 @@ afterAll(async () => {
 });
 
 describe('authorized canonical chat media gateway', () => {
+  it('stores server-owned message identity and preserves immutable fields on an authorized edit', async () => {
+    const db = getAdminFirestore();
+    const mutate = createMutateChatMessage(db);
+    const threadId = canonicalStorageBooking.bookingId;
+    const messageId = 'server-written-message';
+    const write = (uid: string, data: Record<string, unknown>) =>
+      mutate({ auth: { uid }, data: { threadId, messageId, ...data } } as never);
+    const ref = db.doc(`bookings/${threadId}/verified_chat_messages/${messageId}`);
+    const legacyClient = env.authenticatedContext(STORAGE_USER_ID).firestore();
+    await expect(setDoc(doc(legacyClient, 'bookings', threadId, 'messages', messageId), {
+      text: 'See you on the slope', senderId: STORAGE_USER_ID, timestamp: new Date().toISOString(),
+    })).rejects.toMatchObject({ code: 'permission-denied' });
+    const before = Date.now();
+    await write(STORAGE_USER_ID, {
+      operation: 'create',
+      message: {
+        text: 'See you on the slope', senderId: STORAGE_USER_ID, senderRole: 'admin',
+        senderName: 'Client display name', senderAvatar: 'https://example.test/client-avatar',
+        senderInstructorId: 'unrelated-instructor', timestamp: '2099-01-01T00:00:00.000Z',
+      },
+    });
+    const initial = (await ref.get()).data()!;
+    expect(initial).toMatchObject({
+      id: messageId, bookingId: threadId, senderId: STORAGE_USER_ID,
+      senderRole: 'client', senderName: STORAGE_USER_ID, senderAvatar: '',
+    });
+    expect(Date.parse(initial.timestamp)).toBeGreaterThanOrEqual(before);
+    expect(Date.parse(initial.timestamp)).toBeLessThanOrEqual(Date.now());
+    expect(initial).not.toHaveProperty('senderInstructorId');
+    await write(STORAGE_USER_ID, {
+      operation: 'create', context: 'participant', message: { text: 'See you on the slope' },
+    });
+    expect((await ref.get()).data()).toEqual(initial);
+    await expect(write(STORAGE_USER_ID, { operation: 'homework', isHomework: true }))
+      .rejects.toMatchObject({ code: 'permission-denied' });
+    await expect(write(STORAGE_USER_ID, { operation: 'edit', text: 'Change' }))
+      .rejects.toMatchObject({ code: 'permission-denied' });
+    await expect(write(STORAGE_USER_ID, {
+      operation: 'create', message: { text: 'Wrong context', isHomework: true },
+    })).rejects.toMatchObject({ code: 'permission-denied' });
+    await expect(write(STORAGE_USER_ID, {
+      operation: 'create', message: { text: 'Different author', senderId: STORAGE_ADMIN_ID },
+    })).rejects.toMatchObject({ code: 'permission-denied' });
+    await expect(write(STORAGE_USER_ID, {
+      operation: 'edit', text: 'Invalid edit', senderRole: 'admin',
+    })).rejects.toMatchObject({ code: 'invalid-argument' });
+    await expect(write(STORAGE_USER_ID, {
+      operation: 'create', message: { text: 'Invalid content', system: true },
+    })).rejects.toMatchObject({ code: 'invalid-argument' });
+    expect((await ref.get()).data()).toEqual(initial);
+    await write(STORAGE_ADMIN_ID, { operation: 'edit', text: 'Updated text' });
+    expect((await ref.get()).data()).toEqual({ ...initial, text: 'Updated text' });
+    await write(STORAGE_ADMIN_ID, {
+      operation: 'create', context: 'administration', messageId: 'administrator-message',
+      message: { text: 'Message from administration' },
+    });
+    const adminMessage = await db.doc(
+      `bookings/${threadId}/verified_chat_messages/administrator-message`
+    ).get();
+    expect(adminMessage.data()).toMatchObject({
+      senderId: STORAGE_ADMIN_ID, senderRole: 'admin', senderName: STORAGE_ADMIN_ID,
+    });
+    const unauthorizedCreate = {
+      operation: 'create', context: 'participant', messageId: 'unexpected-message',
+      message: { text: 'Not authorized for this thread' },
+    };
+    await expect(write(STORAGE_OTHER_USER_ID, unauthorizedCreate))
+      .rejects.toMatchObject({ code: 'permission-denied' });
+    await db.doc(`users/${STORAGE_USER_ID}`).update({
+      lifecycle: { status: 'disabled', disabledAt: canonicalStorageBooking.updatedAt },
+    });
+    await expect(write(STORAGE_USER_ID, unauthorizedCreate))
+      .rejects.toMatchObject({ code: 'permission-denied' });
+    await expect(mutate({ data: { threadId, ...unauthorizedCreate } } as never))
+      .rejects.toMatchObject({ code: 'unauthenticated' });
+    expect((await db.doc(`bookings/${threadId}/verified_chat_messages/unexpected-message`).get()).exists)
+      .toBe(false);
+  });
+
+  it('uses the assigned and linked instructor profile for a homework message', async () => {
+    const db = getAdminFirestore();
+    const mutate = createMutateChatMessage(db);
+    const threadId = canonicalStorageBooking.bookingId;
+    const bucket = getStorage(getOrInitApp()).bucket();
+    const avatarPath = 'instructors/instructor-1.jpg';
+    const avatar = `http://${process.env.FIREBASE_STORAGE_EMULATOR_HOST}/v0/b/${bucket.name}/o/${encodeURIComponent(avatarPath)}?alt=media`;
+    await bucket.file(avatarPath).save(JPEG, { resumable: false, metadata: { contentType: 'image/jpeg' } });
+    await db.doc('instructors/instructor-1').set({
+      id: 'instructor-1', linkedAccountId: STORAGE_INSTRUCTOR_USER_ID, name: 'Coach Alex',
+      avatarUrl: avatar, dataScope: 'live',
+    });
+    const participantIds = canonicalStorageBooking.party.participantIds.slice(0, 1);
+    await mutate({
+      auth: { uid: STORAGE_INSTRUCTOR_USER_ID },
+      data: {
+        operation: 'create', threadId, messageId: 'server-homework', context: 'instructor',
+        message: { text: 'Practice turning' }, homework: { participantIds },
+      },
+    } as never);
+    const message = await db.doc(`bookings/${threadId}/verified_chat_messages/server-homework`).get();
+    expect(message.data()).toMatchObject({
+      senderId: STORAGE_INSTRUCTOR_USER_ID, senderRole: 'instructor',
+      senderInstructorId: 'instructor-1', senderName: 'Coach Alex', senderAvatar: avatar,
+      isHomework: true, homeworkForParticipantIds: participantIds,
+    });
+  });
+
+  it('pages verified messages before the archive and projects only neutral archive identity', async () => {
+    const db = getAdminFirestore();
+    const threadId = canonicalStorageBooking.bookingId;
+    const archive = db.doc(`bookings/${threadId}/messages/archived-homework`);
+    await archive.set({
+      senderId: STORAGE_INSTRUCTOR_USER_ID,
+      senderName: 'Historical display name',
+      senderRole: 'admin',
+      senderAvatar: 'https://example.test/archived-avatar',
+      senderInstructorId: 'historical-instructor',
+      text: 'Historical homework',
+      timestamp: '2099-01-01T00:00:00.000Z',
+      isHomework: true,
+    });
+    await createMutateChatMessage(db)({
+      auth: { uid: STORAGE_USER_ID },
+      data: {
+        operation: 'create', threadId, messageId: 'verified-message', context: 'participant',
+        message: { text: 'Verified message' },
+      },
+    } as never);
+    const query = createQueryChatMessages(db);
+    const read = (data: Record<string, unknown>) =>
+      query({
+        auth: { uid: STORAGE_USER_ID },
+        data: { threadId, take: 1, includeArchivedHomework: true, ...data },
+      } as never);
+    const first = await read({});
+    expect(first.messages).toMatchObject([{ id: 'verified-message', senderId: STORAGE_USER_ID }]);
+    expect(first.hasMore).toBe(true);
+    const second = await read({ cursor: first.cursor });
+    expect(second.messages).toMatchObject([{
+      id: 'archived-homework', senderId: '', senderRole: 'client',
+      senderName: '', senderAvatar: '', archived: true, ownedByViewer: false, isHomework: true,
+    }]);
+    expect(second.messages[0]).not.toHaveProperty('senderInstructorId');
+    expect(second.messages[0].timestamp).not.toBe('2099-01-01T00:00:00.000Z');
+    expect(second.hasMore).toBe(false);
+    expect((await archive.get()).get('senderRole')).toBe('admin');
+    expect((await read({ homeworkOnly: true })).messages).toEqual(second.messages);
+    expect((await read({ homeworkOnly: true, includeArchivedHomework: false })).messages)
+      .toEqual([]);
+
+    const output: string[] = [];
+    const response = Object.assign(new EventEmitter(), {
+      set: vi.fn(),
+      flushHeaders: vi.fn(),
+      write: (frame: string) => output.push(frame),
+      end: vi.fn(),
+    });
+    try {
+      await handleChatMessagesStream({
+        method: 'GET',
+        query: { threadId, includeArchivedHomework: 'true' },
+        get: () => `Bearer ${tokens.get(STORAGE_USER_ID)}`,
+      } as never, response as never);
+      await vi.waitFor(() => {
+        expect(output[0]).toContain('verified-message');
+        expect(output[0]).toContain('archived-homework');
+        expect(output[0]).not.toContain('Historical display name');
+      }, { timeout: 20_000 });
+      const participantId = canonicalStorageBooking.party.participantIds[0];
+      await db.doc(`participant_management_active_owner/${participantId}`).delete();
+      await vi.waitFor(() => {
+        expect(output.at(-1)).toContain('event: denied');
+        expect(response.end).toHaveBeenCalledOnce();
+      }, { timeout: 20_000 });
+    } finally {
+      response.emit('close');
+    }
+  });
+
+  it('keeps page boundaries stable with tied timestamps and an incoming verified message', async () => {
+    const db = getAdminFirestore();
+    const threadId = canonicalStorageBooking.bookingId;
+    const root = db.doc(`bookings/${threadId}`);
+    const archive = root.collection('messages');
+    const verified = root.collection('verified_chat_messages');
+    const timestamp = '2026-11-21T10:00:00.000Z';
+    const batch = db.batch();
+    for (const id of ['old-a', 'old-b']) batch.set(archive.doc(id), { text: id, timestamp });
+    for (const id of ['new-a', 'new-b'])
+      batch.set(verified.doc(id), { text: id, timestamp, senderId: STORAGE_USER_ID });
+    await batch.commit();
+
+    const read = createQueryChatMessages(db);
+    const page = (cursor?: unknown) =>
+      read({
+        auth: { uid: STORAGE_USER_ID },
+        data: { threadId, take: 1, ...(cursor ? { cursor } : {}) },
+      } as never);
+    const first = await page();
+    expect(first.messages.map(({ id }) => id)).toEqual(['new-b']);
+
+    const mutate = createMutateChatMessage(db);
+    await mutate({
+      auth: { uid: STORAGE_USER_ID },
+      data: {
+        operation: 'create', threadId, messageId: 'incoming', context: 'participant',
+        message: { text: 'Incoming' },
+      },
+    } as never);
+    await expect(mutate({
+      auth: { uid: STORAGE_USER_ID },
+      data: {
+        operation: 'create', threadId, messageId: 'old-b', context: 'participant',
+        message: { text: 'Collision' },
+      },
+    } as never)).rejects.toMatchObject({ code: 'already-exists' });
+    expect((await verified.doc('old-b').get()).exists).toBe(false);
+
+    const seen = first.messages.map(({ id }) => id);
+    let next = first;
+    for (let i = 0; i < 3; i++) {
+      expect(next.hasMore).toBe(true);
+      next = await page(next.cursor);
+      seen.push(...next.messages.map(({ id }) => id));
+    }
+    expect(seen).toEqual(['new-b', 'new-a', 'old-b', 'old-a']);
+    expect(next.hasMore).toBe(false);
+    expect((await page()).messages.map(({ id }) => id)).toEqual(['incoming']);
+
+    await mutate({
+      auth: { uid: STORAGE_ADMIN_ID },
+      data: { operation: 'edit', threadId, messageId: 'old-b', text: 'Edited archive text' },
+    } as never);
+    await expect(mutate({
+      auth: { uid: STORAGE_ADMIN_ID },
+      data: {
+        operation: 'edit', threadId, messageId: 'old-b', text: 'Unaccepted path',
+        source: 'verified_chat_messages',
+      },
+    } as never)).rejects.toMatchObject({ code: 'invalid-argument' });
+    expect((await archive.doc('old-b').get()).data()).toEqual({
+      text: 'Edited archive text', timestamp,
+    });
+    expect((await verified.doc('old-b').get()).exists).toBe(false);
+  });
+
   it('rejects enrollment-only homework threads while preserving existing legacy and course chats', async () => {
     await seedLegacyBookingChatFixtures(env);
     await seedCourseGroupChatFixtures(env);
@@ -175,7 +424,8 @@ describe('authorized canonical chat media gateway', () => {
     });
     const query = createQueryChatMessages(getAdminFirestore());
     const read = (threadId: string) => query({
-      auth: { uid: STORAGE_USER_ID }, data: { threadId, homeworkOnly: true, take: 1 },
+      auth: { uid: STORAGE_USER_ID },
+      data: { threadId, homeworkOnly: true, includeArchivedHomework: true, take: 1 },
     } as never);
     await expect(read('enrollment-only')).rejects.toMatchObject({
       code: 'permission-denied', message: 'Invalid media scope',

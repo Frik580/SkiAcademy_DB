@@ -86,9 +86,11 @@ function HomeworkSection({ participantId, bookingId, sources }: Props) {
                           )}
                         </time>
                         {' · '}
-                        {item.senderName?.trim()
-                          ? `${t('lessonHomeworkSender')}: ${item.senderName}`
-                          : t('historyAuthorUnknown')}
+                        {item.archived
+                          ? t('chatArchivedHomeworkBadge')
+                          : item.senderName?.trim()
+                            ? `${t('lessonHomeworkSender')}: ${item.senderName}`
+                            : t('historyAuthorUnknown')}
                       </p>
                       <p className="type-caption">
                         {eligible.find((source) => source.threadId === item.threadId)?.label}

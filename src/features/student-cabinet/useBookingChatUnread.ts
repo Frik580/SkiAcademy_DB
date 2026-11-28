@@ -35,7 +35,7 @@ export function normalizeChatTimestamp(timestamp: ChatMessage['timestamp']): str
 function latestTimestampFromOthers(messages: ChatMessage[], currentUserId: string): string {
   let latest = '';
   for (const msg of messages) {
-    if (msg.senderId === currentUserId) continue;
+    if (msg.senderId === currentUserId || msg.ownedByViewer) continue;
     const ts = normalizeChatTimestamp(msg.timestamp);
     if (ts > latest) latest = ts;
   }
@@ -48,7 +48,10 @@ function hasUnreadMessages(
   lastReadAt: string
 ): boolean {
   return messages.some(
-    (msg) => msg.senderId !== currentUserId && normalizeChatTimestamp(msg.timestamp) > lastReadAt
+    (msg) =>
+      msg.senderId !== currentUserId &&
+      !msg.ownedByViewer &&
+      normalizeChatTimestamp(msg.timestamp) > lastReadAt
   );
 }
 

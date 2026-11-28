@@ -1,7 +1,7 @@
 import { ProtectedImage } from '../../../media/ProtectedImage';
 import React from 'react';
 import { Clock, User, MessageSquare, ExternalLink } from 'lucide-react';
-import { Booking, ChatMessage, Course, Instructor, UserProfile } from '../../../../types';
+import type { ChatMessage } from '../../../../types';
 import { Skeleton } from '../../../../ui/Skeleton';
 import { useLanguage } from '../../../../app/providers/LanguageContext';
 import { resolveChatSenderRole } from '../../../../domain/chat';
@@ -13,11 +13,7 @@ export type ChatMessageRow = ChatMessage & { threadId?: string };
 interface ChatMessageListProps {
   messages: ChatMessageRow[];
   isLoading: boolean;
-  booking: Booking;
-  currentUserProfile: UserProfile;
-  usersList: UserProfile[];
-  instructors: Instructor[];
-  courses: Course[];
+  currentUserId: string;
   fromInstructorPanel: boolean;
   homeworkTogglingId: string | null;
   onToggleHomework: (msg: ChatMessageRow, checked: boolean) => void;
@@ -27,11 +23,7 @@ interface ChatMessageListProps {
 export const ChatMessageList: React.FC<ChatMessageListProps> = ({
   messages,
   isLoading,
-  booking,
-  currentUserProfile,
-  usersList,
-  instructors,
-  courses,
+  currentUserId,
   fromInstructorPanel,
   homeworkTogglingId,
   onToggleHomework,
@@ -63,25 +55,20 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
         </div>
       ) : (
         messages.map((msg) => {
-          const isMe = msg.senderId === currentUserProfile.uid;
-          const senderRole = resolveChatSenderRole(
-            msg,
-            booking,
-            usersList,
-            instructors,
-            courses,
-            language
-          );
+          const isMe = msg.senderId === currentUserId || msg.ownedByViewer === true;
+          const senderRole = resolveChatSenderRole(msg);
           const isSenderAdmin = senderRole === 'admin';
           const isSenderInstructor = senderRole === 'instructor';
           const isSenderClient = senderRole === 'client';
-          const roleBadge = isMe
-            ? t('youBadge')
-            : isSenderAdmin
-              ? t('administratorLabel')
-              : isSenderInstructor
-                ? t('chatTrainerBadge')
-                : t('clientFallback');
+          const roleBadge = msg.archived
+            ? t('chatArchivedSender')
+            : isMe
+              ? t('youBadge')
+              : isSenderAdmin
+                ? t('administratorLabel')
+                : isSenderInstructor
+                  ? t('chatTrainerBadge')
+                  : t('clientFallback');
 
           const dateObj = new Date(msg.timestamp);
           const formattedTime = dateObj.toLocaleTimeString(language === 'ru' ? 'ru-RU' : 'en-US', {
@@ -111,9 +98,11 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                 <div
                   className={`flex items-center gap-1.5 type-caption text-[var(--ink-dim)] uppercase ${isMe ? 'justify-end' : 'justify-start'}`}
                 >
-                  <span className="font-bold text-[var(--ink)] truncate max-w-[120px]">
-                    {msg.senderName}
-                  </span>
+                  {msg.senderName && (
+                    <span className="font-bold text-[var(--ink)] truncate max-w-[120px]">
+                      {msg.senderName}
+                    </span>
+                  )}
                   <span
                     className={`px-1 py-0.5 type-caption border rounded-none font-medium ${
                       isMe || isSenderClient
@@ -127,7 +116,7 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                   </span>
                   {msg.isHomework && (
                     <span className="px-1 py-0.5 type-caption border rounded-none font-medium border-emerald-500/30 text-emerald-500 bg-emerald-500/10">
-                      {t('chatHomeworkBadge')}
+                      {t(msg.archived ? 'chatArchivedHomeworkBadge' : 'chatHomeworkBadge')}
                     </span>
                   )}
                 </div>

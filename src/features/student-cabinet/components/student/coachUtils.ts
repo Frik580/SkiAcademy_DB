@@ -79,9 +79,7 @@ export const isMessageFromInstructor = (
   if (message.senderRole === 'instructor' && message.senderInstructorId === instructor.id) {
     return true;
   }
-  if (message.senderInstructorId === instructor.id) return true;
-  if (instructorUserId) return message.senderId === instructorUserId;
-  return message.senderName.trim().toLowerCase() === instructor.name.trim().toLowerCase();
+  return !!instructorUserId && message.senderId === instructorUserId;
 };
 
 export const getInstructorVideoMessages = (

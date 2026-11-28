@@ -1,13 +1,14 @@
 import { getAuth } from 'firebase-admin/auth';
 import { HttpsError, onRequest } from 'firebase-functions/v2/https';
+import type { QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import { getOrInitApp } from '../adminApp';
 import { getAdminFirestore } from '../adminFirestore';
 import { admitRequest } from '../security/requestAdmission';
 import { authorizeChatMedia } from './chatMediaAccess';
-import { ChatMessagesInput, createQueryChatMessages } from './chatMessagesRead';
+import { chatMessagesQuery, ChatMessagesInput, mergeChatMessages } from './chatMessagesRead';
+import { LEGACY_CHAT_MESSAGES, VERIFIED_CHAT_MESSAGES } from './chatMessageCollections';
 
-/** Fallback for parties whose complete ACL cannot fit the Rules get() budget.
- * No polling: bounded message subscription and exact authority dependencies. */
+/** Bounded message subscriptions and exact authority dependencies, without polling. */
 export const handleChatMessagesStream: Parameters<typeof onRequest>[0] = async (req, res) => {
   res.set('Cache-Control', 'private, no-store');
   res.set('X-Content-Type-Options', 'nosniff');
@@ -18,13 +19,16 @@ export const handleChatMessagesStream: Parameters<typeof onRequest>[0] = async (
   const bearer = /^Bearer (.+)$/.exec(req.get('Authorization') ?? '');
   try {
     if (!bearer) throw new HttpsError('unauthenticated', 'Authentication required.');
-    const input = ChatMessagesInput.parse({ threadId: req.query.threadId });
+    const input = ChatMessagesInput.parse({
+      threadId: req.query.threadId,
+      includeArchivedHomework: req.query.includeArchivedHomework === 'true',
+    });
     const identity = await getAuth(getOrInitApp()).verifyIdToken(bearer[1], true);
     const db = getAdminFirestore();
     await admitRequest(db, `chat_stream_${identity.uid}`, 120);
-    const paths = new Set<string>();
     const path = `chat/${input.threadId}/authorization`;
-    await authorizeChatMedia(db, identity.uid, path, (name) => paths.add(name), undefined, identity);
+    await authorizeChatMedia(db, identity.uid, path, undefined, undefined, identity, true);
+    if (res.destroyed) return;
     res.set('Content-Type', 'text/event-stream');
     res.flushHeaders();
     let closed = false;
@@ -32,6 +36,8 @@ export const handleChatMessagesStream: Parameters<typeof onRequest>[0] = async (
     let pending = false;
     let previous = '';
     const stops = new Map<string, () => void>();
+    const messages = new Map<string, readonly QueryDocumentSnapshot[]>();
+    const sources = [VERIFIED_CHAT_MESSAGES, LEGACY_CHAT_MESSAGES] as const;
     const close = () => {
       if (closed) return;
       closed = true;
@@ -43,7 +49,7 @@ export const handleChatMessagesStream: Parameters<typeof onRequest>[0] = async (
     timer.unref();
     res.on('close', close);
     const refresh = async () => {
-      if (closed) return;
+      if (closed || messages.size !== sources.length) return;
       if (running) {
         pending = true;
         return;
@@ -52,19 +58,31 @@ export const handleChatMessagesStream: Parameters<typeof onRequest>[0] = async (
       try {
         const currentIdentity = await getAuth(getOrInitApp()).verifyIdToken(bearer[1], true);
         const dependencies = new Set<string>();
-        await authorizeChatMedia(db, identity.uid, path, (name) => dependencies.add(name), undefined, currentIdentity);
-        const result = await createQueryChatMessages(db)({
-          auth: { uid: currentIdentity.uid, token: currentIdentity },
-          data: input,
-        } as never);
+        await authorizeChatMedia(
+          db,
+          identity.uid,
+          path,
+          (name) => dependencies.add(name),
+          undefined,
+          currentIdentity,
+          true
+        );
         if (closed) return;
+        const result = mergeChatMessages(
+          input.threadId,
+          identity.uid,
+          input.take,
+          input.includeArchivedHomework,
+          messages.get(VERIFIED_CHAT_MESSAGES)!,
+          messages.get(LEGACY_CHAT_MESSAGES)!
+        );
         const serialized = JSON.stringify(result.messages);
         if (serialized !== previous) {
           res.write(`data: ${serialized}\n\n`);
           previous = serialized;
         }
         for (const [name, stop] of stops) {
-          if (name !== 'messages' && !dependencies.has(name)) {
+          if (!sources.some((source) => source === name) && !dependencies.has(name)) {
             stop();
             stops.delete(name);
           }
@@ -92,17 +110,15 @@ export const handleChatMessagesStream: Parameters<typeof onRequest>[0] = async (
       if (!closed) res.write('event: denied\ndata: {}\n\n');
       close();
     };
-    stops.set(
-      'messages',
-      db
-        .collection(`bookings/${input.threadId}/messages`)
-        .orderBy('timestamp', 'desc')
-        .limit(100)
-        .onSnapshot(() => {
+    for (const source of sources) {
+      stops.set(
+        source,
+        chatMessagesQuery(db, input, source).onSnapshot((snapshot) => {
+          messages.set(source, snapshot.docs);
           void refresh();
         }, deny)
-    );
-    void refresh();
+      );
+    }
   } catch {
     res.status(403).json({ error: 'Chat access denied.' });
   }

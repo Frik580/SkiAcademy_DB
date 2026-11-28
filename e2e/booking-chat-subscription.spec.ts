@@ -2,7 +2,7 @@ import { createRequire } from 'node:module';
 import { test, expect } from '@playwright/test';
 import { E2E_PROJECT_ID, FIRESTORE_EMULATOR_HOST, functionsCallableUrl } from './emulator-config';
 import { ensureFirestore } from './firestore-admin';
-import { loadRuntimeConfig, signInStudent } from './fixtures';
+import { loadRuntimeConfig, signInAccount } from './fixtures';
 
 const requireFunctions = createRequire(new URL('../functions/package.json', import.meta.url));
 const {
@@ -14,8 +14,10 @@ const {
   timestampFromDate,
 } = requireFunctions('@ski-academy/shared-domain') as typeof import('@ski-academy/shared-domain');
 
-test('chat UI uses the server stream after Rules deny the direct listener and clears revoked rows', async ({
+test('chat UI streams verified and archived rows and clears them after access is revoked', async ({
   page,
+  browser,
+  baseURL,
 }) => {
   test.setTimeout(210_000);
   expect(process.env.GCLOUD_PROJECT).toBe(E2E_PROJECT_ID);
@@ -31,17 +33,64 @@ test('chat UI uses the server stream after Rules deny the direct listener and cl
   const payment = db.doc(`payments/${paymentIdFromBookingId(BookingIdSchema.parse(bookingId))}`);
   const otherParticipants = participantIds.slice(0, 7).map((id) => db.doc(`participants/${id}`));
   const first = booking.collection('messages').doc('first');
-  const second = booking.collection('messages').doc('second');
+  const second = booking.collection('verified_chat_messages').doc('second');
+  const roles = [
+    {
+      id: 'student',
+      email: runtime.studentEmail,
+      password: runtime.studentPassword,
+      expectedPath: '/cabinet',
+      context: 'participant',
+      role: 'client',
+      name: runtime.studentDisplayName,
+    },
+    {
+      id: 'coach',
+      email: runtime.instructorEmail,
+      password: runtime.instructorPassword,
+      expectedPath: '/instructor',
+      context: 'instructor',
+      role: 'instructor',
+      name: runtime.workspaceInstructorName,
+    },
+    {
+      id: 'admin',
+      email: runtime.adminEmail,
+      password: runtime.adminPassword,
+      context: 'administration',
+      role: 'admin',
+      name: runtime.adminDisplayName,
+    },
+  ] as const;
+  const roleMessages = roles.map(({ id }) => booking.collection('verified_chat_messages').doc(id));
   const guards = participantIds.map((id) => db.doc(`participant_management_active_owner/${id}`));
   const owner = guards[7];
   const streamRequests: string[] = [];
+  let interrupted = false;
+  await page.route('**/chatMessagesStream?*', async (route) => {
+    const url = new URL(route.request().url());
+    if (!interrupted && url.searchParams.get('threadId') === bookingId) {
+      interrupted = true;
+      await route.abort('connectionreset');
+      return;
+    }
+    await route.continue();
+  });
   page.on('request', (request) => {
     const url = new URL(request.url());
     if (url.pathname.endsWith('/chatMessagesStream')) {
       streamRequests.push(url.searchParams.get('threadId') ?? '');
     }
   });
-  const before = await db.getAll(booking, payment, first, second, ...guards, ...otherParticipants);
+  const before = await db.getAll(
+    booking,
+    payment,
+    first,
+    second,
+    ...roleMessages,
+    ...guards,
+    ...otherParticipants
+  );
   const now = new Date();
   const at = timestampFromDate(now);
   const metadata = {
@@ -148,7 +197,13 @@ test('chat UI uses the server stream after Rules deny the direct listener and cl
       signal: AbortSignal.timeout(45_000),
     });
     expect(warm.status).toBe(403);
-    await signInStudent(page, runtime);
+    let studentLogin: ReturnType<typeof page.waitForResponse> | undefined;
+    await signInAccount(page, roles[0], () => {
+      studentLogin = page.waitForResponse((response) =>
+        response.url().includes('accounts:signInWithPassword')
+      );
+    });
+    const { idToken: studentToken } = (await (await studentLogin!).json()) as { idToken: string };
     await page.goto('/cabinet/calendar', { waitUntil: 'domcontentloaded' });
     const chatButton = page
       .locator(`[id="booking-card-${bookingId}"]`)
@@ -163,8 +218,12 @@ test('chat UI uses the server stream after Rules deny the direct listener and cl
     await expect(dialog.getByText(initialMessage, { exact: true })).toBeVisible({
       timeout: 30_000,
     });
+    expect(interrupted).toBe(true);
+    expect(streamRequests.filter((thread) => thread === bookingId).length).toBeGreaterThan(1);
+    await expect(dialog.getByText('Unverified sender', { exact: true })).toBeVisible();
     await second.set(message(second.id, nextMessage));
     await expect(dialog.getByText(nextMessage, { exact: true })).toBeVisible();
+    await expect(dialog.getByText('Fixture participant', { exact: true })).toHaveCount(1);
     await owner.update({ accountId: runtime.studentBUid });
     await expect(dialog.getByText(initialMessage, { exact: true })).toHaveCount(0);
     await expect(dialog.getByText(nextMessage, { exact: true })).toHaveCount(0);
@@ -175,6 +234,68 @@ test('chat UI uses the server stream after Rules deny the direct listener and cl
     await dialog.getByTitle('Close', { exact: true }).click();
     await open();
     await expect(dialog.getByText(initialMessage, { exact: true })).toBeVisible();
+
+    for (const [index, role] of roles.entries()) {
+      const roleContext = index === 0 ? undefined : await browser.newContext({ baseURL });
+      try {
+        const rolePage = roleContext ? await roleContext.newPage() : page;
+        let token = studentToken;
+        if (roleContext) {
+          await rolePage.addInitScript(() => localStorage.setItem('alpine_glide_lang', 'en'));
+          let login: ReturnType<typeof page.waitForResponse> | undefined;
+          await signInAccount(rolePage, role, () => {
+            login = rolePage.waitForResponse((response) =>
+              response.url().includes('accounts:signInWithPassword')
+            );
+          });
+          token = ((await (await login!).json()) as { idToken: string }).idToken;
+        }
+        const text = `Authenticated browser role: ${role.id}`;
+        const call = (data: Record<string, unknown>) =>
+          rolePage.evaluate(
+            async ({ url, token, data }) => {
+              const response = await fetch(url, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data }),
+              });
+              return response.status;
+            },
+            { url: functionsCallableUrl('mutateChatMessage'), token, data }
+          );
+        expect(
+          await call({
+            operation: 'create',
+            threadId: bookingId,
+            messageId: role.id,
+            context: role.context,
+            message: { text },
+          })
+        ).toBe(200);
+        expect((await roleMessages[index].get()).data()).toMatchObject({
+          senderRole: role.role,
+          senderName: role.name,
+          text,
+        });
+        await expect(dialog.getByText(text, { exact: true })).toBeVisible();
+        await expect(dialog.getByText(role.name, { exact: true }).first()).toBeVisible();
+        if (role.id === 'admin') {
+          const edited = 'Authorized edit of archived text';
+          expect(
+            await call({
+              operation: 'edit',
+              threadId: bookingId,
+              messageId: first.id,
+              text: edited,
+            })
+          ).toBe(200);
+          await expect(dialog.getByText(edited, { exact: true })).toBeVisible();
+          await expect(dialog.getByText('Unverified sender', { exact: true })).toBeVisible();
+        }
+      } finally {
+        await roleContext?.close();
+      }
+    }
   } finally {
     const restore = db.batch();
     for (const snapshot of before) {

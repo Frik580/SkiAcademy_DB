@@ -135,6 +135,7 @@ export function StudentHomeworkDashboardSection({
                           { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }
                         )}
                       </time>
+                        {item.archived && ` · ${t('chatArchivedHomeworkBadge')}`}
                     </p>
                     {sourceLabels.get(item.threadId) && (
                       <p className="type-caption text-[var(--ink-dim)] break-words">
